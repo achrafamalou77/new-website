@@ -9,6 +9,16 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Search, MoreVertical, Loader2 } from 'lucide-react'
 
+const formatDate = (dateStr: string) => {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  if (isNaN(d.getTime())) return ''
+  const day = String(d.getDate()).padStart(2, '0')
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const year = d.getFullYear()
+  return `${day}/${month}/${year}`
+}
+
 export function AdminAgenciesClient({ initialAgencies }: { initialAgencies: any[] }) {
   const [agencies, setAgencies] = useState(initialAgencies)
   const [search, setSearch] = useState('')
@@ -101,7 +111,7 @@ export function AdminAgenciesClient({ initialAgencies }: { initialAgencies: any[
                   </Badge>
                 </TableCell>
                 <TableCell className="text-sm text-slate-500">
-                  {new Date(agency.created_at).toLocaleDateString()}
+                  {formatDate(agency.created_at)}
                 </TableCell>
                 <TableCell className="text-right space-x-2">
                   <Button 

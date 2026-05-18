@@ -1,40 +1,70 @@
 import { createClient } from '@/lib/supabase/server'
-import { isSupabaseConnected } from '@/lib/supabase/client'
-import { mockProfiles } from '@/lib/mock-data'
-import { TeamClient } from '@/components/dashboard/TeamClient'
 import { redirect } from 'next/navigation'
+import { TeamClient } from '@/components/dashboard/TeamClient'
+import { 
+  getEmployees, 
+  getRoles, 
+  getAttendanceRecords, 
+  getLeaveRequests, 
+  getPayrollRecords, 
+  getKanbanTasks, 
+  getAnnouncements 
+} from '@/app/actions/employees'
 
 export default async function TeamPage() {
-  let initialProfiles = [...mockProfiles]
-  let currentUserRole = 'superadmin'
-  let currentUserId = 'prof-1'
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
 
-  if (isSupabaseConnected) {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) redirect('/login')
-    currentUserId = user.id
+  const { data: profileData } = await supabase
+    .from('profiles')
+    .select('role, agency_id')
+    .eq('id', user.id)
+    .single()
 
-    const { data: profileData } = await supabase.from('profiles').select('role, agency_id').eq('id', user.id).single()
-    const profile = profileData as any
-    if (profile) {
-      currentUserRole = profile.role
-      // If employee somehow accessed this route despite middleware, block them
-      if (profile.role === 'employee') {
-        redirect('/dashboard/inbox')
-      }
-
-      // Fetch all profiles for this agency
-      const { data: allProfiles } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('agency_id', profile.agency_id)
-        .order('created_at', { ascending: false })
-      
-      if (allProfiles) initialProfiles = allProfiles as any[]
-    }
+  const profile = profileData as any
+  if (!profile) {
+    redirect('/login')
   }
 
-  return <TeamClient initialProfiles={initialProfiles} currentUserRole={currentUserRole} currentUserId={currentUserId} />
+  // Block standard employees if needed, but let's allow them to view directories and requests in Read Only!
+  // It says: "Only superadmins can manage team members, but guides/employees can use the hub to see read-only tasks/announcements."
+  // So we let them access it but pass their role down so the UI handles permissions beautifully!
+
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth() + 1
+
+  // Fetch all parallel data from the database
+  const [
+    employees,
+    roles,
+    attendance,
+    leaves,
+    payroll,
+    tasks,
+    announcements
+  ] = await Promise.all([
+    getEmployees(),
+    getRoles(),
+    getAttendanceRecords(year, month),
+    getLeaveRequests(),
+    getPayrollRecords(),
+    getKanbanTasks(),
+    getAnnouncements()
+  ])
+
+  return (
+    <TeamClient 
+      initialEmployees={employees}
+      initialRoles={roles}
+      initialAttendance={attendance}
+      initialLeaves={leaves}
+      initialPayroll={payroll}
+      initialTasks={tasks}
+      initialAnnouncements={announcements}
+      currentUserRole={profile.role} 
+      currentUserId={user.id} 
+    />
+  )
 }

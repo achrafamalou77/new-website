@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { motion } from 'framer-motion'
+import Image from 'next/image'
 import { MessageSquare, Globe, BarChart3, Shield, Zap, CheckCircle2, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -70,9 +71,11 @@ export default function LandingPage() {
 
             <div className="mt-16 relative">
               <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent z-10 h-32 bottom-0" />
-              <img 
+              <Image 
                 src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1200&auto=format&fit=crop&q=80" 
                 alt="Dashboard Preview" 
+                width={1200}
+                height={800}
                 className="rounded-3xl shadow-2xl border border-slate-100 max-w-5xl mx-auto"
               />
             </div>

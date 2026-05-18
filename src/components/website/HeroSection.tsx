@@ -1,114 +1,208 @@
-'use client'
+// src/components/website/HeroSection.tsx
+'use client';
 
-import { useState } from 'react'
-import { motion } from 'framer-motion'
-import { MapPin, Calendar, Users, Search, MessageCircle } from 'lucide-react'
+import { useEffect, useRef } from 'react';
+import { motion } from 'framer-motion';
+import Image from 'next/image';
+import { ArrowRight, Phone, Play } from 'lucide-react';
 
-export function HeroSection({ agency }: { agency: any }) {
-  const settings = agency.website_settings || {}
-  const heroImageUrl = settings.hero_image_url || 'https://images.unsplash.com/photo-1527838832700-5059252407fa'
+interface HeroSectionProps {
+  agency: any;
+  onExplore?: () => void;
+}
+
+export function HeroSection({ agency, onExplore }: HeroSectionProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const config = agency.website_config || {};
   
-  // Fix AAlgeria typo - strip duplicate first letter if it's 'A' followed by another 'A'
-  const rawTitle = settings.hero_title || `Discover the world with ${agency.company_name}`
-  const heroTitle = rawTitle.replace(/^A(?=A)/i, '')
+  const heroImage = config.content?.hero_bg_url ||
+    'https://images.unsplash.com/photo-1527838832700-5059252407fa?auto=format&fit=crop&w=1920&q=80';
   
-  const heroSubtitle = settings.hero_subtitle || 'Handpicked destinations for Algerian explorers'
+  // Optional background video (fallback to public high quality MP4)
+  const heroVideo = config.content?.hero_video_url || 
+    'https://assets.mixkit.co/videos/preview/mixkit-dramatic-drone-shot-of-cappadocia-turkey-41484-large.mp4';
   
-  // Search state
-  const [destination, setDestination] = useState('')
-  const [date, setDate] = useState('')
-  const [guests, setGuests] = useState('2')
+  const badge = config.content?.badge || '✨ Summer 2026 Deals';
+  const title = config.content?.hero_title || `Discover Turkey with ${agency.company_name}`;
+  const subtitle = config.content?.hero_subtitle || 'Handpicked destinations, unbeatable prices, unforgettable memories — crafted for Algerian travelers.';
+
+  // High performance Canvas Particle Emitter
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animationId: number;
+    let width = (canvas.width = window.innerWidth);
+    let height = (canvas.height = window.innerHeight);
+
+    // Track resize
+    const handleResize = () => {
+      if (!canvas) return;
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    };
+    window.addEventListener('resize', handleResize);
+
+    // Particle class
+    class Particle {
+      x: number = Math.random() * width;
+      y: number = Math.random() * height + height;
+      size: number = Math.random() * 2.5 + 0.5;
+      speedY: number = -(Math.random() * 0.7 + 0.3);
+      alpha: number = Math.random() * 0.5 + 0.1;
+      fadeSpeed: number = Math.random() * 0.005 + 0.002;
+
+      update() {
+        this.y += this.speedY;
+        if (this.y < -10) {
+          this.y = height + 10;
+          this.x = Math.random() * width;
+        }
+      }
+
+      draw(c: CanvasRenderingContext2D) {
+        c.save();
+        c.globalAlpha = this.alpha;
+        c.beginPath();
+        c.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        c.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        c.shadowBlur = 8;
+        c.shadowColor = 'rgba(255, 255, 255, 0.5)';
+        c.fill();
+        c.restore();
+      }
+    }
+
+    const particles: Particle[] = Array.from({ length: 45 }, () => new Particle());
+
+    // Loop
+    const loop = () => {
+      ctx.clearRect(0, 0, width, height);
+      particles.forEach((p) => {
+        p.update();
+        p.draw(ctx);
+      });
+      animationId = requestAnimationFrame(loop);
+    };
+
+    loop();
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      cancelAnimationFrame(animationId);
+    };
+  }, []);
+
+  const container: any = {
+    hidden: { opacity: 0, y: 40 },
+    visible: (i: number) => ({
+      opacity: 1,
+      y: 0,
+      transition: { delay: i * 0.1, duration: 0.6, ease: [0.4, 0, 0.2, 1] },
+    }),
+  };
 
   return (
-    <section className="relative h-[70vh] flex items-center overflow-visible">
-      {/* Background Image */}
-      <div className="absolute inset-0 z-0">
-        <img 
-          src={heroImageUrl} 
-          alt="Travel Hero" 
-          className="w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-black/40" />
-      </div>
+    <section className="relative min-h-[85vh] max-h-[900px] overflow-hidden bg-slate-950">
+      
+      {/* Video Background (Autoplay, Loop, Muted, Lazy / cover) */}
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="absolute inset-0 w-full h-full object-cover opacity-60 pointer-events-none"
+        poster={heroImage}
+      >
+        <source src={heroVideo} type="video/mp4" />
+      </video>
 
-      <div className="relative z-10 w-full max-w-7xl mx-auto px-6">
-        <div className="max-w-2xl">
+      {/* Subtle particle canvas drawing */}
+      <canvas 
+        ref={canvasRef} 
+        className="absolute inset-0 pointer-events-none z-10 mix-blend-screen"
+      />
+
+      {/* Gradient overlay */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/45 to-transparent z-0" />
+      
+      {/* Visual glowing border bottom */}
+      <div className="absolute bottom-0 inset-x-0 h-16 bg-gradient-to-t from-white to-transparent pointer-events-none z-20" />
+
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center z-25 py-24">
+        <div className="text-left max-w-2xl space-y-6">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
+            custom={0}
+            initial="hidden"
+            animate="visible"
+            variants={container}
+            className="inline-flex items-center gap-1.5 bg-white/10 backdrop-blur-md border border-white/20 text-white rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-wider mb-2 shadow-sm"
           >
-            <span className="inline-flex items-center px-4 py-1.5 rounded-full bg-white text-slate-900 text-xs font-bold mb-6 tracking-wide uppercase">
-              ✨ New Summer Destinations
-            </span>
-            <h1 className="text-5xl lg:text-7xl font-bold text-white mb-6 leading-[1.1]">
-              {heroTitle}
-            </h1>
-            <p className="text-lg lg:text-xl text-white/90 mb-8 max-w-lg leading-relaxed">
-              {heroSubtitle}
-            </p>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+            {badge}
+          </motion.div>
+
+          <motion.h1
+            custom={1}
+            initial="hidden"
+            animate="visible"
+            variants={container}
+            className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-white leading-[1.08] tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-100 to-indigo-100"
+          >
+            {title}
+          </motion.h1>
+
+          <motion.p
+            custom={2}
+            initial="hidden"
+            animate="visible"
+            variants={container}
+            className="text-base sm:text-lg md:text-xl text-white/80 max-w-xl font-medium leading-relaxed"
+          >
+            {subtitle}
+          </motion.p>
+
+          <motion.div
+            custom={3}
+            initial="hidden"
+            animate="visible"
+            variants={container}
+            className="flex flex-wrap gap-4 pt-4"
+          >
+            <button
+              onClick={onExplore}
+              className="bg-white text-slate-900 px-8 py-4 rounded-full font-black text-sm hover:bg-slate-100 flex items-center gap-2 hover:scale-[1.02] shadow-lg active:scale-95 transition"
+            >
+              استكشاف الرحلات
+              <ArrowRight size={18} />
+            </button>
+            
+            <a
+              href={`https://wa.me/${agency.phone?.replace('+', '') || '213'}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-[#25D366] text-white px-8 py-4 rounded-full font-black text-sm hover:bg-[#20ba59] flex items-center gap-2 hover:scale-[1.02] shadow-lg active:scale-95 transition"
+            >
+              <Phone size={18} />
+              WhatsApp
+            </a>
+          </motion.div>
+
+          <motion.div
+            custom={4}
+            initial="hidden"
+            animate="visible"
+            variants={container}
+            className="flex gap-6 text-[10px] sm:text-xs text-white/60 font-semibold tracking-wider uppercase pt-4"
+          >
+            <span>⭐ 4.9/5 Rating</span>
+            <span>✓ Verified Agency</span>
+            <span>🛡️ Secure Booking</span>
           </motion.div>
         </div>
       </div>
-
-      {/* Floating Search Bar */}
-      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-full max-w-5xl px-6 z-20">
-        <motion.div
-          initial={{ opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="bg-white rounded-2xl shadow-2xl p-4 md:p-6"
-        >
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1.5 ml-1">
-                <MapPin className="w-3 h-3" /> Where to?
-              </label>
-              <input 
-                type="text" 
-                placeholder="Istanbul, Turkey"
-                value={destination}
-                onChange={(e) => setDestination(e.target.value)}
-                className="w-full px-4 py-3 bg-slate-50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-200 transition-all"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1.5 ml-1">
-                <Calendar className="w-3 h-3" /> Dates
-              </label>
-              <input 
-                type="text" 
-                placeholder="Jul 31 - Aug 15"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full px-4 py-3 bg-slate-50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-200 transition-all"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1.5 ml-1">
-                <Users className="w-3 h-3" /> Guests
-              </label>
-              <select 
-                value={guests}
-                onChange={(e) => setGuests(e.target.value)}
-                className="w-full px-4 py-3 bg-slate-50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-200 transition-all appearance-none"
-              >
-                <option value="1">1 Person</option>
-                <option value="2">2 Persons</option>
-                <option value="3">3 Persons</option>
-                <option value="4">4+ Persons</option>
-              </select>
-            </div>
-
-            <button className="h-[48px] bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-slate-900/10">
-              <Search className="w-4 h-4" />
-              <span>Search</span>
-            </button>
-          </div>
-        </motion.div>
-      </div>
     </section>
-  )
+  );
 }

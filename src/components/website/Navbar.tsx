@@ -1,112 +1,108 @@
-'use client'
+// src/components/website/Navbar.tsx
+'use client';
 
-import { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Menu, X } from 'lucide-react'
+import { useState } from 'react';
+import Link from 'next/link';
+import { Phone, Menu, X } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import Image from 'next/image';
 
-export function Navbar({ agency }: { agency: any }) {
-  const [isScrolled, setIsScrolled] = useState(false)
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-
-  useEffect(() => {
-    const handleScroll = () => setIsScrolled(window.scrollY > 50)
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
+export function Navbar({ agency, onBookNow }: { agency: any; onBookNow: () => void }) {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const phone = agency?.phone?.startsWith('+213') ? agency.phone : '+213';
 
   const navLinks = [
-    { name: 'Discover', href: '#' },
-    { name: 'Trips', href: '#trips' },
-    { name: 'About', href: '#why-us' },
-    { name: 'Contact', href: '#contact' },
-  ]
+    { name: 'الوجهات', href: '#', dropdown: true },
+    { name: 'من نحن', href: '#about' },
+    { name: 'اتصل بنا', href: '#contact' },
+  ];
 
   return (
-    <nav 
-      className={`fixed top-0 w-full z-50 transition-all duration-300 ${
-        isScrolled ? 'bg-white shadow-md py-4' : 'bg-transparent py-6'
-      }`}
-    >
-      <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
-        {/* Logo */}
-        <div className="flex items-center gap-3">
-          {agency.website_settings?.logo_url ? (
-            <img src={agency.website_settings.logo_url} alt="Logo" className={`h-8 w-8 rounded-lg object-cover ${isScrolled ? '' : 'brightness-0 invert'}`} />
-          ) : (
-            <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold text-sm">
-              {agency.company_name?.charAt(0).toUpperCase()}
+    <header className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm h-16 md:h-20 flex items-center px-4 md:px-8">
+      <div className="max-w-7xl mx-auto w-full flex items-center justify-between">
+        {/* Left: logo + agency name */}
+        <Link href="/" className="flex items-center space-x-2">
+          {agency?.logo_url ? (
+            <div className="relative h-10 w-32">
+              <Image src={agency.logo_url} alt="logo" fill sizes="128px" className="object-contain" />
             </div>
+          ) : (
+            <div className="h-10 w-10 bg-slate-200 rounded" />
           )}
-          <span className={`font-bold text-lg tracking-tight ${isScrolled ? 'text-slate-900' : 'text-white'}`}>
-            {agency.company_name}
-          </span>
-        </div>
+          <span className="font-geist font-semibold text-lg text-slate-900">{agency?.company_name}</span>
+        </Link>
 
-        {/* Desktop Links */}
-        <div className="hidden md:flex items-center gap-8">
+        {/* Desktop navigation */}
+        <nav className="hidden md:flex space-x-6 items-center">
           {navLinks.map((link) => (
-            <a 
-              key={link.name} 
+            <Link
+              key={link.name}
               href={link.href}
-              className={`text-sm font-medium transition-colors ${
-                isScrolled ? 'text-slate-600 hover:text-slate-900' : 'text-white/80 hover:text-white'
-              }`}
+              className="text-sm font-medium text-slate-600 hover:text-slate-900"
             >
               {link.name}
-            </a>
+            </Link>
           ))}
-        </div>
+          <div className="flex items-center space-x-4">
+            <Phone className="h-5 w-5 text-slate-600 hidden md:inline" />
+            <span className="text-sm text-slate-600 hidden md:inline">{phone}</span>
+            <button
+              onClick={onBookNow}
+              className="bg-slate-900 text-white px-5 py-2.5 rounded-full hover:bg-slate-800 transition"
+            >
+              احجز الآن
+            </button>
+          </div>
+        </nav>
 
-        {/* Action Button */}
-        <div className="flex items-center gap-4">
-          <button 
-            onClick={() => {
-              const el = document.querySelector('#trips')
-              if (el) el.scrollIntoView({ behavior: 'smooth' })
-            }}
-            className="hidden sm:block px-6 py-2.5 rounded-full bg-slate-900 text-white text-sm font-bold shadow-lg shadow-slate-900/10 hover:bg-slate-800 transition-all"
-          >
-            Book a Trip
-          </button>
-          
-          <button 
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className={`md:hidden p-2 rounded-lg transition-colors ${
-              isScrolled ? 'text-slate-900 hover:bg-slate-100' : 'text-white hover:bg-white/10'
-            }`}
-          >
-            {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
-        </div>
+        {/* Mobile hamburger */}
+        <button
+          className="md:hidden p-2"
+          onClick={() => setMobileOpen(true)}
+          aria-label="Open menu"
+        >
+          <Menu className="h-6 w-6 text-slate-900" />
+        </button>
       </div>
 
-      {/* Mobile Menu */}
-      <AnimatePresence>
-        {isMobileMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-white border-t overflow-hidden"
+      {/* Mobile overlay using Sheet */}
+      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        <SheetContent side="right" className="bg-white">
+          <SheetHeader>
+            <SheetTitle className="sr-only">القائمة</SheetTitle>
+          </SheetHeader>
+          <button
+            className="absolute top-4 right-4 p-2"
+            onClick={() => setMobileOpen(false)}
+            aria-label="Close menu"
           >
-            <div className="flex flex-col p-6 gap-4">
-              {navLinks.map((link) => (
-                <a 
-                  key={link.name} 
-                  href={link.href}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="text-lg font-bold text-slate-900"
-                >
-                  {link.name}
-                </a>
-              ))}
-              <button className="mt-4 w-full py-4 rounded-xl bg-slate-900 text-white font-bold">
-                Book a Trip
+            <X className="h-6 w-6 text-slate-900" />
+          </button>
+          <nav className="mt-12 space-y-4 text-right">
+            {navLinks.map((link) => (
+              <Link
+                key={link.name}
+                href={link.href}
+                className="block text-xl font-medium text-slate-800 hover:text-slate-600"
+                onClick={() => setMobileOpen(false)}
+              >
+                {link.name}
+              </Link>
+            ))}
+            <div className="mt-6">
+              <button
+                onClick={() => {
+                  setMobileOpen(false);
+                  onBookNow();
+                }}
+                className="w-full bg-slate-900 text-white px-5 py-2.5 rounded-full hover:bg-slate-800 transition"
+              >
+                احجز الآن
               </button>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </nav>
-  )
+          </nav>
+        </SheetContent>
+      </Sheet>
+    </header>
+  );
 }

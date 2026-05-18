@@ -80,7 +80,8 @@ export async function createAgency(formData: any) {
       company_name,
       subdomain,
       website_settings,
-      active_modules: modules
+      active_modules: modules,
+      business_type_slug: formData.business_type_slug || 'travel'
     } as any)
     .select()
     .single()
@@ -124,9 +125,9 @@ export async function createAgency(formData: any) {
   return { success: true, redirectUrl: '/dashboard' }
 }
 
-export async function updateAgencySettings(formData: any) {
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return { success: true }
+import { websiteConfigSchema, chatbotConfigSchema, businessHoursSchema, socialMediaSchema, agencyInfoSchema } from '@/lib/validations/settings';
 
+export async function updateWebsiteConfig(config: any) {
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -138,30 +139,92 @@ export async function updateAgencySettings(formData: any) {
     return { success: false, error: 'Only superadmins can update settings' }
   }
 
-  const { company_name, logo_url, primary_color, secondary_color, hero_title, hero_subtitle, phone, agency_email, address, social_links, modules } = formData
-
-  const website_settings = {
-    logo_url,
-    primary_color,
-    secondary_color,
-    hero_title,
-    hero_subtitle,
-    phone,
-    email: agency_email,
-    address,
-    social_links
+  // Validate using Zod
+  const validation = websiteConfigSchema.safeParse(config);
+  if (!validation.success) {
+    return { success: false, error: validation.error.issues[0].message, details: validation.error.issues }
   }
 
-  const agenciesTable: any = supabase.from('agencies')
-  const { error } = await agenciesTable.update({
-    company_name,
-    website_settings,
-    active_modules: modules
+  const { error } = await (supabase.from('agencies') as any).update({
+    website_config: validation.data
   }).eq('id', profile.agency_id)
 
-  if (error) {
-    return { success: false, error: error.message }
+  if (error) return { success: false, error: error.message }
+  return { success: true }
+}
+
+export async function updateChatbotConfig(config: any) {
+  const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'Unauthorized' }
+
+  const { data: profileData } = await supabase.from('profiles').select('agency_id, role').eq('id', user.id).single()
+  const profile = profileData as any
+  if (profile?.role !== 'superadmin') {
+    return { success: false, error: 'Only superadmins can update settings' }
   }
 
+  // Validate using Zod
+  const validation = chatbotConfigSchema.safeParse(config);
+  if (!validation.success) {
+    return { success: false, error: validation.error.issues[0].message, details: validation.error.issues }
+  }
+
+  const { error } = await (supabase.from('agencies') as any).update({
+    chatbot_config: validation.data
+  }).eq('id', profile.agency_id)
+
+  if (error) return { success: false, error: error.message }
+  return { success: true }
+}
+
+export async function updateAgencyInfo(data: any) {
+  const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'Unauthorized' }
+
+  const { data: profileData } = await supabase.from('profiles').select('agency_id, role').eq('id', user.id).single()
+  const profile = profileData as any
+  if (profile?.role !== 'superadmin') {
+    return { success: false, error: 'Only superadmins can update settings' }
+  }
+
+  // Robust Zod validation with default values to handle any missing/undefined inputs
+  const validation = agencyInfoSchema.safeParse(data)
+  if (!validation.success) {
+    return { success: false, error: validation.error.issues[0].message }
+  }
+
+  const { company_name, phone, email, address, business_hours, social_media } = validation.data
+
+  // Fetch existing website_settings to merge phone, email, and address
+  const { data: agencyData } = await supabase
+    .from('agencies')
+    .select('website_settings')
+    .eq('id', profile.agency_id)
+    .single()
+
+  const existingSettings = (agencyData as any)?.website_settings || {}
+  const website_settings = {
+    ...existingSettings,
+    phone: phone || '',
+    email: email || '',
+    address: address || ''
+  }
+
+  const updatePayload: any = {
+    company_name,
+    business_hours,
+    social_media,
+    website_settings
+  }
+
+  const { error } = await (supabase.from('agencies') as any)
+    .update(updatePayload)
+    .eq('id', profile.agency_id)
+
+  if (error) return { success: false, error: error.message }
   return { success: true }
 }

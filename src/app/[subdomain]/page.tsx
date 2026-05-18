@@ -1,14 +1,6 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
-import { Navbar } from '@/components/website/Navbar'
-import { HeroSection } from '@/components/website/HeroSection'
-import { StatsBar } from '@/components/website/StatsBar'
-import { TripsSection } from '@/components/website/TripsSection'
-import { WhyChooseUs } from '@/components/website/WhyChooseUs'
-import { Testimonials } from '@/components/website/Testimonials'
-import { ContactSection } from '@/components/website/ContactSection'
-import { Footer } from '@/components/website/Footer'
-import { WhatsAppButton } from '@/components/website/WhatsAppButton'
+import PublicSite from '@/components/website/PublicSite'
 import type { Metadata } from 'next'
 
 export const revalidate = 60
@@ -16,7 +8,7 @@ export const revalidate = 60
 // Dynamic SEO metadata with Open Graph + Twitter cards
 export async function generateMetadata(props: { params: Promise<{ subdomain: string }> }): Promise<Metadata> {
   const params = await props.params
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const { data: agency } = await supabase
     .from('agencies')
@@ -54,7 +46,7 @@ export async function generateMetadata(props: { params: Promise<{ subdomain: str
 
 export default async function SubdomainPage(props: { params: Promise<{ subdomain: string }> }) {
   const params = await props.params
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   // 1. Fetch agency
   const { data: agencyData, error: agencyError } = await supabase
@@ -79,30 +71,18 @@ export default async function SubdomainPage(props: { params: Promise<{ subdomain
 
   const trips = (tripsData as any[]) || []
 
-  // Extract theme colors for CSS custom properties
-  const settings = agency.website_settings || {}
-  const primaryColor = settings.primary_color || '#0f172a'
-  const secondaryColor = settings.secondary_color || '#3b82f6'
+  // No need for featured filtering per spec – show all active trips
+
+  // Extract theme colors for CSS custom properties (fallback to defaults)
+  const primaryColor = agency.website_config?.design?.primary_color || '#0f172a'
+  const secondaryColor = agency.website_config?.design?.secondary_color || '#3b82f6'
 
   return (
     <div
-      className="min-h-screen bg-white font-sans overflow-x-hidden antialiased"
-      style={{
-        '--primary': primaryColor,
-        '--secondary': secondaryColor,
-      } as React.CSSProperties}
+      className="min-h-screen bg-white font-geist overflow-x-hidden antialiased"
+      style={{ '--primary': primaryColor, '--secondary': secondaryColor } as React.CSSProperties}
     >
-      <Navbar agency={agency} />
-      <main>
-        <HeroSection agency={agency} />
-        <StatsBar agency={agency} tripsCount={trips.length} />
-        <TripsSection agency={agency} trips={trips} />
-        <WhyChooseUs agency={agency} />
-        <Testimonials agency={agency} />
-        <ContactSection agency={agency} />
-      </main>
-      <Footer agency={agency} />
-      <WhatsAppButton agency={agency} />
+      <PublicSite agency={agency} trips={trips} />
     </div>
   )
 }

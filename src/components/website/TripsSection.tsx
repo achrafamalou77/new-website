@@ -3,7 +3,17 @@
 import { motion } from 'framer-motion'
 import { TripCard } from './TripCard'
 
-export function TripsSection({ agency, trips }: { agency: any, trips: any[] }) {
+export function TripsSection({ 
+  agency, 
+  trips,
+  comparedTrips = [],
+  onToggleCompare
+}: { 
+  agency: any, 
+  trips: any[],
+  comparedTrips?: any[],
+  onToggleCompare?: (trip: any) => void
+}) {
   return (
     <section id="trips" className="py-24 px-6 bg-white">
       <div className="max-w-7xl mx-auto">
@@ -28,7 +38,12 @@ export function TripsSection({ agency, trips }: { agency: any, trips: any[] }) {
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: idx * 0.1 }}
               >
-                <TripCard trip={trip} agency={agency} />
+                <TripCard 
+                  trip={trip} 
+                  agency={agency} 
+                  isCompared={comparedTrips.some(t => t.id === trip.id)}
+                  onToggleCompare={onToggleCompare}
+                />
               </motion.div>
             ))}
           </div>

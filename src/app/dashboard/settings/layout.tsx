@@ -1,0 +1,66 @@
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
+import { SettingsProvider } from '@/components/dashboard/SettingsProvider'
+import { getDefaultWebsiteConfig, getDefaultChatbotConfig } from '@/lib/settings-defaults'
+
+export default async function SettingsLayout({ children }: { children: React.ReactNode }) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  if (!user) redirect('/login')
+
+  const { data: profileData } = await supabase.from('profiles').select('agency_id, role').eq('id', user.id).single()
+  const profile = profileData as any
+  
+  if (profile?.role === 'employee') {
+    redirect('/dashboard/inbox')
+  }
+
+  let agencyData: any = null;
+  if (profile?.agency_id) {
+    const { data } = await supabase.from('agencies').select('*').eq('id', profile.agency_id).single()
+    agencyData = data;
+  }
+
+  if (!agencyData) {
+    redirect('/dashboard')
+  }
+
+  // Ensure sensible defaults if DB fields are empty
+  const website_config = Object.keys(agencyData.website_config || {}).length > 0 
+    ? agencyData.website_config 
+    : getDefaultWebsiteConfig(agencyData.company_name);
+    
+  const chatbot_config = Object.keys(agencyData.chatbot_config || {}).length > 0 
+    ? agencyData.chatbot_config 
+    : getDefaultChatbotConfig(agencyData.company_name);
+
+  // Resolve business vertical (from DB or fallback to cookie 'demo_business_type_slug' for showcase)
+  const headersList = await headers()
+  const cookieHeader = headersList.get('cookie') || ''
+  const match = cookieHeader.match(/demo_business_type_slug=([^;]+)/)
+  let businessTypeSlug = match ? match[1] : 'travel'
+  if (agencyData?.business_type_slug) {
+    businessTypeSlug = agencyData.business_type_slug
+  }
+
+  const initialData = {
+    website_config,
+    chatbot_config,
+    business_hours: agencyData.business_hours || null,
+    social_media: agencyData.social_media || null,
+    company_name: agencyData.company_name || '',
+    subdomain: agencyData.subdomain || '',
+    phone: agencyData.website_settings?.phone || '', 
+    email: agencyData.website_settings?.email || '',
+    address: agencyData.website_settings?.address || '',
+    business_type_slug: businessTypeSlug
+  }
+
+  return (
+    <SettingsProvider initialData={initialData}>
+      {children}
+    </SettingsProvider>
+  )
+}

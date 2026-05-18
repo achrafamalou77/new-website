@@ -3,7 +3,7 @@ import { createServerClient } from '@supabase/ssr'
 
 const BLOCKED_SUBDOMAINS = ['www', 'admin', 'api', 'app', 'dashboard', 'login', 'onboarding', 'supabase', 'vercel']
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const hostname = request.headers.get('host') || ''
   const subdomain = hostname.split('.')[0]
   const isLocalhost = hostname.includes('localhost') || hostname.includes('127.0.0.1')
