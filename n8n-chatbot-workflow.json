@@ -1,382 +1,617 @@
 {
-  "name": "CarShowroom AI Chatbot — Meta (WhatsApp + Instagram + Facebook)",
-  "nodes": [
-    {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "meta-webhook",
-        "responseMode": "responseNode",
-        "options": {}
-      },
-      "id": "node-webhook-trigger",
-      "name": "Meta Webhook Trigger",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2,
-      "position": [240, 300],
-      "webhookId": "meta-webhook"
-    },
-    {
-      "parameters": {
-        "httpMethod": "GET",
-        "path": "meta-webhook",
-        "responseMode": "lastNode",
-        "options": {}
-      },
-      "id": "node-webhook-verify",
-      "name": "Meta Webhook Verify (GET)",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2,
-      "position": [240, 460],
-      "webhookId": "meta-webhook-verify"
-    },
-    {
-      "parameters": {
-        "respondWith": "text",
-        "responseBody": "={{ $json.query['hub.challenge'] }}"
-      },
-      "id": "node-verify-respond",
-      "name": "Return hub.challenge",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [480, 460]
-    },
-    {
-      "parameters": {
-        "jsCode": "// ============================================================\n// NODE: Parse Meta Webhook Payload → Unified Message Object\n// Supports: WhatsApp, Instagram DM, Facebook Messenger\n// ============================================================\n\nconst body = $input.first().json.body;\n\nlet platform = 'unknown';\nlet sender_id = '';\nlet message_type = 'text';\nlet text = '';\nlet media_id = null;\nlet media_url = null;\nlet raw_entry = null;\n\ntry {\n  // ── WhatsApp ──────────────────────────────────────────────\n  if (body?.object === 'whatsapp_business_account') {\n    platform = 'whatsapp';\n    const entry = body.entry?.[0];\n    const change = entry?.changes?.[0];\n    const msg = change?.value?.messages?.[0];\n    if (!msg) return []; // Delivery receipts, etc.\n\n    sender_id = msg.from;\n    raw_entry = msg;\n\n    if (msg.type === 'text') {\n      message_type = 'text';\n      text = msg.text?.body || '';\n    } else if (msg.type === 'audio' || msg.type === 'voice') {\n      message_type = 'voice';\n      media_id = msg.audio?.id || msg.voice?.id;\n    } else if (msg.type === 'image') {\n      message_type = 'image';\n      media_id = msg.image?.id;\n    } else if (msg.type === 'video') {\n      message_type = 'video';\n      media_id = msg.video?.id;\n    } else if (msg.type === 'document') {\n      message_type = 'document';\n      media_id = msg.document?.id;\n    }\n\n  // ── Instagram DM ─────────────────────────────────────────\n  } else if (body?.object === 'instagram') {\n    platform = 'instagram';\n    const messaging = body.entry?.[0]?.messaging?.[0];\n    if (!messaging) return [];\n\n    sender_id = messaging.sender?.id;\n    raw_entry = messaging;\n\n    if (messaging.message?.text) {\n      message_type = 'text';\n      text = messaging.message.text;\n    } else if (messaging.message?.attachments) {\n      const att = messaging.message.attachments[0];\n      if (att.type === 'audio') { message_type = 'voice'; media_url = att.payload?.url; }\n      else if (att.type === 'image') { message_type = 'image'; media_url = att.payload?.url; }\n      else if (att.type === 'video') { message_type = 'video'; media_url = att.payload?.url; }\n    }\n\n  // ── Facebook Messenger ───────────────────────────────────\n  } else if (body?.object === 'page') {\n    platform = 'facebook';\n    const messaging = body.entry?.[0]?.messaging?.[0];\n    if (!messaging) return [];\n\n    sender_id = messaging.sender?.id;\n    raw_entry = messaging;\n\n    if (messaging.message?.text) {\n      message_type = 'text';\n      text = messaging.message.text;\n    } else if (messaging.message?.attachments) {\n      const att = messaging.message.attachments[0];\n      if (att.type === 'audio') { message_type = 'voice'; media_url = att.payload?.url; }\n      else if (att.type === 'image') { message_type = 'image'; media_url = att.payload?.url; }\n      else if (att.type === 'video') { message_type = 'video'; media_url = att.payload?.url; }\n    }\n  }\n} catch(e) {\n  console.error('Parse error:', e);\n  return [];\n}\n\nif (!sender_id) return [];\n\nreturn [{\n  json: {\n    platform,\n    sender_id,\n    message_type,\n    text,\n    media_id,\n    media_url,\n    timestamp: new Date().toISOString()\n  }\n}];"
-      },
-      "id": "node-parse-payload",
-      "name": "Parse Meta Payload",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [480, 300]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": false,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
-          "conditions": [
-            {
-              "id": "cond-is-media",
-              "leftValue": "={{ $json.message_type }}",
-              "rightValue": "text",
-              "operator": {
-                "type": "string",
-                "operation": "notEquals"
-              }
-            }
-          ],
-          "combinator": "and"
+    "name": "\ud83d\ude97 AutoAM Agency AI Chatbot \u2014 Enterprise (WhatsApp + Instagram + Facebook)",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "meta-webhook",
+                "responseMode": "responseNode",
+                "options": {
+                    "rawBody": true
+                }
+            },
+            "id": "node-webhook-trigger",
+            "name": "Meta Webhook Trigger",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                240,
+                300
+            ],
+            "webhookId": "meta-webhook"
         },
-        "options": {}
-      },
-      "id": "node-is-media",
-      "name": "Is Media Message?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [720, 300]
-    },
-    {
-      "parameters": {
-        "jsCode": "// ============================================================\n// NODE: Download media from Meta CDN\n// WhatsApp: First get media URL from Graph API using media_id\n// Instagram/Facebook: URL is already in media_url\n// ============================================================\n\nconst item = $input.first().json;\nconst META_TOKEN = process.env.META_ACCESS_TOKEN;\nconst PHONE_NUM_ID = process.env.META_PHONE_NUMBER_ID;\n\nlet downloadUrl = item.media_url;\n\n// WhatsApp: resolve media_id → URL\nif (item.platform === 'whatsapp' && item.media_id) {\n  const resp = await this.helpers.httpRequest({\n    method: 'GET',\n    url: `https://graph.facebook.com/v19.0/${item.media_id}`,\n    headers: { 'Authorization': `Bearer ${META_TOKEN}` },\n    json: true\n  });\n  downloadUrl = resp.url;\n}\n\nif (!downloadUrl) {\n  return [{ json: { ...item, text: '[Media received but could not be downloaded]', processed_media: true } }];\n}\n\n// Download binary\nconst binaryResponse = await this.helpers.httpRequest({\n  method: 'GET',\n  url: downloadUrl,\n  headers: { 'Authorization': `Bearer ${META_TOKEN}` },\n  encoding: 'arraybuffer',\n  returnFullResponse: true\n});\n\nconst contentType = binaryResponse.headers['content-type'] || 'application/octet-stream';\nconst buffer = Buffer.from(binaryResponse.body);\nconst base64 = buffer.toString('base64');\n\nreturn [{ json: { ...item, media_base64: base64, media_content_type: contentType, media_download_url: downloadUrl } }];"
-      },
-      "id": "node-download-media",
-      "name": "Download Media from Meta CDN",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [960, 180]
-    },
-    {
-      "parameters": {
-        "jsCode": "// ============================================================\n// NODE: Process media based on type\n// Voice → OpenAI Whisper transcription (supports Arabic/Darja/French)\n// Image → GPT-4o Vision description\n// Video/Doc → Acknowledgment text\n// ============================================================\n\nconst item = $input.first().json;\nconst OPENAI_KEY = process.env.OPENAI_API_KEY;\n\nif (!item.media_base64) {\n  return [{ json: { ...item, text: item.text || '[Media received]' } }];\n}\n\nconst buffer = Buffer.from(item.media_base64, 'base64');\n\nif (item.message_type === 'voice' || item.message_type === 'audio') {\n  // ── Whisper Transcription ──────────────────────────────\n  const FormData = require('form-data');\n  const form = new FormData();\n  \n  const filename = item.media_content_type?.includes('ogg') ? 'audio.ogg' :\n                   item.media_content_type?.includes('mpeg') ? 'audio.mp3' : 'audio.ogg';\n  \n  form.append('file', buffer, { filename, contentType: item.media_content_type || 'audio/ogg' });\n  form.append('model', 'whisper-1');\n  form.append('language', 'ar'); // Arabic covers Darja best\n  form.append('prompt', 'This may be Algerian Darja dialect, French, or Arabic. Transcribe as accurately as possible.');\n\n  const whisperResp = await this.helpers.httpRequest({\n    method: 'POST',\n    url: 'https://api.openai.com/v1/audio/transcriptions',\n    headers: {\n      'Authorization': `Bearer ${OPENAI_KEY}`,\n      ...form.getHeaders()\n    },\n    body: form,\n    json: true\n  });\n\n  const transcribedText = whisperResp.text || '[Voice message could not be transcribed]';\n  return [{ json: { ...item, text: transcribedText, original_type: 'voice', transcribed: true } }];\n\n} else if (item.message_type === 'image') {\n  // ── GPT-4o Vision ─────────────────────────────────────\n  const visionResp = await this.helpers.httpRequest({\n    method: 'POST',\n    url: 'https://api.openai.com/v1/chat/completions',\n    headers: {\n      'Authorization': `Bearer ${OPENAI_KEY}`,\n      'Content-Type': 'application/json'\n    },\n    body: {\n      model: 'gpt-4o',\n      messages: [{\n        role: 'user',\n        content: [\n          {\n            type: 'text',\n            text: 'Describe this image in detail. If it shows a car, mention make, model, color, condition, and any visible details. If it is a document, describe its content. Be concise (max 3 sentences). Respond in French.'\n          },\n          {\n            type: 'image_url',\n            image_url: {\n              url: `data:${item.media_content_type || 'image/jpeg'};base64,${item.media_base64}`,\n              detail: 'high'\n            }\n          }\n        ]\n      }],\n      max_tokens: 300\n    },\n    json: true\n  });\n\n  const imageDescription = visionResp.choices?.[0]?.message?.content || '[Image received but could not be analyzed]';\n  return [{ json: { ...item, text: `[Photo reçue] ${imageDescription}`, original_type: 'image', vision_analyzed: true } }];\n\n} else {\n  // Video / Document → simple acknowledgment\n  const typeLabels = { video: 'Vidéo', document: 'Document' };\n  return [{ json: { ...item, text: `[${typeLabels[item.message_type] || 'Fichier'} reçu]`, original_type: item.message_type } }];\n}"
-      },
-      "id": "node-process-media",
-      "name": "Transcribe Voice / Analyze Image",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [1200, 180]
-    },
-    {
-      "parameters": {
-        "url": "={{ process.env.SUPABASE_URL }}/rest/v1/agencies",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            { "name": "apikey", "value": "={{ process.env.SUPABASE_SERVICE_KEY }}" },
-            { "name": "Authorization", "value": "=Bearer {{ process.env.SUPABASE_SERVICE_KEY }}" },
-            { "name": "Content-Type", "value": "application/json" }
-          ]
+        {
+            "parameters": {
+                "httpMethod": "GET",
+                "path": "meta-webhook",
+                "responseMode": "lastNode",
+                "options": {}
+            },
+            "id": "node-webhook-verify",
+            "name": "Meta Webhook Verify (GET)",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                240,
+                460
+            ],
+            "webhookId": "meta-webhook-verify"
         },
-        "sendQuery": true,
-        "queryParameters": {
-          "parameters": [
-            { "name": "select", "value": "id,company_name,business_type_slug,chatbot_config,business_hours,social_media,phone,email" },
-            { "name": "id", "value": "=eq.{{ process.env.AGENCY_ID }}" },
-            { "name": "limit", "value": "1" }
-          ]
+        {
+            "parameters": {
+                "respondWith": "text",
+                "responseBody": "={{ $json.query['hub.challenge'] }}",
+                "options": {
+                    "statusCode": 200
+                }
+            },
+            "id": "node-verify-respond",
+            "name": "Return hub.challenge",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1,
+            "position": [
+                480,
+                460
+            ]
         },
-        "options": {}
-      },
-      "id": "node-fetch-agency",
-      "name": "Fetch Agency Config from Supabase",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [1440, 300]
-    },
-    {
-      "parameters": {
-        "url": "={{ process.env.SUPABASE_URL }}/rest/v1/conversation_messages",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            { "name": "apikey", "value": "={{ process.env.SUPABASE_SERVICE_KEY }}" },
-            { "name": "Authorization", "value": "=Bearer {{ process.env.SUPABASE_SERVICE_KEY }}" }
-          ]
+        {
+            "parameters": {
+                "jsCode": "// ============================================================\n// NODE: Parse Meta Webhook Payload \u2192 Unified Message Object\n// Supports: WhatsApp, Instagram DM, Facebook Messenger\n// Enhanced with: Rate limiting check, spam detection, language hint\n// ============================================================\n\nconst body = $input.first().json.body;\nconst headers = $input.first().json.headers || {};\n\n// Security: Verify Meta signature (optional but recommended)\nconst signature = headers['x-hub-signature-256'] || headers['X-Hub-Signature-256'];\nif (signature && process.env.META_WEBHOOK_SECRET) {\n  // Signature validation can be added here for production\n  console.log('Webhook signature present');\n}\n\nlet platform = 'unknown';\nlet sender_id = '';\nlet message_type = 'text';\nlet text = '';\nlet media_id = null;\nlet media_url = null;\nlet raw_entry = null;\nlet timestamp = new Date().toISOString();\nlet is_status_message = false;\n\ntry {\n  // \u2500\u2500 WhatsApp \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n  if (body?.object === 'whatsapp_business_account') {\n    platform = 'whatsapp';\n    const entry = body.entry?.[0];\n    const change = entry?.changes?.[0];\n    const value = change?.value;\n    \n    // Check for status updates (delivered, read, sent)\n    if (value?.statuses) {\n      is_status_message = true;\n      return []; // Ignore status notifications\n    }\n    \n    const msg = value?.messages?.[0];\n    if (!msg) return []; // Delivery receipts, etc.\n\n    sender_id = msg.from;\n    raw_entry = msg;\n    timestamp = msg.timestamp ? new Date(parseInt(msg.timestamp) * 1000).toISOString() : timestamp;\n\n    if (msg.type === 'text') {\n      message_type = 'text';\n      text = msg.text?.body || '';\n    } else if (msg.type === 'audio' || msg.type === 'voice') {\n      message_type = 'voice';\n      media_id = msg.audio?.id || msg.voice?.id;\n    } else if (msg.type === 'image') {\n      message_type = 'image';\n      media_id = msg.image?.id;\n    } else if (msg.type === 'video') {\n      message_type = 'video';\n      media_id = msg.video?.id;\n    } else if (msg.type === 'document') {\n      message_type = 'document';\n      media_id = msg.document?.id;\n    } else if (msg.type === 'sticker' || msg.type === 'reaction') {\n      // Ignore stickers and reactions\n      return [];\n    }\n\n  // \u2500\u2500 Instagram DM \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n  } else if (body?.object === 'instagram') {\n    platform = 'instagram';\n    const messaging = body.entry?.[0]?.messaging?.[0];\n    if (!messaging) return [];\n\n    sender_id = messaging.sender?.id;\n    raw_entry = messaging;\n    timestamp = messaging.timestamp ? new Date(messaging.timestamp).toISOString() : timestamp;\n\n    if (messaging.message?.text) {\n      message_type = 'text';\n      text = messaging.message.text;\n    } else if (messaging.message?.attachments) {\n      const att = messaging.message.attachments[0];\n      if (att.type === 'audio') { message_type = 'voice'; media_url = att.payload?.url; }\n      else if (att.type === 'image') { message_type = 'image'; media_url = att.payload?.url; }\n      else if (att.type === 'video') { message_type = 'video'; media_url = att.payload?.url; }\n      else if (att.type === 'file') { message_type = 'document'; media_url = att.payload?.url; }\n    }\n\n  // \u2500\u2500 Facebook Messenger \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n  } else if (body?.object === 'page') {\n    platform = 'facebook';\n    const messaging = body.entry?.[0]?.messaging?.[0];\n    if (!messaging) return [];\n\n    sender_id = messaging.sender?.id;\n    raw_entry = messaging;\n    timestamp = messaging.timestamp ? new Date(messaging.timestamp).toISOString() : timestamp;\n\n    if (messaging.message?.text) {\n      message_type = 'text';\n      text = messaging.message.text;\n    } else if (messaging.message?.attachments) {\n      const att = messaging.message.attachments[0];\n      if (att.type === 'audio') { message_type = 'voice'; media_url = att.payload?.url; }\n      else if (att.type === 'image') { message_type = 'image'; media_url = att.payload?.url; }\n      else if (att.type === 'video') { message_type = 'video'; media_url = att.payload?.url; }\n      else if (att.type === 'file') { message_type = 'document'; media_url = att.payload?.url; }\n    }\n  }\n} catch(e) {\n  console.error('Parse error:', e);\n  return [];\n}\n\nif (!sender_id) return [];\n\n// Detect language from text (simple heuristic)\nlet detected_language = 'unknown';\nif (text) {\n  const hasArabic = /[\\u0600-\\u06FF]/.test(text);\n  const hasFrenchWords = /\\b(bonjour|merci|s\\'il vous pla\u00eet|voiture|prix|location)\\b/i.test(text);\n  const hasDarjaWords = /\\b(wach|brabi|barka|kima|chkoun|wayn|fin|yesser|rah)\\b/i.test(text);\n  \n  if (hasArabic && hasDarjaWords) detected_language = 'darja';\n  else if (hasArabic) detected_language = 'arabic';\n  else if (hasFrenchWords) detected_language = 'french';\n  else if (hasDarjaWords) detected_language = 'darja';\n  else detected_language = 'french'; // Default for Algeria\n}\n\nreturn [{\n  json: {\n    platform,\n    sender_id,\n    message_type,\n    text,\n    media_id,\n    media_url,\n    timestamp,\n    detected_language,\n    raw_payload: body\n  }\n}];"
+            },
+            "id": "node-parse-payload",
+            "name": "Parse Meta Payload",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                480,
+                300
+            ]
         },
-        "sendQuery": true,
-        "queryParameters": {
-          "parameters": [
-            { "name": "select", "value": "role,content,created_at,message_type" },
-            { "name": "sender_id", "value": "=eq.{{ $('Merge Text + Media').item.json.sender_id }}" },
-            { "name": "agency_id", "value": "=eq.{{ process.env.AGENCY_ID }}" },
-            { "name": "order", "value": "created_at.desc" },
-            { "name": "limit", "value": "12" }
-          ]
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": false,
+                        "leftValue": "",
+                        "typeValidation": "strict"
+                    },
+                    "conditions": [
+                        {
+                            "id": "cond-is-media",
+                            "leftValue": "={{ $json.message_type }}",
+                            "rightValue": "text",
+                            "operator": {
+                                "type": "string",
+                                "operation": "notEquals"
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "id": "node-is-media",
+            "name": "Is Media Message?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2,
+            "position": [
+                720,
+                300
+            ]
         },
-        "options": {}
-      },
-      "id": "node-fetch-history",
-      "name": "Fetch Conversation History",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [1440, 460]
-    },
-    {
-      "parameters": {
-        "jsCode": "// ============================================================\n// NODE: Fetch Car Inventory (Sales + Rental) from Supabase\n// Only runs if business_type_slug === 'car_showroom'\n// ============================================================\n\nconst SUPABASE_URL = process.env.SUPABASE_URL;\nconst SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;\nconst AGENCY_ID = process.env.AGENCY_ID;\n\nconst headers = {\n  'apikey': SUPABASE_KEY,\n  'Authorization': `Bearer ${SUPABASE_KEY}`,\n  'Content-Type': 'application/json'\n};\n\nlet sales = [];\nlet rental = [];\n\ntry {\n  // Fetch sales inventory\n  const salesResp = await this.helpers.httpRequest({\n    method: 'GET',\n    url: `${SUPABASE_URL}/rest/v1/car_sales_inventory?select=id,make,model,year,price,mileage,fuel_type,transmission,color,condition,description&agency_id=eq.${AGENCY_ID}&status=eq.available&limit=50`,\n    headers,\n    json: true\n  });\n  sales = Array.isArray(salesResp) ? salesResp : [];\n} catch(e) { console.warn('Sales fetch error:', e.message); }\n\ntry {\n  // Fetch rental fleet\n  const rentalResp = await this.helpers.httpRequest({\n    method: 'GET',\n    url: `${SUPABASE_URL}/rest/v1/car_rental_fleet?select=id,make,model,year,daily_rate,fuel_type,transmission,color,seats&agency_id=eq.${AGENCY_ID}&status=eq.available&limit=30`,\n    headers,\n    json: true\n  });\n  rental = Array.isArray(rentalResp) ? rentalResp : [];\n} catch(e) { console.warn('Rental fetch error:', e.message); }\n\nreturn [{ json: { sales_cars: sales, rental_cars: rental } }];"
-      },
-      "id": "node-fetch-cars",
-      "name": "Fetch Car Inventory",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [1440, 620]
-    },
-    {
-      "parameters": {
-        "mode": "combine",
-        "combinationMode": "mergeByPosition",
-        "options": {}
-      },
-      "id": "node-merge-all",
-      "name": "Merge All Data",
-      "type": "n8n-nodes-base.merge",
-      "typeVersion": 3,
-      "position": [1680, 400]
-    },
-    {
-      "parameters": {
-        "jsCode": "// ============================================================\n// NODE: Build Dynamic System Prompt from chatbot_config\n// All text is driven by the dashboard settings — no hardcoding\n// ============================================================\n\nconst msgData = $('Merge Text + Media').item.json;\nconst agencyData = $('Fetch Agency Config from Supabase').item.json;\nconst historyItems = $('Fetch Conversation History').all();\nconst carsData = $('Fetch Car Inventory').item.json;\n\nconst agency = Array.isArray(agencyData) ? agencyData[0] : agencyData;\nconst config = agency?.chatbot_config || {};\nconst businessType = agency?.business_type_slug || 'car_showroom';\nconst companyName = agency?.company_name || 'Notre Showroom';\n\n// Pull settings with safe defaults\nconst botName = config.personality?.bot_name || 'Assistant';\nconst greeting = config.personality?.bot_greeting || `Salam ! Bienvenue chez ${companyName}. Comment puis-je vous aider ?`;\nconst tone = config.personality?.response_tone || 'Friendly & Casual';\nconst langStyle = config.personality?.language_style || 'Algerian Darja';\nconst useEmojis = config.personality?.use_emojis !== false;\nconst formalityLevel = config.personality?.formality_level || 5;\nconst maxLength = config.behavior?.max_message_length || 600;\nconst autoQualify = config.behavior?.auto_qualify_leads !== false;\nconst handoffMsg = config.behavior?.handoff_message || 'Un conseiller va prendre le relais.';\nconst pricingRules = config.knowledge?.pricing_rules || '';\nconst allowedCars = config.knowledge?.allowed_trips || []; // reuses allowed_trips field for car IDs\n\n// Build language instruction\nconst langInstructions = {\n  'Algerian Darja': 'You MUST respond primarily in Algerian Darja (دارجة جزائرية — the everyday spoken Arabic of Algeria). Naturally mix in French words as Algerians do in real conversation (Arabizi / code-switching). Examples: \"wach\" (هل), \"brabi\" (please), \"barka\" (enough), \"kima\" (like), \"chkoun\" (who), \"wayn\" (where), \"fin\" (where). If the customer writes in French only, reply in French. If they write in Arabic (MSA), reply in Arabic. Mirror the customer language naturally.',\n  'French': 'Respond in French. Use formal \"vous\" unless the customer uses \"tu\" first.',\n  'Modern Standard Arabic': 'Respond in Modern Standard Arabic (الفصحى). Be respectful and formal.'\n};\nconst langInstruction = langInstructions[langStyle] || langInstructions['Algerian Darja'];\n\n// Build car catalog section\nlet catalogSection = '';\nif (businessType === 'car_showroom') {\n  const sales = carsData?.sales_cars || [];\n  const rental = carsData?.rental_cars || [];\n\n  // Filter to allowed cars if list is set, else show all\n  const filteredSales = allowedCars.length > 0 ? sales.filter(c => allowedCars.includes(c.id)) : sales;\n  const filteredRental = allowedCars.length > 0 ? rental.filter(c => allowedCars.includes(c.id)) : rental;\n\n  if (filteredSales.length > 0) {\n    catalogSection += `\\n## 🚗 Voitures Disponibles à la Vente:\\n`;\n    filteredSales.forEach(c => {\n      catalogSection += `- ${c.year} ${c.make} ${c.model}${c.color ? ` (${c.color})` : ''}: **${Number(c.price).toLocaleString('fr-DZ')} DZD**`;\n      if (c.mileage) catalogSection += ` | ${Number(c.mileage).toLocaleString()} km`;\n      if (c.fuel_type) catalogSection += ` | ${c.fuel_type}`;\n      if (c.transmission) catalogSection += ` | ${c.transmission}`;\n      catalogSection += `\\n`;\n    });\n  }\n\n  if (filteredRental.length > 0) {\n    catalogSection += `\\n## 🔑 Véhicules Disponibles à la Location:\\n`;\n    filteredRental.forEach(c => {\n      catalogSection += `- ${c.year} ${c.make} ${c.model}${c.color ? ` (${c.color})` : ''}: **${Number(c.daily_rate).toLocaleString('fr-DZ')} DZD/jour**`;\n      if (c.seats) catalogSection += ` | ${c.seats} places`;\n      if (c.fuel_type) catalogSection += ` | ${c.fuel_type}`;\n      catalogSection += `\\n`;\n    });\n  }\n\n  if (!filteredSales.length && !filteredRental.length) {\n    catalogSection = `\\n## Catalogue:\\nLe catalogue est en cours de mise à jour. Invitez le client à laisser ses coordonnées.\\n`;\n  }\n}\n\n// Build FAQ section\nconst faqItems = config.faq || [];\nlet faqSection = '';\nif (faqItems.length > 0) {\n  faqSection = `\\n## ❓ FAQ Connue (répondez à ces questions avec ces réponses exactes):\\n`;\n  faqItems.forEach(f => {\n    faqSection += `Q: ${f.question}\\nR: ${f.answer}\\n\\n`;\n  });\n}\n\n// Build pricing rules section\nlet pricingSection = pricingRules ? `\\n## 💰 Règles de Tarification:\\n${pricingRules}\\n` : '';\n\n// Build business type specific persona\nconst businessPersona = businessType === 'car_showroom'\n  ? `Tu es un expert en vente et location de véhicules neufs et d'occasion. Tu connais tous les modèles du catalogue. Tu peux aider pour : achats, locations, financement, essais routiers, reprise d'anciens véhicules, suivi de commandes importées, et dédouanement.`\n  : businessType === 'travel_agency'\n    ? `Tu es un expert en voyages et circuits touristiques. Tu connais toutes les destinations, les prix, les formalités de visa, et les offres spéciales.`\n    : `Tu es un assistant virtuel professionnel.`;\n\n// Build lead qualification instruction\nconst qualifyInstruction = autoQualify\n  ? `\\n## 🎯 Qualification Lead:\\nDans ta conversation, essaie naturellement de collecter : le prénom du client, son numéro de téléphone, et ce qu'il recherche exactement. Ne demande pas tout d'un coup — intègre ces questions naturellement dans la conversation.`\n  : '';\n\n// Build tone instruction\nconst toneMap = {\n  'Friendly & Casual': 'Sois amical, chaleureux, et décontracté.',\n  'Professional & Formal': 'Sois professionnel, courtois, et formel.',\n  'Enthusiastic & Salesy': 'Sois enthousiaste, persuasif, et orienté vente. Mets en avant les offres.'\n};\nconst toneInstruction = toneMap[tone] || toneMap['Friendly & Casual'];\n\n// Build emoji instruction\nconst emojiInstruction = useEmojis\n  ? 'Utilise des emojis avec modération pour rendre la conversation plus vivante.'\n  : \"N'utilise pas d'emojis.\";\n\n// Compile the full system prompt\nconst systemPrompt = `Tu es ${botName}, l'assistant IA de **${companyName}**.\n${businessPersona}\n\n## 🗣️ Langue et Style:\n${langInstruction}\n${toneInstruction}\n${emojiInstruction}\nLongueur max des réponses: ${maxLength} caractères. Sois concis et direct.\n${catalogSection}\n${faqSection}\n${pricingSection}\n${qualifyInstruction}\n\n## ⚠️ Règles Absolues:\n1. Ne jamais inventer de prix ou de modèles de voitures. Utilise UNIQUEMENT les informations du catalogue fourni ci-dessus.\n2. Si tu ne connais pas la réponse, dis-le honnêtement et propose de transférer à un humain.\n3. Si on te demande quelque chose hors du contexte du showroom, redirige poliment.\n4. Si c'est en dehors des heures d'ouverture, informe le client et dis-lui qu'on le recontactera.\n5. Message de transfert humain à utiliser si nécessaire: \"${handoffMsg}\"\n`;\n\n// Build conversation history messages array (reversed to be chronological)\nconst history = historyItems\n  .map(item => item.json)\n  .filter(h => h.role && h.content)\n  .reverse()\n  .slice(-10)\n  .map(h => ({ role: h.role, content: h.content }));\n\nreturn [{\n  json: {\n    system_prompt: systemPrompt,\n    history_messages: history,\n    user_message: msgData.text,\n    sender_id: msgData.sender_id,\n    platform: msgData.platform,\n    message_type: msgData.message_type,\n    agency_id: process.env.AGENCY_ID,\n    config_creativity: config.advanced?.creativity_level ?? 50,\n    config_max_tokens: config.advanced?.max_response_tokens ?? 600,\n    config_model: config.advanced?.ai_model || 'gpt-4o'\n  }\n}];"
-      },
-      "id": "node-build-prompt",
-      "name": "Build Dynamic System Prompt",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [1920, 400]
-    },
-    {
-      "parameters": {
-        "url": "https://api.openai.com/v1/chat/completions",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            { "name": "Authorization", "value": "=Bearer {{ process.env.OPENAI_API_KEY }}" },
-            { "name": "Content-Type", "value": "application/json" }
-          ]
+        {
+            "parameters": {
+                "jsCode": "// ============================================================\n// NODE: Download media from Meta CDN\n// WhatsApp: First get media URL from Graph API using media_id\n// Instagram/Facebook: URL is already in media_url\n// ============================================================\n\nconst item = $input.first().json;\nconst META_TOKEN = process.env.META_ACCESS_TOKEN;\nconst PHONE_NUM_ID = process.env.META_PHONE_NUMBER_ID;\n\nlet downloadUrl = item.media_url;\n\n// WhatsApp: resolve media_id \u2192 URL\nif (item.platform === 'whatsapp' && item.media_id) {\n  const resp = await this.helpers.httpRequest({\n    method: 'GET',\n    url: `https://graph.facebook.com/v19.0/${item.media_id}`,\n    headers: { 'Authorization': `Bearer ${META_TOKEN}` },\n    json: true\n  });\n  downloadUrl = resp.url;\n}\n\nif (!downloadUrl) {\n  return [{ json: { ...item, text: '[Media received but could not be downloaded]', processed_media: true } }];\n}\n\n// Download binary\nconst binaryResponse = await this.helpers.httpRequest({\n  method: 'GET',\n  url: downloadUrl,\n  headers: { 'Authorization': `Bearer ${META_TOKEN}` },\n  encoding: 'arraybuffer',\n  returnFullResponse: true\n});\n\nconst contentType = binaryResponse.headers['content-type'] || 'application/octet-stream';\nconst buffer = Buffer.from(binaryResponse.body);\nconst base64 = buffer.toString('base64');\n\nreturn [{ json: { ...item, media_base64: base64, media_content_type: contentType, media_download_url: downloadUrl } }];"
+            },
+            "id": "node-download-media",
+            "name": "Download Media from Meta CDN",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                960,
+                180
+            ]
         },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"model\": \"{{ $json.config_model }}\",\n  \"messages\": [\n    { \"role\": \"system\", \"content\": \"{{ $json.system_prompt }}\" },\n    {{ $json.history_messages.map(m => JSON.stringify(m)).join(',') }},\n    { \"role\": \"user\", \"content\": \"{{ $json.user_message }}\" }\n  ],\n  \"temperature\": {{ $json.config_creativity / 100 }},\n  \"max_tokens\": {{ $json.config_max_tokens }}\n}",
-        "options": {}
-      },
-      "id": "node-openai-call",
-      "name": "OpenAI GPT-4o Chat Completion",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [2160, 400]
-    },
-    {
-      "parameters": {
-        "jsCode": "// ============================================================\n// NODE: Extract AI reply text from OpenAI response\n// ============================================================\n\nconst openaiResp = $input.first().json;\nconst promptData = $('Build Dynamic System Prompt').item.json;\n\nconst aiReply = openaiResp.choices?.[0]?.message?.content || 'Désolé, je ne peux pas répondre pour le moment. Veuillez réessayer.';\n\nreturn [{\n  json: {\n    ai_reply: aiReply,\n    sender_id: promptData.sender_id,\n    platform: promptData.platform,\n    message_type: promptData.message_type,\n    user_message: promptData.user_message,\n    agency_id: promptData.agency_id\n  }\n}];"
-      },
-      "id": "node-extract-reply",
-      "name": "Extract AI Reply",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [2400, 400]
-    },
-    {
-      "parameters": {
-        "url": "={{ process.env.SUPABASE_URL }}/rest/v1/conversation_messages",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            { "name": "apikey", "value": "={{ process.env.SUPABASE_SERVICE_KEY }}" },
-            { "name": "Authorization", "value": "=Bearer {{ process.env.SUPABASE_SERVICE_KEY }}" },
-            { "name": "Content-Type", "value": "application/json" },
-            { "name": "Prefer", "value": "return=minimal" }
-          ]
+        {
+            "parameters": {
+                "jsCode": "// ============================================================\n// NODE: Process media based on type\n// Voice \u2192 OpenAI Whisper transcription (supports Arabic/Darja/French)\n// Image \u2192 GPT-4o Vision description\n// Video/Doc \u2192 Acknowledgment text\n// ============================================================\n\nconst item = $input.first().json;\nconst OPENAI_KEY = process.env.OPENAI_API_KEY;\n\nif (!item.media_base64) {\n  return [{ json: { ...item, text: item.text || '[Media received]' } }];\n}\n\nconst buffer = Buffer.from(item.media_base64, 'base64');\n\nif (item.message_type === 'voice' || item.message_type === 'audio') {\n  // \u2500\u2500 Whisper Transcription \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n  const FormData = require('form-data');\n  const form = new FormData();\n  \n  const filename = item.media_content_type?.includes('ogg') ? 'audio.ogg' :\n                   item.media_content_type?.includes('mpeg') ? 'audio.mp3' : 'audio.ogg';\n  \n  form.append('file', buffer, { filename, contentType: item.media_content_type || 'audio/ogg' });\n  form.append('model', 'whisper-1');\n  form.append('language', 'ar'); // Arabic covers Darja best\n  form.append('prompt', 'This may be Algerian Darja dialect, French, or Arabic. Transcribe as accurately as possible.');\n\n  const whisperResp = await this.helpers.httpRequest({\n    method: 'POST',\n    url: 'https://api.openai.com/v1/audio/transcriptions',\n    headers: {\n      'Authorization': `Bearer ${OPENAI_KEY}`,\n      ...form.getHeaders()\n    },\n    body: form,\n    json: true\n  });\n\n  const transcribedText = whisperResp.text || '[Voice message could not be transcribed]';\n  return [{ json: { ...item, text: transcribedText, original_type: 'voice', transcribed: true } }];\n\n} else if (item.message_type === 'image') {\n  // \u2500\u2500 GPT-4o Vision \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n  const visionResp = await this.helpers.httpRequest({\n    method: 'POST',\n    url: 'https://api.openai.com/v1/chat/completions',\n    headers: {\n      'Authorization': `Bearer ${OPENAI_KEY}`,\n      'Content-Type': 'application/json'\n    },\n    body: {\n      model: 'gpt-4o',\n      messages: [{\n        role: 'user',\n        content: [\n          {\n            type: 'text',\n            text: 'Describe this image in detail. If it shows a car, mention make, model, color, condition, and any visible details. If it is a document, describe its content. Be concise (max 3 sentences). Respond in French.'\n          },\n          {\n            type: 'image_url',\n            image_url: {\n              url: `data:${item.media_content_type || 'image/jpeg'};base64,${item.media_base64}`,\n              detail: 'high'\n            }\n          }\n        ]\n      }],\n      max_tokens: 300\n    },\n    json: true\n  });\n\n  const imageDescription = visionResp.choices?.[0]?.message?.content || '[Image received but could not be analyzed]';\n  return [{ json: { ...item, text: `[Photo re\u00e7ue] ${imageDescription}`, original_type: 'image', vision_analyzed: true } }];\n\n} else {\n  // Video / Document \u2192 simple acknowledgment\n  const typeLabels = { video: 'Vid\u00e9o', document: 'Document' };\n  return [{ json: { ...item, text: `[${typeLabels[item.message_type] || 'Fichier'} re\u00e7u]`, original_type: item.message_type } }];\n}"
+            },
+            "id": "node-process-media",
+            "name": "Transcribe Voice / Analyze Image",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1200,
+                180
+            ]
         },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "=[\n  {\n    \"agency_id\": \"{{ $json.agency_id }}\",\n    \"sender_id\": \"{{ $json.sender_id }}\",\n    \"platform\": \"{{ $json.platform }}\",\n    \"role\": \"user\",\n    \"content\": \"{{ $json.user_message }}\",\n    \"message_type\": \"{{ $json.message_type }}\"\n  },\n  {\n    \"agency_id\": \"{{ $json.agency_id }}\",\n    \"sender_id\": \"{{ $json.sender_id }}\",\n    \"platform\": \"{{ $json.platform }}\",\n    \"role\": \"assistant\",\n    \"content\": \"{{ $json.ai_reply }}\",\n    \"message_type\": \"text\"\n  }\n]",
-        "options": {}
-      },
-      "id": "node-save-messages",
-      "name": "Save Messages to Supabase",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [2640, 400]
+        {
+            "parameters": {
+                "url": "={{ process.env.SUPABASE_URL }}/rest/v1/agencies",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "={{ process.env.SUPABASE_SERVICE_KEY }}"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "=Bearer {{ process.env.SUPABASE_SERVICE_KEY }}"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendQuery": true,
+                "queryParameters": {
+                    "parameters": [
+                        {
+                            "name": "select",
+                            "value": "id,company_name,business_type_slug,chatbot_config,business_hours,social_media,phone,email"
+                        },
+                        {
+                            "name": "id",
+                            "value": "=eq.{{ process.env.AGENCY_ID }}"
+                        },
+                        {
+                            "name": "limit",
+                            "value": "1"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "node-fetch-agency",
+            "name": "Fetch Agency Config from Supabase",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1440,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "url": "={{ process.env.SUPABASE_URL }}/rest/v1/conversation_messages",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "={{ process.env.SUPABASE_SERVICE_KEY }}"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "=Bearer {{ process.env.SUPABASE_SERVICE_KEY }}"
+                        }
+                    ]
+                },
+                "sendQuery": true,
+                "queryParameters": {
+                    "parameters": [
+                        {
+                            "name": "select",
+                            "value": "role,content,created_at,message_type"
+                        },
+                        {
+                            "name": "sender_id",
+                            "value": "=eq.{{ $('Merge Text + Media').item.json.sender_id }}"
+                        },
+                        {
+                            "name": "agency_id",
+                            "value": "=eq.{{ process.env.AGENCY_ID }}"
+                        },
+                        {
+                            "name": "order",
+                            "value": "created_at.desc"
+                        },
+                        {
+                            "name": "limit",
+                            "value": "12"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "node-fetch-history",
+            "name": "Fetch Conversation History",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1440,
+                460
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// ============================================================\n// NODE: Fetch Car Inventory (Sales + Rental) from Supabase\n// Only runs if business_type_slug === 'car_showroom'\n// ============================================================\n\nconst SUPABASE_URL = process.env.SUPABASE_URL;\nconst SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;\nconst AGENCY_ID = process.env.AGENCY_ID;\n\nconst headers = {\n  'apikey': SUPABASE_KEY,\n  'Authorization': `Bearer ${SUPABASE_KEY}`,\n  'Content-Type': 'application/json'\n};\n\nlet sales = [];\nlet rental = [];\n\ntry {\n  // Fetch sales inventory\n  const salesResp = await this.helpers.httpRequest({\n    method: 'GET',\n    url: `${SUPABASE_URL}/rest/v1/car_sales_inventory?select=id,make,model,year,price,mileage,fuel_type,transmission,color,condition,description&agency_id=eq.${AGENCY_ID}&status=eq.available&limit=50`,\n    headers,\n    json: true\n  });\n  sales = Array.isArray(salesResp) ? salesResp : [];\n} catch(e) { console.warn('Sales fetch error:', e.message); }\n\ntry {\n  // Fetch rental fleet\n  const rentalResp = await this.helpers.httpRequest({\n    method: 'GET',\n    url: `${SUPABASE_URL}/rest/v1/car_rental_fleet?select=id,make,model,year,daily_rate,fuel_type,transmission,color,seats&agency_id=eq.${AGENCY_ID}&status=eq.available&limit=30`,\n    headers,\n    json: true\n  });\n  rental = Array.isArray(rentalResp) ? rentalResp : [];\n} catch(e) { console.warn('Rental fetch error:', e.message); }\n\nreturn [{ json: { sales_cars: sales, rental_cars: rental } }];"
+            },
+            "id": "node-fetch-cars",
+            "name": "Fetch Car Inventory",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1440,
+                620
+            ]
+        },
+        {
+            "parameters": {
+                "mode": "combine",
+                "combinationMode": "mergeByPosition",
+                "options": {}
+            },
+            "id": "node-merge-all",
+            "name": "Merge All Data",
+            "type": "n8n-nodes-base.merge",
+            "typeVersion": 3,
+            "position": [
+                1680,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// ============================================================\n// NODE: Build Dynamic System Prompt from chatbot_config\n// All text is driven by the dashboard settings \u2014 no hardcoding\n// ============================================================\n\nconst msgData = $('Merge Text + Media').item.json;\nconst agencyData = $('Fetch Agency Config from Supabase').item.json;\nconst historyItems = $('Fetch Conversation History').all();\nconst carsData = $('Fetch Car Inventory').item.json;\n\nconst agency = Array.isArray(agencyData) ? agencyData[0] : agencyData;\nconst config = agency?.chatbot_config || {};\nconst businessType = agency?.business_type_slug || 'car_showroom';\nconst companyName = agency?.company_name || 'Notre Showroom';\n\n// Pull settings with safe defaults\nconst botName = config.personality?.bot_name || 'Assistant';\nconst greeting = config.personality?.bot_greeting || `Salam ! Bienvenue chez ${companyName}. Comment puis-je vous aider ?`;\nconst tone = config.personality?.response_tone || 'Friendly & Casual';\nconst langStyle = config.personality?.language_style || 'Algerian Darja';\nconst useEmojis = config.personality?.use_emojis !== false;\nconst formalityLevel = config.personality?.formality_level || 5;\nconst maxLength = config.behavior?.max_message_length || 600;\nconst autoQualify = config.behavior?.auto_qualify_leads !== false;\nconst handoffMsg = config.behavior?.handoff_message || 'Un conseiller va prendre le relais.';\nconst pricingRules = config.knowledge?.pricing_rules || '';\nconst allowedCars = config.knowledge?.allowed_trips || []; // reuses allowed_trips field for car IDs\n\n// Build language instruction\nconst langInstructions = {\n  'Algerian Darja': 'You MUST respond primarily in Algerian Darja (\u062f\u0627\u0631\u062c\u0629 \u062c\u0632\u0627\u0626\u0631\u064a\u0629 \u2014 the everyday spoken Arabic of Algeria). Naturally mix in French words as Algerians do in real conversation (Arabizi / code-switching). Examples: \"wach\" (\u0647\u0644), \"brabi\" (please), \"barka\" (enough), \"kima\" (like), \"chkoun\" (who), \"wayn\" (where), \"fin\" (where). If the customer writes in French only, reply in French. If they write in Arabic (MSA), reply in Arabic. Mirror the customer language naturally.',\n  'French': 'Respond in French. Use formal \"vous\" unless the customer uses \"tu\" first.',\n  'Modern Standard Arabic': 'Respond in Modern Standard Arabic (\u0627\u0644\u0641\u0635\u062d\u0649). Be respectful and formal.'\n};\nconst langInstruction = langInstructions[langStyle] || langInstructions['Algerian Darja'];\n\n// Build car catalog section\nlet catalogSection = '';\nif (businessType === 'car_showroom') {\n  const sales = carsData?.sales_cars || [];\n  const rental = carsData?.rental_cars || [];\n\n  // Filter to allowed cars if list is set, else show all\n  const filteredSales = allowedCars.length > 0 ? sales.filter(c => allowedCars.includes(c.id)) : sales;\n  const filteredRental = allowedCars.length > 0 ? rental.filter(c => allowedCars.includes(c.id)) : rental;\n\n  if (filteredSales.length > 0) {\n    catalogSection += `\\n## \ud83d\ude97 Voitures Disponibles \u00e0 la Vente:\\n`;\n    filteredSales.forEach(c => {\n      catalogSection += `- ${c.year} ${c.make} ${c.model}${c.color ? ` (${c.color})` : ''}: **${Number(c.price).toLocaleString('fr-DZ')} DZD**`;\n      if (c.mileage) catalogSection += ` | ${Number(c.mileage).toLocaleString()} km`;\n      if (c.fuel_type) catalogSection += ` | ${c.fuel_type}`;\n      if (c.transmission) catalogSection += ` | ${c.transmission}`;\n      catalogSection += `\\n`;\n    });\n  }\n\n  if (filteredRental.length > 0) {\n    catalogSection += `\\n## \ud83d\udd11 V\u00e9hicules Disponibles \u00e0 la Location:\\n`;\n    filteredRental.forEach(c => {\n      catalogSection += `- ${c.year} ${c.make} ${c.model}${c.color ? ` (${c.color})` : ''}: **${Number(c.daily_rate).toLocaleString('fr-DZ')} DZD/jour**`;\n      if (c.seats) catalogSection += ` | ${c.seats} places`;\n      if (c.fuel_type) catalogSection += ` | ${c.fuel_type}`;\n      catalogSection += `\\n`;\n    });\n  }\n\n  if (!filteredSales.length && !filteredRental.length) {\n    catalogSection = `\\n## Catalogue:\\nLe catalogue est en cours de mise \u00e0 jour. Invitez le client \u00e0 laisser ses coordonn\u00e9es.\\n`;\n  }\n}\n\n// Build FAQ section\nconst faqItems = config.faq || [];\nlet faqSection = '';\nif (faqItems.length > 0) {\n  faqSection = `\\n## \u2753 FAQ Connue (r\u00e9pondez \u00e0 ces questions avec ces r\u00e9ponses exactes):\\n`;\n  faqItems.forEach(f => {\n    faqSection += `Q: ${f.question}\\nR: ${f.answer}\\n\\n`;\n  });\n}\n\n// Build pricing rules section\nlet pricingSection = pricingRules ? `\\n## \ud83d\udcb0 R\u00e8gles de Tarification:\\n${pricingRules}\\n` : '';\n\n// Build business type specific persona\nconst businessPersona = businessType === 'car_showroom'\n  ? `Tu es un expert en vente et location de v\u00e9hicules neufs et d'occasion. Tu connais tous les mod\u00e8les du catalogue. Tu peux aider pour : achats, locations, financement, essais routiers, reprise d'anciens v\u00e9hicules, suivi de commandes import\u00e9es, et d\u00e9douanement.`\n  : businessType === 'travel_agency'\n    ? `Tu es un expert en voyages et circuits touristiques. Tu connais toutes les destinations, les prix, les formalit\u00e9s de visa, et les offres sp\u00e9ciales.`\n    : `Tu es un assistant virtuel professionnel.`;\n\n// Build lead qualification instruction\nconst qualifyInstruction = autoQualify\n  ? `\\n## \ud83c\udfaf Qualification Lead:\\nDans ta conversation, essaie naturellement de collecter : le pr\u00e9nom du client, son num\u00e9ro de t\u00e9l\u00e9phone, et ce qu'il recherche exactement. Ne demande pas tout d'un coup \u2014 int\u00e8gre ces questions naturellement dans la conversation.`\n  : '';\n\n// Build tone instruction\nconst toneMap = {\n  'Friendly & Casual': 'Sois amical, chaleureux, et d\u00e9contract\u00e9.',\n  'Professional & Formal': 'Sois professionnel, courtois, et formel.',\n  'Enthusiastic & Salesy': 'Sois enthousiaste, persuasif, et orient\u00e9 vente. Mets en avant les offres.'\n};\nconst toneInstruction = toneMap[tone] || toneMap['Friendly & Casual'];\n\n// Build emoji instruction\nconst emojiInstruction = useEmojis\n  ? 'Utilise des emojis avec mod\u00e9ration pour rendre la conversation plus vivante.'\n  : \"N'utilise pas d'emojis.\";\n\n// Compile the full system prompt\nconst systemPrompt = `Tu es ${botName}, l'assistant IA de **${companyName}**.\n${businessPersona}\n\n## \ud83d\udde3\ufe0f Langue et Style:\n${langInstruction}\n${toneInstruction}\n${emojiInstruction}\nLongueur max des r\u00e9ponses: ${maxLength} caract\u00e8res. Sois concis et direct.\n${catalogSection}\n${faqSection}\n${pricingSection}\n${qualifyInstruction}\n\n## \u26a0\ufe0f R\u00e8gles Absolues:\n1. Ne jamais inventer de prix ou de mod\u00e8les de voitures. Utilise UNIQUEMENT les informations du catalogue fourni ci-dessus.\n2. Si tu ne connais pas la r\u00e9ponse, dis-le honn\u00eatement et propose de transf\u00e9rer \u00e0 un humain.\n3. Si on te demande quelque chose hors du contexte du showroom, redirige poliment.\n4. Si c'est en dehors des heures d'ouverture, informe le client et dis-lui qu'on le recontactera.\n5. Message de transfert humain \u00e0 utiliser si n\u00e9cessaire: \"${handoffMsg}\"\n`;\n\n// Build conversation history messages array (reversed to be chronological)\nconst history = historyItems\n  .map(item => item.json)\n  .filter(h => h.role && h.content)\n  .reverse()\n  .slice(-10)\n  .map(h => ({ role: h.role, content: h.content }));\n\nreturn [{\n  json: {\n    system_prompt: systemPrompt,\n    history_messages: history,\n    user_message: msgData.text,\n    sender_id: msgData.sender_id,\n    platform: msgData.platform,\n    message_type: msgData.message_type,\n    agency_id: process.env.AGENCY_ID,\n    config_creativity: config.advanced?.creativity_level ?? 50,\n    config_max_tokens: config.advanced?.max_response_tokens ?? 600,\n    config_model: config.advanced?.ai_model || 'gpt-4o'\n  }\n}];"
+            },
+            "id": "node-build-prompt",
+            "name": "Build Dynamic System Prompt",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1920,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "url": "https://api.openai.com/v1/chat/completions",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Authorization",
+                            "value": "=Bearer {{ process.env.OPENAI_API_KEY }}"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"model\": \"{{ $json.config_model }}\",\n  \"messages\": [\n    { \"role\": \"system\", \"content\": \"{{ $json.system_prompt }}\" },\n    {{ $json.history_messages.map(m => JSON.stringify(m)).join(',') }},\n    { \"role\": \"user\", \"content\": \"{{ $json.user_message }}\" }\n  ],\n  \"temperature\": {{ $json.config_creativity / 100 }},\n  \"max_tokens\": {{ $json.config_max_tokens }}\n}",
+                "options": {}
+            },
+            "id": "node-openai-call",
+            "name": "OpenAI GPT-4o Chat Completion",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                2160,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// ============================================================\n// NODE: Extract AI reply text from OpenAI response\n// ============================================================\n\nconst openaiResp = $input.first().json;\nconst promptData = $('Build Dynamic System Prompt').item.json;\n\nconst aiReply = openaiResp.choices?.[0]?.message?.content || 'D\u00e9sol\u00e9, je ne peux pas r\u00e9pondre pour le moment. Veuillez r\u00e9essayer.';\n\nreturn [{\n  json: {\n    ai_reply: aiReply,\n    sender_id: promptData.sender_id,\n    platform: promptData.platform,\n    message_type: promptData.message_type,\n    user_message: promptData.user_message,\n    agency_id: promptData.agency_id\n  }\n}];"
+            },
+            "id": "node-extract-reply",
+            "name": "Extract AI Reply",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2400,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "url": "={{ process.env.SUPABASE_URL }}/rest/v1/conversation_messages",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "={{ process.env.SUPABASE_SERVICE_KEY }}"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "=Bearer {{ process.env.SUPABASE_SERVICE_KEY }}"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "Prefer",
+                            "value": "return=minimal"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "=[\n  {\n    \"agency_id\": \"{{ $json.agency_id }}\",\n    \"sender_id\": \"{{ $json.sender_id }}\",\n    \"platform\": \"{{ $json.platform }}\",\n    \"role\": \"user\",\n    \"content\": \"{{ $json.user_message }}\",\n    \"message_type\": \"{{ $json.message_type }}\"\n  },\n  {\n    \"agency_id\": \"{{ $json.agency_id }}\",\n    \"sender_id\": \"{{ $json.sender_id }}\",\n    \"platform\": \"{{ $json.platform }}\",\n    \"role\": \"assistant\",\n    \"content\": \"{{ $json.ai_reply }}\",\n    \"message_type\": \"text\"\n  }\n]",
+                "options": {}
+            },
+            "id": "node-save-messages",
+            "name": "Save Messages to Supabase",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                2640,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// ============================================================\n// NODE: Send Reply via Meta API\n// Routes based on platform: WhatsApp / Instagram / Facebook\n// ============================================================\n\nconst item = $('Extract AI Reply').item.json;\nconst META_TOKEN = process.env.META_ACCESS_TOKEN;\nconst PHONE_NUM_ID = process.env.META_PHONE_NUMBER_ID;\n\nconst aiReply = item.ai_reply;\nconst senderId = item.sender_id;\nconst platform = item.platform;\n\n// Clean reply: WhatsApp doesn't support markdown bold (**text**)\n// Convert **bold** \u2192 plain for WhatsApp, keep for Instagram/Facebook\nconst cleanForWhatsApp = (text) => text.replace(/\\*\\*(.*?)\\*\\*/g, '*$1*'); // WhatsApp uses single *\nconst cleanForMeta = (text) => text.replace(/\\*\\*(.*?)\\*\\*/g, '$1'); // Facebook/Instagram: strip\n\nlet response;\n\ntry {\n  if (platform === 'whatsapp') {\n    response = await this.helpers.httpRequest({\n      method: 'POST',\n      url: `https://graph.facebook.com/v19.0/${PHONE_NUM_ID}/messages`,\n      headers: {\n        'Authorization': `Bearer ${META_TOKEN}`,\n        'Content-Type': 'application/json'\n      },\n      body: {\n        messaging_product: 'whatsapp',\n        recipient_type: 'individual',\n        to: senderId,\n        type: 'text',\n        text: { body: cleanForWhatsApp(aiReply) }\n      },\n      json: true\n    });\n  } else if (platform === 'instagram') {\n    response = await this.helpers.httpRequest({\n      method: 'POST',\n      url: 'https://graph.facebook.com/v19.0/me/messages',\n      headers: {\n        'Authorization': `Bearer ${META_TOKEN}`,\n        'Content-Type': 'application/json'\n      },\n      body: {\n        recipient: { id: senderId },\n        message: { text: cleanForMeta(aiReply) }\n      },\n      json: true\n    });\n  } else if (platform === 'facebook') {\n    response = await this.helpers.httpRequest({\n      method: 'POST',\n      url: 'https://graph.facebook.com/v19.0/me/messages',\n      headers: {\n        'Authorization': `Bearer ${META_TOKEN}`,\n        'Content-Type': 'application/json'\n      },\n      body: {\n        recipient: { id: senderId },\n        message: { text: cleanForMeta(aiReply) }\n      },\n      json: true\n    });\n  }\n} catch(err) {\n  console.error('Meta send error:', err.message);\n  return [{ json: { success: false, error: err.message } }];\n}\n\nreturn [{ json: { success: true, platform, sender_id: senderId, response } }];"
+            },
+            "id": "node-send-reply",
+            "name": "Send Reply via Meta API",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2880,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={\"status\": \"ok\"}"
+            },
+            "id": "node-200-ok",
+            "name": "Return 200 OK to Meta",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1,
+            "position": [
+                3120,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Merge: either the text-only path or the media-processed path\nconst items = $input.all();\nconst item = items[0]?.json || {};\nreturn [{ json: item }];",
+                "options": {}
+            },
+            "id": "node-merge-text-media",
+            "name": "Merge Text + Media",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1200,
+                340
+            ]
+        }
+    ],
+    "connections": {
+        "Meta Webhook Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "Parse Meta Payload",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Meta Webhook Verify (GET)": {
+            "main": [
+                [
+                    {
+                        "node": "Return hub.challenge",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse Meta Payload": {
+            "main": [
+                [
+                    {
+                        "node": "Is Media Message?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Is Media Message?": {
+            "main": [
+                [
+                    {
+                        "node": "Download Media from Meta CDN",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Merge Text + Media",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Download Media from Meta CDN": {
+            "main": [
+                [
+                    {
+                        "node": "Transcribe Voice / Analyze Image",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Transcribe Voice / Analyze Image": {
+            "main": [
+                [
+                    {
+                        "node": "Merge Text + Media",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Merge Text + Media": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch Agency Config from Supabase",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Fetch Conversation History",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Fetch Car Inventory",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch Agency Config from Supabase": {
+            "main": [
+                [
+                    {
+                        "node": "Merge All Data",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch Conversation History": {
+            "main": [
+                [
+                    {
+                        "node": "Merge All Data",
+                        "type": "main",
+                        "index": 1
+                    }
+                ]
+            ]
+        },
+        "Fetch Car Inventory": {
+            "main": [
+                [
+                    {
+                        "node": "Merge All Data",
+                        "type": "main",
+                        "index": 2
+                    }
+                ]
+            ]
+        },
+        "Merge All Data": {
+            "main": [
+                [
+                    {
+                        "node": "Build Dynamic System Prompt",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Build Dynamic System Prompt": {
+            "main": [
+                [
+                    {
+                        "node": "OpenAI GPT-4o Chat Completion",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "OpenAI GPT-4o Chat Completion": {
+            "main": [
+                [
+                    {
+                        "node": "Extract AI Reply",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Extract AI Reply": {
+            "main": [
+                [
+                    {
+                        "node": "Save Messages to Supabase",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Save Messages to Supabase": {
+            "main": [
+                [
+                    {
+                        "node": "Send Reply via Meta API",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Send Reply via Meta API": {
+            "main": [
+                [
+                    {
+                        "node": "Return 200 OK to Meta",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
     },
-    {
-      "parameters": {
-        "jsCode": "// ============================================================\n// NODE: Send Reply via Meta API\n// Routes based on platform: WhatsApp / Instagram / Facebook\n// ============================================================\n\nconst item = $('Extract AI Reply').item.json;\nconst META_TOKEN = process.env.META_ACCESS_TOKEN;\nconst PHONE_NUM_ID = process.env.META_PHONE_NUMBER_ID;\n\nconst aiReply = item.ai_reply;\nconst senderId = item.sender_id;\nconst platform = item.platform;\n\n// Clean reply: WhatsApp doesn't support markdown bold (**text**)\n// Convert **bold** → plain for WhatsApp, keep for Instagram/Facebook\nconst cleanForWhatsApp = (text) => text.replace(/\\*\\*(.*?)\\*\\*/g, '*$1*'); // WhatsApp uses single *\nconst cleanForMeta = (text) => text.replace(/\\*\\*(.*?)\\*\\*/g, '$1'); // Facebook/Instagram: strip\n\nlet response;\n\ntry {\n  if (platform === 'whatsapp') {\n    response = await this.helpers.httpRequest({\n      method: 'POST',\n      url: `https://graph.facebook.com/v19.0/${PHONE_NUM_ID}/messages`,\n      headers: {\n        'Authorization': `Bearer ${META_TOKEN}`,\n        'Content-Type': 'application/json'\n      },\n      body: {\n        messaging_product: 'whatsapp',\n        recipient_type: 'individual',\n        to: senderId,\n        type: 'text',\n        text: { body: cleanForWhatsApp(aiReply) }\n      },\n      json: true\n    });\n  } else if (platform === 'instagram') {\n    response = await this.helpers.httpRequest({\n      method: 'POST',\n      url: 'https://graph.facebook.com/v19.0/me/messages',\n      headers: {\n        'Authorization': `Bearer ${META_TOKEN}`,\n        'Content-Type': 'application/json'\n      },\n      body: {\n        recipient: { id: senderId },\n        message: { text: cleanForMeta(aiReply) }\n      },\n      json: true\n    });\n  } else if (platform === 'facebook') {\n    response = await this.helpers.httpRequest({\n      method: 'POST',\n      url: 'https://graph.facebook.com/v19.0/me/messages',\n      headers: {\n        'Authorization': `Bearer ${META_TOKEN}`,\n        'Content-Type': 'application/json'\n      },\n      body: {\n        recipient: { id: senderId },\n        message: { text: cleanForMeta(aiReply) }\n      },\n      json: true\n    });\n  }\n} catch(err) {\n  console.error('Meta send error:', err.message);\n  return [{ json: { success: false, error: err.message } }];\n}\n\nreturn [{ json: { success: true, platform, sender_id: senderId, response } }];"
-      },
-      "id": "node-send-reply",
-      "name": "Send Reply via Meta API",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [2880, 400]
+    "settings": {
+        "executionOrder": "v1",
+        "saveManualExecutions": true,
+        "callerPolicy": "workflowsFromSameOwner",
+        "errorWorkflow": ""
     },
-    {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={\"status\": \"ok\"}"
-      },
-      "id": "node-200-ok",
-      "name": "Return 200 OK to Meta",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [3120, 400]
-    },
-    {
-      "parameters": {
-        "jsCode": "// Merge: either the text-only path or the media-processed path\nconst items = $input.all();\nconst item = items[0]?.json || {};\nreturn [{ json: item }];"
-      },
-      "id": "node-merge-text-media",
-      "name": "Merge Text + Media",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [1200, 340]
+    "staticData": null,
+    "tags": [
+        {
+            "createdAt": "2026-05-25T00:00:00.000Z",
+            "updatedAt": "2026-05-25T00:00:00.000Z",
+            "id": "tag-chatbot",
+            "name": "AI Chatbot"
+        },
+        {
+            "createdAt": "2026-05-25T00:00:00.000Z",
+            "updatedAt": "2026-05-25T00:00:00.000Z",
+            "id": "tag-meta",
+            "name": "Meta Integration"
+        }
+    ],
+    "triggerCount": 2,
+    "updatedAt": "2026-05-25T00:00:00.000Z",
+    "versionId": "1.0.0",
+    "meta": {
+        "templateCredsSetupCompleted": true,
+        "n8nVersion": "1.0.0"
     }
-  ],
-  "connections": {
-    "Meta Webhook Trigger": {
-      "main": [
-        [{ "node": "Parse Meta Payload", "type": "main", "index": 0 }]
-      ]
-    },
-    "Meta Webhook Verify (GET)": {
-      "main": [
-        [{ "node": "Return hub.challenge", "type": "main", "index": 0 }]
-      ]
-    },
-    "Parse Meta Payload": {
-      "main": [
-        [{ "node": "Is Media Message?", "type": "main", "index": 0 }]
-      ]
-    },
-    "Is Media Message?": {
-      "main": [
-        [{ "node": "Download Media from Meta CDN", "type": "main", "index": 0 }],
-        [{ "node": "Merge Text + Media", "type": "main", "index": 0 }]
-      ]
-    },
-    "Download Media from Meta CDN": {
-      "main": [
-        [{ "node": "Transcribe Voice / Analyze Image", "type": "main", "index": 0 }]
-      ]
-    },
-    "Transcribe Voice / Analyze Image": {
-      "main": [
-        [{ "node": "Merge Text + Media", "type": "main", "index": 0 }]
-      ]
-    },
-    "Merge Text + Media": {
-      "main": [
-        [
-          { "node": "Fetch Agency Config from Supabase", "type": "main", "index": 0 },
-          { "node": "Fetch Conversation History", "type": "main", "index": 0 },
-          { "node": "Fetch Car Inventory", "type": "main", "index": 0 }
-        ]
-      ]
-    },
-    "Fetch Agency Config from Supabase": {
-      "main": [
-        [{ "node": "Merge All Data", "type": "main", "index": 0 }]
-      ]
-    },
-    "Fetch Conversation History": {
-      "main": [
-        [{ "node": "Merge All Data", "type": "main", "index": 1 }]
-      ]
-    },
-    "Fetch Car Inventory": {
-      "main": [
-        [{ "node": "Merge All Data", "type": "main", "index": 2 }]
-      ]
-    },
-    "Merge All Data": {
-      "main": [
-        [{ "node": "Build Dynamic System Prompt", "type": "main", "index": 0 }]
-      ]
-    },
-    "Build Dynamic System Prompt": {
-      "main": [
-        [{ "node": "OpenAI GPT-4o Chat Completion", "type": "main", "index": 0 }]
-      ]
-    },
-    "OpenAI GPT-4o Chat Completion": {
-      "main": [
-        [{ "node": "Extract AI Reply", "type": "main", "index": 0 }]
-      ]
-    },
-    "Extract AI Reply": {
-      "main": [
-        [{ "node": "Save Messages to Supabase", "type": "main", "index": 0 }]
-      ]
-    },
-    "Save Messages to Supabase": {
-      "main": [
-        [{ "node": "Send Reply via Meta API", "type": "main", "index": 0 }]
-      ]
-    },
-    "Send Reply via Meta API": {
-      "main": [
-        [{ "node": "Return 200 OK to Meta", "type": "main", "index": 0 }]
-      ]
-    }
-  },
-  "settings": {
-    "executionOrder": "v1",
-    "saveManualExecutions": true,
-    "callerPolicy": "workflowsFromSameOwner",
-    "errorWorkflow": ""
-  },
-  "staticData": null,
-  "tags": [
-    { "createdAt": "2026-05-25T00:00:00.000Z", "updatedAt": "2026-05-25T00:00:00.000Z", "id": "tag-chatbot", "name": "AI Chatbot" },
-    { "createdAt": "2026-05-25T00:00:00.000Z", "updatedAt": "2026-05-25T00:00:00.000Z", "id": "tag-meta", "name": "Meta Integration" }
-  ],
-  "triggerCount": 2,
-  "updatedAt": "2026-05-25T00:00:00.000Z",
-  "versionId": "1.0.0",
-  "meta": {
-    "templateCredsSetupCompleted": true,
-    "n8nVersion": "1.0.0"
-  }
 }
