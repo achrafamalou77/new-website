@@ -47,7 +47,7 @@ export async function getAnalyticsData() {
   // 4. MRR Growth (Area Chart) 
   // We'll mock historical MRR based on agency creation dates assuming plan price is static.
   // In a real app we'd track invoice payments.
-  const { data: plans } = await (adminClient.from('plans') as any).select('id, price')
+  const { data: plans } = await (adminClient.from('plans')).select('id, price')
   const priceMap = new Map(plans?.map((p: any) => [p.id, p.price]) || [])
   
   let cumulativeMrr = 0

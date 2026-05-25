@@ -1,0 +1,195 @@
+/* ===== Why Choose Us — Bento Grid — Amine Auto ===== */
+
+.section {
+  padding: 80px 0;
+  background: var(--color-bg-alt);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Subtle grid pattern overlay */
+.section::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: 
+    linear-gradient(rgba(212, 175, 55, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(212, 175, 55, 0.02) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 56px;
+  position: relative;
+  z-index: 1;
+}
+
+.badge {
+  display: inline-block;
+  padding: 6px 16px;
+  background: rgba(212, 175, 55, 0.08);
+  color: var(--color-primary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(212, 175, 55, 0.15);
+  margin-bottom: 16px;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 4vw, 2.5rem);
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: 16px;
+}
+
+.titleAccent {
+  color: var(--color-primary);
+}
+
+.subtitle {
+  color: var(--color-text-muted);
+  font-size: 1.05rem;
+  max-width: 600px;
+  margin: 0 auto;
+  line-height: 1.7;
+}
+
+/* ---- Bento Grid ---- */
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: auto;
+  gap: 20px;
+  position: relative;
+  z-index: 1;
+}
+
+/* ---- Card ---- */
+.card {
+  position: relative;
+  padding: 36px 32px;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.card:hover {
+  transform: translateY(-6px);
+  border-color: var(--color-border-hover);
+  box-shadow: var(--shadow-card-hover);
+}
+
+/* First card spans 2 cols — Bento style */
+.card:first-child {
+  grid-column: span 2;
+}
+
+/* Glow border overlay */
+.glowBorder {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-lg);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+}
+
+.card:hover .glowBorder {
+  opacity: 1;
+}
+
+/* ---- Accent Colors ---- */
+.orange .glowBorder {
+  box-shadow: inset 0 0 0 1px rgba(212, 175, 55, 0.2);
+}
+
+.green .glowBorder {
+  box-shadow: inset 0 0 0 1px rgba(0, 255, 136, 0.2);
+}
+
+.gold .glowBorder {
+  box-shadow: inset 0 0 0 1px rgba(255, 193, 7, 0.2);
+}
+
+/* Step number */
+.step {
+  font-family: var(--font-display);
+  font-size: 3.5rem;
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 20px;
+  display: block;
+}
+
+.orange .step { color: rgba(212, 175, 55, 0.15); }
+.green .step { color: rgba(0, 255, 136, 0.15); }
+.gold .step { color: rgba(255, 193, 7, 0.15); }
+
+/* Icon */
+.iconWrap {
+  margin-bottom: 20px;
+}
+
+.iconInner {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.orange .iconInner {
+  background: rgba(212, 175, 55, 0.08);
+  color: var(--color-primary);
+  border: 1px solid rgba(212, 175, 55, 0.15);
+}
+
+.green .iconInner {
+  background: rgba(0, 255, 136, 0.08);
+  color: var(--color-disponible);
+  border: 1px solid rgba(0, 255, 136, 0.15);
+}
+
+.gold .iconInner {
+  background: rgba(255, 193, 7, 0.08);
+  color: #ffc107;
+  border: 1px solid rgba(255, 193, 7, 0.15);
+}
+
+/* Content */
+.cardTitle {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 12px;
+}
+
+.cardDesc {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  line-height: 1.7;
+}
+
+@media (max-width: 768px) {
+  .section {
+    padding: 60px 0;
+  }
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  .card:first-child {
+    grid-column: span 1;
+  }
+}

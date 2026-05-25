@@ -384,10 +384,13 @@ export default function LeadsBoardPage() {
   ]
 
   return (
-    <div className="p-6 space-y-6 font-geist text-left bg-[#f4f5f7] h-[calc(100vh-64px)] overflow-hidden flex flex-col relative select-none">
-      
+    <div className="p-6 space-y-6 font-geist text-left bg-slate-50/50 h-[calc(100vh-64px)] overflow-hidden flex flex-col relative select-none">
+      {/* Ambient background glows */}
+      <div className="absolute top-[-10%] left-[-5%] w-[40%] h-[40%] rounded-full bg-indigo-200/20 blur-[100px] pointer-events-none animate-glow-1" />
+      <div className="absolute bottom-[-10%] right-[-5%] w-[45%] h-[45%] rounded-full bg-purple-200/20 blur-[100px] pointer-events-none animate-glow-2" />
+
       {/* Top Welcome Title Banner */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs shrink-0">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/70 backdrop-blur-md border border-slate-200/80 rounded-2xl p-5 shadow-xs shrink-0 relative z-10">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-slate-800 flex items-center gap-2">
             🔥 Car Showroom Leads Board
@@ -397,7 +400,7 @@ export default function LeadsBoardPage() {
         
         <div className="flex items-center gap-3">
           {/* Quick Metrics display */}
-          <div className="hidden md:flex gap-4 p-2.5 bg-slate-50 border rounded-xl items-center text-xs">
+          <div className="hidden md:flex gap-4 p-2.5 bg-slate-50/80 border rounded-xl items-center text-xs">
             <div className="flex items-center gap-1.5 px-2">
               <TrendingUp className="h-4 w-4 text-emerald-500" />
               <div className="text-left leading-none">
@@ -419,7 +422,7 @@ export default function LeadsBoardPage() {
 
           <Button 
             onClick={() => setIsAddOpen(true)}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold gap-2 shadow-xs active:scale-95 transition"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold gap-2 shadow-xs active:scale-95 transition cursor-pointer"
           >
             <Plus className="h-4 w-4" /> Add Lead
           </Button>
@@ -427,17 +430,23 @@ export default function LeadsBoardPage() {
       </div>
 
       {/* Kanban Grid */}
-      <div className="flex-1 overflow-x-auto overflow-y-hidden flex gap-5 pb-2 scrollbar-thin">
+      <div className="flex-1 overflow-x-auto overflow-y-hidden flex gap-5 pb-2 scrollbar-thin relative z-10">
         {columns.map(col => {
           const colLeads = leads.filter(l => l.stage === col.id)
+          const columnBorderColor = 
+            col.id === 'won' ? '#10b981' : 
+            col.id === 'lost' ? '#ef4444' : 
+            col.id === 'test_drive' ? '#8b5cf6' : 
+            col.id === 'negotiation' ? '#f59e0b' : 
+            col.id === 'contacted' ? '#6366f1' : '#94a3b8'
 
           return (
             <div 
               key={col.id}
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, col.id)}
-              className="w-[280px] shrink-0 bg-white border border-slate-200/80 rounded-2xl flex flex-col h-full shadow-xs max-h-full border-t-[4px] relative"
-              style={{ borderColor: col.id === 'won' ? '#10b981' : col.id === 'lost' ? '#ef4444' : '' }}
+              className="w-[280px] shrink-0 bg-white/60 backdrop-blur-md border border-slate-200/80 rounded-2xl flex flex-col h-full shadow-xs max-h-full border-t-[4px] relative transition-all hover:bg-white/80"
+              style={{ borderColor: columnBorderColor }}
             >
               {/* Column Header */}
               <div className="flex items-center justify-between border-b border-slate-100 p-4 shrink-0">
@@ -465,7 +474,7 @@ export default function LeadsBoardPage() {
                       onDragStart={(e) => handleDragStart(e, lead.id)}
                       onClick={() => setSelectedLead(lead)}
                       className={cn(
-                        "bg-slate-50/50 hover:bg-slate-50 border border-slate-200/60 hover:border-slate-350 rounded-xl p-3.5 shadow-xs hover:shadow-sm transition-all duration-200 cursor-pointer text-left relative group",
+                        "bg-white/95 hover:bg-white border border-slate-200/50 hover:border-indigo-200 rounded-xl p-3.5 shadow-xs hover:shadow-md transition-all duration-350 cursor-pointer text-left relative group hover:-translate-y-0.5",
                         draggedLeadId === lead.id && "opacity-40 scale-95"
                       )}
                     >
@@ -486,8 +495,8 @@ export default function LeadsBoardPage() {
                       </div>
 
                       {/* Interest & Budget banner */}
-                      <div className="mt-4 p-2 bg-white rounded-lg border border-slate-150 space-y-1">
-                        <div className="flex items-center gap-1 text-[9px] font-bold text-slate-550 text-slate-500">
+                      <div className="mt-4 p-2 bg-slate-50 border rounded-lg border-slate-150 space-y-1">
+                        <div className="flex items-center gap-1 text-[9px] font-bold text-slate-500">
                           <Car className="h-3 w-3 shrink-0 text-slate-400" />
                           <span className="truncate">{lead.carInterest}</span>
                         </div>
@@ -503,7 +512,7 @@ export default function LeadsBoardPage() {
                           <Clock className="h-3 w-3" /> {lead.lastContacted}
                         </span>
                         {lead.messages.length > 0 && (
-                          <span className="flex items-center gap-0.5 text-indigo-650 bg-indigo-50 text-indigo-600 px-1.5 py-0.2 rounded font-bold">
+                          <span className="flex items-center gap-0.5 text-indigo-600 bg-indigo-50 px-1.5 py-0.2 rounded font-bold">
                             <MessageSquare className="h-2.5 w-2.5" /> {lead.messages.length}
                           </span>
                         )}
@@ -526,9 +535,9 @@ export default function LeadsBoardPage() {
 
       {/* DETAILED SIDE PANEL DRAWER */}
       {selectedLead && (
-        <div className="fixed inset-y-0 right-0 w-full sm:w-[480px] bg-white border-l border-slate-200/80 shadow-2xl z-30 flex flex-col h-full animate-slideIn">
+        <div className="fixed inset-y-0 right-0 w-full sm:w-[480px] bg-white/95 backdrop-blur-md border-l border-white/20 shadow-2xl z-30 flex flex-col h-full animate-slideInRight">
           {/* Header */}
-          <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-900 text-white shrink-0">
+          <div className="p-6 border-b border-slate-100/50 flex items-center justify-between bg-slate-900/95 backdrop-blur-md text-white shrink-0">
             <div className="space-y-1">
               <div className="flex items-center gap-2.5">
                 <h3 className="text-sm font-bold tracking-tight">{selectedLead.name}</h3>
@@ -553,19 +562,19 @@ export default function LeadsBoardPage() {
               <div className="grid grid-cols-3 gap-2">
                 <Button 
                   onClick={() => sendWhatsApp(selectedLead)}
-                  className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-100 rounded-xl text-[10px] font-bold py-2 gap-1.5 shadow-none shrink-0"
+                  className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-100 rounded-xl text-[10px] font-bold py-2 gap-1.5 shadow-none shrink-0 cursor-pointer"
                 >
                   <WhatsAppIcon className="h-3.5 w-3.5" /> WhatsApp
                 </Button>
                 <Button 
                   onClick={() => setIsTestDriveOpen(true)}
-                  className="bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-100 rounded-xl text-[10px] font-bold py-2 gap-1.5 shadow-none shrink-0"
+                  className="bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-100 rounded-xl text-[10px] font-bold py-2 gap-1.5 shadow-none shrink-0 cursor-pointer"
                 >
                   <Calendar className="h-3.5 w-3.5" /> Test Drive
                 </Button>
                 <Button 
                   onClick={() => markAsLost(selectedLead.id)}
-                  className="bg-red-50 hover:bg-red-100 text-red-700 border border-red-100 rounded-xl text-[10px] font-bold py-2 gap-1.5 shadow-none shrink-0"
+                  className="bg-red-50 hover:bg-red-100 text-red-700 border border-red-100 rounded-xl text-[10px] font-bold py-2 gap-1.5 shadow-none shrink-0 cursor-pointer"
                   disabled={selectedLead.stage === 'lost'}
                 >
                   <Trash2 className="h-3.5 w-3.5" /> Mark Lost
@@ -574,7 +583,7 @@ export default function LeadsBoardPage() {
             </div>
 
             {/* General Lead Details */}
-            <div className="bg-slate-50 border rounded-2xl p-4 space-y-3.5">
+            <div className="bg-slate-50/80 border rounded-2xl p-4 space-y-3.5">
               <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Lead Opportunity Specs</span>
               
               <div className="grid grid-cols-2 gap-y-3 text-xs">
@@ -594,7 +603,7 @@ export default function LeadsBoardPage() {
                 </div>
                 <div className="flex flex-col text-left">
                   <span className="text-[9px] font-semibold text-slate-400">Status Stage</span>
-                  <span className="font-bold text-indigo-650 bg-indigo-50 border border-indigo-100 text-indigo-600 px-2 py-0.2 rounded-full mt-0.5 uppercase tracking-wide inline-block max-w-max text-[9px]">
+                  <span className="font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.2 rounded-full mt-0.5 uppercase tracking-wide inline-block max-w-max text-[9px]">
                     {selectedLead.stage.replace('_', ' ')}
                   </span>
                 </div>
@@ -603,7 +612,7 @@ export default function LeadsBoardPage() {
               {selectedLead.notes && (
                 <div className="pt-3.5 border-t border-slate-200/60 text-xs">
                   <span className="text-[9px] font-semibold text-slate-400 block mb-1">Deal Notes</span>
-                  <p className="text-[11px] text-slate-550 text-slate-500 font-medium leading-relaxed bg-white border p-2.5 rounded-xl">{selectedLead.notes}</p>
+                  <p className="text-[11px] text-slate-500 font-medium leading-relaxed bg-white border p-2.5 rounded-xl">{selectedLead.notes}</p>
                 </div>
               )}
             </div>
@@ -612,34 +621,34 @@ export default function LeadsBoardPage() {
             <div className="space-y-2 flex flex-col h-[280px]">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Customer Chat Stream</span>
               
-              <div className="flex-1 bg-slate-50 border rounded-2xl p-4 overflow-y-auto space-y-3.5 scrollbar-thin">
+              <div className="flex-1 bg-slate-50/50 border rounded-2xl p-4 overflow-y-auto space-y-3.5 scrollbar-thin">
                 {selectedLead.messages.map(msg => {
                   const isUser = msg.sender === 'user'
                   const isAi = msg.sender === 'ai'
 
                   return (
-                    <div 
-                      key={msg.id}
-                      className={cn(
-                        "flex flex-col text-xs leading-relaxed max-w-[80%]",
-                        isUser ? "ml-auto text-right items-end" : "mr-auto text-left items-start"
-                      )}
-                    >
-                      <span className="text-[8px] font-bold text-slate-400 mb-0.5">
-                        {isUser ? 'Achraf (You)' : isAi ? 'AI Salesperson' : selectedLead.name}
-                      </span>
-                      <div className={cn(
-                        "p-2.5 rounded-xl border font-medium text-[11px]",
-                        isUser 
-                          ? "bg-slate-900 border-slate-950 text-white rounded-br-none" 
-                          : isAi 
-                          ? "bg-indigo-50 border-indigo-100 text-indigo-755 text-indigo-600 rounded-bl-none" 
-                          : "bg-white border-slate-200/80 text-slate-700 rounded-bl-none"
-                      )}>
-                        {msg.text}
-                      </div>
-                      <span className="text-[8px] text-slate-400 mt-0.5">{msg.timestamp}</span>
-                    </div>
+                     <div 
+                       key={msg.id}
+                       className={cn(
+                         "flex flex-col text-xs leading-relaxed max-w-[85%] animate-fadeIn",
+                         isUser ? "ml-auto text-right items-end" : "mr-auto text-left items-start"
+                       )}
+                     >
+                       <span className="text-[8px] font-bold text-slate-400 mb-0.5">
+                         {isUser ? 'Achraf (You)' : isAi ? 'AI Salesperson' : selectedLead.name}
+                       </span>
+                       <div className={cn(
+                         "p-2.5 rounded-xl border font-medium text-[11px] shadow-xs",
+                         isUser 
+                           ? "bg-slate-900 border-slate-950 text-white rounded-br-none" 
+                           : isAi 
+                           ? "bg-indigo-50/90 border-indigo-100 text-indigo-600 rounded-bl-none" 
+                           : "bg-white border-slate-200/80 text-slate-700 rounded-bl-none"
+                       )}>
+                         {msg.text}
+                       </div>
+                       <span className="text-[8px] text-slate-400 mt-0.5">{msg.timestamp}</span>
+                     </div>
                   )
                 })}
 
@@ -654,12 +663,12 @@ export default function LeadsBoardPage() {
                   value={newMessageText} 
                   onChange={e => setNewMessageText(e.target.value)}
                   placeholder="Type a WhatsApp response..." 
-                  className="rounded-xl border-slate-200 text-xs"
+                  className="rounded-xl border-slate-200 text-xs bg-white/70"
                   onKeyDown={e => { if (e.key === 'Enter') handleSendMessage() }}
                 />
                 <Button 
                   onClick={handleSendMessage}
-                  className="bg-slate-900 hover:bg-slate-800 text-white rounded-xl shadow-none"
+                  className="bg-slate-900 hover:bg-slate-800 text-white rounded-xl shadow-none cursor-pointer"
                 >
                   <Send className="h-4 w-4" />
                 </Button>
@@ -669,7 +678,7 @@ export default function LeadsBoardPage() {
             {/* Detailed Activity Logs */}
             <div className="space-y-2">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Deal Activity Log</span>
-              <div className="bg-slate-50 border rounded-2xl p-4 space-y-4">
+              <div className="bg-slate-50/80 border rounded-2xl p-4 space-y-4">
                 {selectedLead.activityLog.map(act => (
                   <div key={act.id} className="flex gap-3 text-xs text-left items-start relative pb-1">
                     <div className="h-6 w-6 rounded-full bg-white border shadow-xs flex items-center justify-center shrink-0 mt-0.5">
@@ -690,8 +699,8 @@ export default function LeadsBoardPage() {
 
       {/* QUICK ADD LEAD MODAL */}
       {isAddOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-40 p-4 animate-fadeIn">
-          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-scaleIn text-left">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-40 p-4 animate-fadeIn">
+          <div className="bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl border border-white/20 w-full max-w-lg overflow-hidden animate-scaleIn text-left">
             <div className="bg-slate-900 px-6 py-5 text-white flex items-center justify-between">
               <div className="space-y-0.5">
                 <h3 className="text-sm font-bold tracking-tight flex items-center gap-1.5"><Plus className="h-4.5 w-4.5 text-indigo-400" /> Create Showroom Lead</h3>
@@ -709,22 +718,22 @@ export default function LeadsBoardPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-bold text-slate-700">Client Full Name</Label>
-                  <Input value={newName} onChange={e => setNewName(e.target.value)} required placeholder="Ali Belkacem" className="rounded-xl border-slate-200" />
+                  <Input value={newName} onChange={e => setNewName(e.target.value)} required placeholder="Ali Belkacem" className="rounded-xl border-slate-200 text-xs" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs font-bold text-slate-700">Phone Number (+213)</Label>
-                  <Input value={newPhone} onChange={e => setNewPhone(e.target.value)} required placeholder="+213 555 12 34 56" className="rounded-xl border-slate-200" />
+                  <Input value={newPhone} onChange={e => setNewPhone(e.target.value)} required placeholder="+213 555 12 34 56" className="rounded-xl border-slate-200 text-xs" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-bold text-slate-700">Vehicle of Interest</Label>
-                  <Input value={newCar} onChange={e => setNewCar(e.target.value)} placeholder="Kia Sportage 2023" className="rounded-xl border-slate-200" />
+                  <Input value={newCar} onChange={e => setNewCar(e.target.value)} placeholder="Kia Sportage 2023" className="rounded-xl border-slate-200 text-xs" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs font-bold text-slate-700">Client Budget (DZD)</Label>
-                  <Input value={newBudget} onChange={e => setNewBudget(e.target.value)} type="number" placeholder="5,200,000" className="rounded-xl border-slate-200" />
+                  <Input value={newBudget} onChange={e => setNewBudget(e.target.value)} type="number" placeholder="5200000" className="rounded-xl border-slate-200 text-xs" />
                 </div>
               </div>
 
@@ -734,7 +743,7 @@ export default function LeadsBoardPage() {
                   <select 
                     value={newSource} 
                     onChange={e => setNewSource(e.target.value as any)}
-                    className="w-full rounded-xl border border-slate-200 p-2.5 text-slate-700 text-xs font-medium focus:ring-2 focus:ring-indigo-500/20"
+                    className="w-full rounded-xl border border-slate-200 p-2.5 text-slate-750 text-slate-600 text-xs font-medium focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
                   >
                     <option value="whatsapp">WhatsApp dm</option>
                     <option value="instagram">Instagram DM</option>
@@ -749,7 +758,7 @@ export default function LeadsBoardPage() {
                   <select 
                     value={newScore} 
                     onChange={e => setNewScore(e.target.value as any)}
-                    className="w-full rounded-xl border border-slate-200 p-2.5 text-slate-700 text-xs font-medium focus:ring-2 focus:ring-indigo-500/20"
+                    className="w-full rounded-xl border border-slate-200 p-2.5 text-slate-750 text-slate-600 text-xs font-medium focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
                   >
                     <option value="HOT">🔥 HOT Opportunity</option>
                     <option value="WARM">☀️ WARM discussion</option>
@@ -760,12 +769,12 @@ export default function LeadsBoardPage() {
 
               <div className="space-y-1.5">
                 <Label className="text-xs font-bold text-slate-700">Private Deal Notes</Label>
-                <Textarea value={newNotes} onChange={(e: any) => setNewNotes(e.target.value)} placeholder="Enter details about client specifications or preferences..." className="rounded-xl border-slate-200 min-h-[80px]" />
+                <Textarea value={newNotes} onChange={(e: any) => setNewNotes(e.target.value)} placeholder="Enter details about client specifications or preferences..." className="rounded-xl border-slate-200 min-h-[80px] text-xs" />
               </div>
 
               <Button 
                 type="submit"
-                className="w-full bg-slate-900 hover:bg-slate-800 text-white rounded-xl py-3 font-bold text-xs"
+                className="w-full bg-slate-900 hover:bg-slate-800 text-white rounded-xl py-3 font-bold text-xs cursor-pointer shadow-sm active:scale-98 transition-all"
               >
                 Save Prospect to Pipeline
               </Button>
@@ -776,8 +785,8 @@ export default function LeadsBoardPage() {
 
       {/* SCHEDULE TEST DRIVE MODAL */}
       {isTestDriveOpen && selectedLead && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-scaleIn text-left">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl border border-white/20 w-full max-w-md overflow-hidden animate-scaleIn text-left">
             <div className="bg-slate-900 px-6 py-5 text-white flex items-center justify-between">
               <div className="space-y-0.5">
                 <h3 className="text-sm font-bold tracking-tight flex items-center gap-1.5"><Calendar className="h-4.5 w-4.5 text-purple-400" /> Plan Test Drive Appointment</h3>

@@ -12,12 +12,18 @@ export default async function ClientsPage() {
       
       const { data } = await supabase
         .from('clients')
-        .select('*')
+        .select(`
+          *,
+          car_sales_orders(*),
+          car_rental_bookings(*),
+          import_orders(*),
+          invoices(*)
+        `)
         .order('created_at', { ascending: false })
       
       clients = data || []
     } catch (e) {
-      console.error('Failed to fetch clients from Supabase:', e)
+      console.error('Failed to fetch clients and relationships from Supabase:', e)
     }
   }
 

@@ -13,6 +13,7 @@ import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon'
 import { MessengerIcon } from '@/components/icons/MessengerIcon'
 import { InstagramIcon } from '@/components/icons/InstagramIcon'
 import { mockProfiles } from '@/lib/mock-data'
+import { cn } from '@/lib/utils'
 
 interface ConversationListProps {
   conversations: ExtendedConversation[]
@@ -160,25 +161,46 @@ export function ConversationList({
     setShowAdvancedFilters(false)
   }
 
+  const isDarkTheme = activePlatform === 'instagram'
+
   return (
-    <div className="flex h-full w-full flex-col bg-white text-left select-none relative">
+    <div className={cn(
+      "flex h-full w-full flex-col bg-transparent text-left select-none relative transition-colors duration-500",
+      isDarkTheme ? "text-white" : "text-slate-800"
+    )}>
       
       {/* Inbox Header Panel */}
-      <div className="p-4 border-b border-slate-200/85 space-y-3.5 shrink-0">
+      <div className={cn(
+        "p-4 border-b space-y-3.5 shrink-0 transition-colors duration-500",
+        isDarkTheme ? "border-white/5" : "border-slate-200/40"
+      )}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h2 className="text-base font-extrabold text-slate-800 tracking-tight">Inbox</h2>
-            <span className="text-[10px] font-black px-2 py-0.5 bg-blue-50 border border-blue-100 text-blue-600 rounded-full">
+            <h2 className={cn(
+              "text-base font-extrabold tracking-tight",
+              isDarkTheme ? "text-slate-100 font-heading" : "text-slate-800 font-heading"
+            )}>Inbox</h2>
+            <span className={cn(
+              "text-[10px] font-black px-2 py-0.5 rounded-full border transition-all duration-300",
+              isDarkTheme 
+                ? "bg-pink-500/10 border-pink-500/20 text-pink-400" 
+                : "bg-blue-500/10 border-blue-500/20 text-blue-600"
+            )}>
               {conversations.length}
             </span>
           </div>
           <button 
             onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-            className={`p-2 rounded-xl border transition-all ${
+            className={cn(
+              "p-2 rounded-xl border transition-all duration-300 backdrop-blur-md cursor-pointer",
               showAdvancedFilters 
-                ? 'bg-blue-50 border-blue-200 text-blue-600' 
-                : 'bg-white border-slate-200 text-slate-500 hover:text-slate-700'
-            }`}
+                ? isDarkTheme
+                  ? 'bg-pink-500/20 border-pink-500/30 text-pink-400'
+                  : 'bg-blue-500/20 border-blue-500/30 text-blue-600'
+                : isDarkTheme
+                  ? 'bg-white/5 border-white/10 text-slate-300 hover:text-white hover:bg-white/10'
+                  : 'bg-white/40 border-slate-200/60 text-slate-500 hover:text-slate-750 hover:bg-white/80'
+            )}
           >
             <SlidersHorizontal className="h-4 w-4" />
           </button>
@@ -186,17 +208,28 @@ export function ConversationList({
 
         {/* Search Console */}
         <div className="relative">
-          <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Search className={cn(
+            "absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 transition-colors duration-300",
+            isDarkTheme ? "text-slate-500" : "text-slate-400"
+          )} />
           <Input 
             placeholder="Search guests..." 
-            className="pl-9 pr-4 bg-slate-100/70 border-0 hover:bg-slate-100 focus:bg-white rounded-xl text-xs transition"
+            className={cn(
+              "pl-9 pr-8 rounded-xl text-xs transition-all w-full",
+              isDarkTheme 
+                ? "glass-input-dark placeholder-slate-500 text-white focus:placeholder-slate-400" 
+                : "glass-input placeholder-slate-400 text-slate-800 focus:placeholder-slate-500"
+            )}
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
           />
           {searchQuery && (
             <button 
               onClick={() => onSearchChange('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              className={cn(
+                "absolute right-3 top-1/2 -translate-y-1/2 transition-colors duration-200 cursor-pointer",
+                isDarkTheme ? "text-slate-400 hover:text-slate-200" : "text-slate-400 hover:text-slate-650"
+              )}
             >
               <X className="h-3 w-3" />
             </button>
@@ -207,25 +240,31 @@ export function ConversationList({
         {(activePlatform || activeScore) && (
           <div className="flex flex-wrap gap-1.5 pt-0.5">
             {activePlatform && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-blue-50 border border-blue-100 text-blue-700 uppercase tracking-wider">
+              <span className={cn(
+                "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold border uppercase tracking-wider transition-all duration-300 shadow-sm",
+                activePlatform === 'whatsapp' ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-450 dark:text-emerald-400" :
+                activePlatform === 'instagram' ? "bg-pink-500/10 border-pink-500/20 text-pink-400" :
+                "bg-blue-500/10 border-blue-500/20 text-blue-500"
+              )}>
                 {activePlatform === 'whatsapp' && <WhatsAppIcon className="h-3 w-3" />}
                 {activePlatform === 'facebook' && <MessengerIcon className="h-3 w-3" />}
                 {activePlatform === 'instagram' && <InstagramIcon className="h-3 w-3" />}
                 {activePlatform}
-                <button onClick={onClearPlatform} className="hover:text-blue-900 ml-0.5"><X className="h-3 w-3" /></button>
+                <button onClick={onClearPlatform} className="hover:opacity-80 ml-0.5 cursor-pointer"><X className="h-3 w-3" /></button>
               </span>
             )}
             {activeScore && (
-              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border ${
-                activeScore === 'HOT' ? 'bg-red-50 border-red-200 text-red-700' :
-                activeScore === 'WARM' ? 'bg-amber-50 border-amber-200 text-amber-700' :
-                'bg-slate-100 border-slate-200 text-slate-600'
-              }`}>
+              <span className={cn(
+                "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all duration-300 shadow-sm",
+                activeScore === 'HOT' ? 'bg-red-500/15 border-red-500/25 text-red-500' :
+                activeScore === 'WARM' ? 'bg-amber-500/15 border-amber-500/25 text-amber-500' :
+                isDarkTheme ? 'bg-white/5 border-white/10 text-slate-350' : 'bg-slate-100 border-slate-200 text-slate-600'
+              )}>
                 {activeScore === 'HOT' && <Flame className="h-3.5 w-3.5 text-red-500 animate-pulse" />}
                 {activeScore === 'WARM' && <Sun className="h-3.5 w-3.5 text-amber-500" />}
-                {activeScore === 'COLD' && <Snowflake className="h-3.5 w-3.5 text-slate-400" />}
+                {activeScore === 'COLD' && <Snowflake className="h-3.5 w-3.5 text-blue-400" />}
                 {activeScore}
-                <button onClick={onClearScore} className="hover:text-slate-900 ml-0.5"><X className="h-3 w-3" /></button>
+                <button onClick={onClearScore} className="hover:opacity-80 ml-0.5 cursor-pointer"><X className="h-3 w-3" /></button>
               </span>
             )}
           </div>
@@ -234,12 +273,26 @@ export function ConversationList({
 
       {/* Advanced Filter Popover Pane */}
       {showAdvancedFilters && (
-        <div className="bg-slate-50 border-b border-slate-200 p-4 space-y-3 shrink-0 text-slate-750 z-20 shadow-inner">
+        <div className={cn(
+          "border-b p-4 space-y-3 shrink-0 z-20 shadow-inner backdrop-blur-xl transition-all duration-300",
+          isDarkTheme 
+            ? "bg-slate-950/80 border-white/5 text-slate-200" 
+            : "bg-white/60 border-slate-200/40 text-slate-700"
+        )}>
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-              <Filter className="h-3 w-3 text-slate-400" /> Advanced Filters
+            <h3 className={cn(
+              "text-xs font-bold uppercase tracking-wider flex items-center gap-1",
+              isDarkTheme ? "text-slate-400" : "text-slate-500"
+            )}>
+              <Filter className="h-3 w-3" /> Advanced Filters
             </h3>
-            <button onClick={handleResetFilters} className="text-[10px] font-extrabold text-blue-600 hover:text-blue-800">
+            <button 
+              onClick={handleResetFilters} 
+              className={cn(
+                "text-[10px] font-extrabold transition cursor-pointer",
+                isDarkTheme ? "text-pink-400 hover:text-pink-300" : "text-blue-600 hover:text-blue-800"
+              )}
+            >
               Clear All
             </button>
           </div>
@@ -247,89 +300,119 @@ export function ConversationList({
           <div className="grid grid-cols-2 gap-2 text-xs">
             {/* Platform Select */}
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-400 uppercase">Platform</label>
+              <label className="text-[10px] font-bold text-slate-450 uppercase">Platform</label>
               <select 
                 value={advancedFilters.platform}
                 onChange={(e) => onFiltersChange(prev => ({ ...prev, platform: e.target.value }))}
-                className="w-full bg-white border border-slate-200 rounded-lg p-1.5 outline-none font-medium focus:border-blue-500 text-slate-700"
+                className={cn(
+                  "w-full rounded-lg p-1.5 outline-none font-medium text-xs transition border backdrop-blur-md cursor-pointer",
+                  isDarkTheme 
+                    ? "bg-slate-900/60 border-white/10 text-white focus:border-pink-500/50" 
+                    : "bg-white/60 border-slate-200/80 text-slate-700 focus:border-blue-500/50"
+                )}
               >
-                <option value="all">All</option>
-                <option value="whatsapp">WhatsApp</option>
-                <option value="facebook">Messenger</option>
-                <option value="instagram">Instagram</option>
+                <option value="all" className={isDarkTheme ? "bg-slate-900 text-white" : "bg-white text-slate-800"}>All</option>
+                <option value="whatsapp" className={isDarkTheme ? "bg-slate-900 text-white" : "bg-white text-slate-800"}>WhatsApp</option>
+                <option value="facebook" className={isDarkTheme ? "bg-slate-900 text-white" : "bg-white text-slate-800"}>Messenger</option>
+                <option value="instagram" className={isDarkTheme ? "bg-slate-900 text-white" : "bg-white text-slate-800"}>Instagram</option>
               </select>
             </div>
 
             {/* Lead Score Select */}
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-400 uppercase">Lead Score</label>
+              <label className="text-[10px] font-bold text-slate-455 uppercase">Lead Score</label>
               <select 
                 value={advancedFilters.leadScore}
                 onChange={(e) => onFiltersChange(prev => ({ ...prev, leadScore: e.target.value }))}
-                className="w-full bg-white border border-slate-200 rounded-lg p-1.5 outline-none font-medium focus:border-blue-500 text-slate-700"
+                className={cn(
+                  "w-full rounded-lg p-1.5 outline-none font-medium text-xs transition border backdrop-blur-md cursor-pointer",
+                  isDarkTheme 
+                    ? "bg-slate-900/60 border-white/10 text-white focus:border-pink-500/50" 
+                    : "bg-white/60 border-slate-200/80 text-slate-700 focus:border-blue-500/50"
+                )}
               >
-                <option value="all">All</option>
-                <option value="HOT">🔥 HOT</option>
-                <option value="WARM">☀ WARM</option>
-                <option value="COLD">❄ COLD</option>
+                <option value="all" className={isDarkTheme ? "bg-slate-900 text-white" : "bg-white text-slate-800"}>All</option>
+                <option value="HOT" className={isDarkTheme ? "bg-slate-900 text-white text-red-400" : "bg-white text-red-650"}>🔥 HOT</option>
+                <option value="WARM" className={isDarkTheme ? "bg-slate-900 text-white text-amber-400" : "bg-white text-amber-650"}>☀ WARM</option>
+                <option value="COLD" className={isDarkTheme ? "bg-slate-900 text-white text-slate-400" : "bg-white text-slate-500"}>❄ COLD</option>
               </select>
             </div>
 
             {/* Date Select */}
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-400 uppercase">Activity Date</label>
+              <label className="text-[10px] font-bold text-slate-450 uppercase">Activity Date</label>
               <select 
                 value={advancedFilters.date}
                 onChange={(e) => onFiltersChange(prev => ({ ...prev, date: e.target.value }))}
-                className="w-full bg-white border border-slate-200 rounded-lg p-1.5 outline-none font-medium focus:border-blue-500 text-slate-700"
+                className={cn(
+                  "w-full rounded-lg p-1.5 outline-none font-medium text-xs transition border backdrop-blur-md cursor-pointer",
+                  isDarkTheme 
+                    ? "bg-slate-900/60 border-white/10 text-white focus:border-pink-500/50" 
+                    : "bg-white/60 border-slate-200/80 text-slate-700 focus:border-blue-500/50"
+                )}
               >
-                <option value="all">All Time</option>
-                <option value="today">Today</option>
+                <option value="all" className={isDarkTheme ? "bg-slate-900 text-white" : "bg-white text-slate-800"}>All Time</option>
+                <option value="today" className={isDarkTheme ? "bg-slate-900 text-white" : "bg-white text-slate-800"}>Today</option>
               </select>
             </div>
 
             {/* AI Status */}
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-400 uppercase">Handoff Mode</label>
+              <label className="text-[10px] font-bold text-slate-450 uppercase">Handoff Mode</label>
               <select 
                 value={advancedFilters.status}
                 onChange={(e) => onFiltersChange(prev => ({ ...prev, status: e.target.value }))}
-                className="w-full bg-white border border-slate-200 rounded-lg p-1.5 outline-none font-medium focus:border-blue-500 text-slate-700"
+                className={cn(
+                  "w-full rounded-lg p-1.5 outline-none font-medium text-xs transition border backdrop-blur-md cursor-pointer",
+                  isDarkTheme 
+                    ? "bg-slate-900/60 border-white/10 text-white focus:border-pink-500/50" 
+                    : "bg-white/60 border-slate-200/80 text-slate-700 focus:border-blue-500/50"
+                )}
               >
-                <option value="all">All</option>
-                <option value="ai">AI Active</option>
-                <option value="human">Human Agent</option>
-                <option value="unread">Unread Only</option>
+                <option value="all" className={isDarkTheme ? "bg-slate-900 text-white" : "bg-white text-slate-800"}>All</option>
+                <option value="ai" className={isDarkTheme ? "bg-slate-900 text-white" : "bg-white text-slate-800"}>AI Active</option>
+                <option value="human" className={isDarkTheme ? "bg-slate-900 text-white" : "bg-white text-slate-800"}>Human Agent</option>
+                <option value="unread" className={isDarkTheme ? "bg-slate-900 text-white" : "bg-white text-slate-800"}>Unread Only</option>
               </select>
             </div>
 
             {/* Assignee */}
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-400 uppercase">Assignee</label>
+              <label className="text-[10px] font-bold text-slate-450 uppercase">Assignee</label>
               <select 
                 value={advancedFilters.assigneeId}
                 onChange={(e) => onFiltersChange(prev => ({ ...prev, assigneeId: e.target.value }))}
-                className="w-full bg-white border border-slate-200 rounded-lg p-1.5 outline-none font-medium focus:border-blue-500 text-slate-700"
+                className={cn(
+                  "w-full rounded-lg p-1.5 outline-none font-medium text-xs transition border backdrop-blur-md cursor-pointer",
+                  isDarkTheme 
+                    ? "bg-slate-900/60 border-white/10 text-white focus:border-pink-500/50" 
+                    : "bg-white/60 border-slate-200/80 text-slate-700 focus:border-blue-500/50"
+                )}
               >
-                <option value="all">All Agents</option>
-                <option value="unassigned">Unassigned</option>
+                <option value="all" className={isDarkTheme ? "bg-slate-900 text-white" : "bg-white text-slate-800"}>All Agents</option>
+                <option value="unassigned" className={isDarkTheme ? "bg-slate-900 text-white" : "bg-white text-slate-800"}>Unassigned</option>
                 {mockProfiles.map(p => (
-                  <option key={p.id} value={p.id}>{p.full_name}</option>
+                  <option key={p.id} value={p.id} className={isDarkTheme ? "bg-slate-900 text-white" : "bg-white text-slate-800"}>{p.full_name}</option>
                 ))}
               </select>
             </div>
 
             {/* Booking State */}
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-400 uppercase">Booking Made</label>
+              <label className="text-[10px] font-bold text-slate-450 uppercase">Booking Made</label>
               <select 
                 value={advancedFilters.hasBooking}
                 onChange={(e) => onFiltersChange(prev => ({ ...prev, hasBooking: e.target.value }))}
-                className="w-full bg-white border border-slate-200 rounded-lg p-1.5 outline-none font-medium focus:border-blue-500 text-slate-700"
+                className={cn(
+                  "w-full rounded-lg p-1.5 outline-none font-medium text-xs transition border backdrop-blur-md cursor-pointer",
+                  isDarkTheme 
+                    ? "bg-slate-900/60 border-white/10 text-white focus:border-pink-500/50" 
+                    : "bg-white/60 border-slate-200/80 text-slate-700 focus:border-blue-500/50"
+                )}
               >
-                <option value="all">All</option>
-                <option value="yes">Yes</option>
-                <option value="no">No</option>
+                <option value="all" className={isDarkTheme ? "bg-slate-900 text-white" : "bg-white text-slate-800"}>All</option>
+                <option value="yes" className={isDarkTheme ? "bg-slate-900 text-white" : "bg-white text-slate-800"}>Yes</option>
+                <option value="no" className={isDarkTheme ? "bg-slate-900 text-white" : "bg-white text-slate-800"}>No</option>
               </select>
             </div>
           </div>
@@ -338,21 +421,34 @@ export function ConversationList({
 
       {/* Bulk Actions Header Row Selector */}
       {filtered.length > 0 && (
-        <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/50 text-slate-500 text-xs">
+        <div className={cn(
+          "px-4 py-2.5 border-b flex items-center justify-between shrink-0 text-[11px] font-medium tracking-tight transition-colors duration-500",
+          isDarkTheme 
+            ? "border-white/5 bg-slate-900/10 text-slate-400" 
+            : "border-slate-100 bg-slate-50/20 text-slate-500"
+        )}>
           <button 
             onClick={handleToggleSelectAll}
-            className="flex items-center gap-1.5 hover:text-slate-800 transition"
+            className={cn(
+              "flex items-center gap-1.5 transition-colors duration-200 cursor-pointer",
+              isDarkTheme ? "hover:text-slate-200" : "hover:text-slate-800"
+            )}
           >
             {isAllSelected ? (
-              <CheckSquare className="h-4 w-4 text-blue-500" />
+              <CheckSquare className={cn("h-4 w-4", isDarkTheme ? "text-pink-400" : "text-blue-500")} />
             ) : (
-              <Square className="h-4 w-4" />
+              <Square className="h-4 w-4 opacity-70" />
             )}
             <span className="font-semibold">Select All ({filtered.length})</span>
           </button>
           
           {bulkSelectedIds.length > 0 && (
-            <span className="font-extrabold text-[10px] text-blue-600 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-full">
+            <span className={cn(
+              "font-extrabold text-[10px] px-2 py-0.5 rounded-full border transition-all duration-300",
+              isDarkTheme 
+                ? "bg-pink-500/10 border-pink-500/20 text-pink-400" 
+                : "bg-blue-50 border-blue-100 text-blue-600"
+            )}>
               {bulkSelectedIds.length} selected
             </span>
           )}
@@ -362,26 +458,34 @@ export function ConversationList({
       {/* Conversations List Scrollable Area */}
       <div 
         ref={parentRef}
-        className="flex-1 overflow-y-auto p-2 bg-slate-50/10 relative"
+        className={cn(
+          "flex-1 overflow-y-auto p-2 relative bg-transparent",
+          isDarkTheme ? "glass-scrollbar-dark" : "glass-scrollbar"
+        )}
       >
         {conversations.length === 0 ? (
-          <div className="p-8 text-center text-slate-500 flex flex-col items-center justify-center h-full">
-            <Search className="h-10 w-10 text-slate-350 mb-3" />
-            <h3 className="text-xs font-bold text-slate-700 uppercase">No conversations yet</h3>
-            <p className="text-[11px] text-slate-400 mt-1 max-w-[200px] leading-relaxed">
+          <div className="p-8 text-center flex flex-col items-center justify-center h-full">
+            <Search className={cn("h-10 w-10 mb-3 opacity-60", isDarkTheme ? "text-slate-650" : "text-slate-400")} />
+            <h3 className={cn("text-xs font-bold uppercase tracking-wide", isDarkTheme ? "text-slate-350" : "text-slate-700")}>No conversations yet</h3>
+            <p className={cn("text-[11px] mt-1 max-w-[200px] leading-relaxed", isDarkTheme ? "text-slate-500" : "text-slate-400")}>
               When clients message you on WhatsApp or Instagram they will show here.
             </p>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="p-8 text-center text-slate-500 flex flex-col items-center justify-center h-full">
-            <Filter className="h-10 w-10 text-slate-350 mb-3" />
-            <h3 className="text-xs font-bold text-slate-700 uppercase">No results found</h3>
-            <p className="text-[11px] text-slate-400 mt-1 max-w-[200px] leading-relaxed">
+          <div className="p-8 text-center flex flex-col items-center justify-center h-full">
+            <Filter className={cn("h-10 w-10 mb-3 opacity-60", isDarkTheme ? "text-slate-650" : "text-slate-400")} />
+            <h3 className={cn("text-xs font-bold uppercase tracking-wide", isDarkTheme ? "text-slate-355" : "text-slate-700")}>No results found</h3>
+            <p className={cn("text-[11px] mt-1 max-w-[200px] leading-relaxed", isDarkTheme ? "text-slate-500" : "text-slate-400")}>
               We couldn't find matches for the selected criteria.
             </p>
             <button 
               onClick={handleResetFilters}
-              className="mt-4 px-3.5 py-1.5 bg-blue-50 border border-blue-100 text-blue-600 text-[10px] font-black rounded-lg uppercase tracking-wider hover:bg-blue-100 transition"
+              className={cn(
+                "mt-4 px-3.5 py-1.5 border text-[10px] font-black rounded-lg uppercase tracking-wider transition-all duration-300 cursor-pointer shadow-sm",
+                isDarkTheme 
+                  ? "bg-pink-500/20 border-pink-500/30 text-pink-400 hover:bg-pink-500/30"
+                  : "bg-blue-50 border-blue-100 text-blue-600 hover:bg-blue-100"
+              )}
             >
               Reset Filters
             </button>
@@ -416,6 +520,7 @@ export function ConversationList({
                     onClick={() => onSelect(conv.id)}
                     isBulkSelected={bulkSelectedIds.includes(conv.id)}
                     onToggleSelect={() => handleToggleCardSelect(conv.id)}
+                    isDarkTheme={isDarkTheme}
                   />
                 </div>
               )
@@ -426,8 +531,16 @@ export function ConversationList({
 
       {/* Floating Bulk Action Toolbar */}
       {bulkSelectedIds.length > 0 && (
-        <div className="absolute bottom-4 left-4 right-4 bg-slate-900 border border-slate-800 text-white rounded-2xl p-3 shadow-xl flex items-center justify-between z-30 animate-in fade-in slide-in-from-bottom-3 duration-300">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 ml-1">
+        <div className={cn(
+          "absolute bottom-4 left-4 right-4 border rounded-2xl p-3 shadow-2xl flex items-center justify-between z-30 animate-in fade-in slide-in-from-bottom-3 duration-300 backdrop-blur-xl",
+          isDarkTheme 
+            ? "bg-slate-900/90 border-white/10 text-white shadow-black/50" 
+            : "bg-white/90 border-slate-200/80 text-slate-850 shadow-slate-250/50"
+        )}>
+          <div className={cn(
+            "text-[10px] font-black uppercase tracking-wider ml-1",
+            isDarkTheme ? "text-slate-400" : "text-slate-500"
+          )}>
             {bulkSelectedIds.length} Selected
           </div>
           
@@ -436,7 +549,12 @@ export function ConversationList({
             <button 
               title="Mark as Read"
               onClick={() => onBulkAction('read')}
-              className="p-2 bg-slate-800 hover:bg-slate-750 rounded-xl transition text-slate-200"
+              className={cn(
+                "p-2 rounded-xl transition border cursor-pointer",
+                isDarkTheme 
+                  ? "bg-white/5 border-white/10 hover:bg-white/10 text-slate-200" 
+                  : "bg-slate-100 border-slate-200 hover:bg-slate-200/75 text-slate-600"
+              )}
             >
               <Eye className="h-3.5 w-3.5" />
             </button>
@@ -449,18 +567,28 @@ export function ConversationList({
                   setShowScoreSubmenu(!showScoreSubmenu)
                   setShowAgentSubmenu(false)
                 }}
-                className={`p-2 rounded-xl transition text-slate-200 ${showScoreSubmenu ? 'bg-blue-600' : 'bg-slate-800 hover:bg-slate-750'}`}
+                className={cn(
+                  "p-2 rounded-xl transition border cursor-pointer",
+                  showScoreSubmenu 
+                    ? isDarkTheme ? "bg-pink-600 text-white border-pink-500" : "bg-blue-600 text-white border-blue-500"
+                    : isDarkTheme ? "bg-white/5 border-white/10 text-slate-200 hover:bg-white/10" : "bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200/75"
+                )}
               >
                 <Flame className="h-3.5 w-3.5" />
               </button>
               {showScoreSubmenu && (
-                <div className="absolute bottom-12 right-0 bg-slate-850 bg-slate-800 border border-slate-700 p-1.5 rounded-xl shadow-lg flex flex-col gap-1 z-40 text-left min-w-[100px]">
+                <div className={cn(
+                  "absolute bottom-12 right-0 border p-1.5 rounded-xl shadow-lg flex flex-col gap-1 z-40 text-left min-w-[100px] backdrop-blur-xl",
+                  isDarkTheme 
+                    ? "bg-slate-900 border-white/10 text-white" 
+                    : "bg-white border-slate-200 text-slate-800"
+                )}>
                   <button 
                     onClick={() => {
                       onBulkAction('score', 'HOT')
                       setShowScoreSubmenu(false)
                     }}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-slate-700 rounded-lg text-[10px] font-bold text-red-400"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-white/5 dark:hover:bg-white/5 rounded-lg text-[10px] font-bold text-red-500 cursor-pointer"
                   >
                     🔥 HOT
                   </button>
@@ -469,7 +597,7 @@ export function ConversationList({
                       onBulkAction('score', 'WARM')
                       setShowScoreSubmenu(false)
                     }}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-slate-700 rounded-lg text-[10px] font-bold text-amber-400"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-white/5 dark:hover:bg-white/5 rounded-lg text-[10px] font-bold text-amber-500 cursor-pointer"
                   >
                     ☀ WARM
                   </button>
@@ -478,7 +606,10 @@ export function ConversationList({
                       onBulkAction('score', 'COLD')
                       setShowScoreSubmenu(false)
                     }}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-slate-700 rounded-lg text-[10px] font-bold text-slate-350 text-slate-300"
+                    className={cn(
+                      "flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-white/5 dark:hover:bg-white/5 rounded-lg text-[10px] font-bold cursor-pointer",
+                      isDarkTheme ? "text-slate-400" : "text-slate-500"
+                    )}
                   >
                     ❄ COLD
                   </button>
@@ -494,18 +625,31 @@ export function ConversationList({
                   setShowAgentSubmenu(!showAgentSubmenu)
                   setShowScoreSubmenu(false)
                 }}
-                className={`p-2 rounded-xl transition text-slate-200 ${showAgentSubmenu ? 'bg-blue-600' : 'bg-slate-800 hover:bg-slate-750'}`}
+                className={cn(
+                  "p-2 rounded-xl transition border cursor-pointer",
+                  showAgentSubmenu 
+                    ? isDarkTheme ? "bg-pink-600 text-white border-pink-500" : "bg-blue-600 text-white border-blue-500"
+                    : isDarkTheme ? "bg-white/5 border-white/10 text-slate-200 hover:bg-white/10" : "bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200/75"
+                )}
               >
                 <UserPlus className="h-3.5 w-3.5" />
               </button>
               {showAgentSubmenu && (
-                <div className="absolute bottom-12 right-0 bg-slate-850 bg-slate-800 border border-slate-700 p-1.5 rounded-xl shadow-lg flex flex-col gap-1 z-40 text-left min-w-[140px]">
+                <div className={cn(
+                  "absolute bottom-12 right-0 border p-1.5 rounded-xl shadow-lg flex flex-col gap-1 z-40 text-left min-w-[140px] backdrop-blur-xl",
+                  isDarkTheme 
+                    ? "bg-slate-900 border-white/10 text-white" 
+                    : "bg-white border-slate-200 text-slate-800"
+                )}>
                   <button 
                     onClick={() => {
                       onBulkAction('assign', null)
                       setShowAgentSubmenu(false)
                     }}
-                    className="px-2.5 py-1.5 hover:bg-slate-700 rounded-lg text-[10px] font-bold text-slate-300"
+                    className={cn(
+                      "px-2.5 py-1.5 hover:bg-white/5 dark:hover:bg-white/5 rounded-lg text-[10px] font-bold cursor-pointer",
+                      isDarkTheme ? "text-slate-450" : "text-slate-600"
+                    )}
                   >
                     Unassigned
                   </button>
@@ -516,7 +660,10 @@ export function ConversationList({
                         onBulkAction('assign', p.id)
                         setShowAgentSubmenu(false)
                       }}
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-slate-700 rounded-lg text-[10px] font-bold text-slate-300"
+                      className={cn(
+                        "flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-white/5 dark:hover:bg-white/5 rounded-lg text-[10px] font-bold cursor-pointer",
+                        isDarkTheme ? "text-slate-300" : "text-slate-700"
+                      )}
                     >
                       👤 {p.full_name.split(' ')[0]}
                     </button>
@@ -529,7 +676,12 @@ export function ConversationList({
             <button 
               title="Archive Leads"
               onClick={() => onBulkAction('archive')}
-              className="p-2 bg-red-950 hover:bg-red-900 rounded-xl transition text-red-400"
+              className={cn(
+                "p-2 rounded-xl transition border cursor-pointer",
+                isDarkTheme 
+                  ? "bg-red-500/10 border-red-500/20 hover:bg-red-500/20 text-red-400" 
+                  : "bg-red-50 border-red-100 hover:bg-red-100 text-red-650"
+              )}
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>
@@ -537,14 +689,18 @@ export function ConversationList({
             {/* Clear selection */}
             <button 
               onClick={() => onBulkSelectChange([])}
-              className="p-2 bg-slate-800 hover:bg-slate-755 hover:bg-slate-700 rounded-xl text-slate-400 hover:text-white transition"
+              className={cn(
+                "p-2 rounded-xl transition border cursor-pointer",
+                isDarkTheme 
+                  ? "bg-white/5 border-white/10 hover:bg-white/10 text-slate-400 hover:text-slate-200" 
+                  : "bg-slate-100 border-slate-200 hover:bg-slate-200/75 text-slate-500 hover:text-slate-800"
+              )}
             >
               <X className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>
       )}
-
     </div>
   )
 }

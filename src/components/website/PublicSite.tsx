@@ -10,10 +10,15 @@ import {
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import Image from 'next/image';
+import ShowroomPublicSite from './ShowroomPublicSite';
+import { PERFECT_SHOWROOM_TEMPLATE, type ShowroomBuilderConfig } from '@/lib/car-showroom-builder-template';
+
 
 interface PublicSiteProps {
   agency: any;
   trips: any[];
+  salesCars?: any[];
+  rentalCars?: any[];
   isEditing?: boolean;
   onContentEdit?: (sectionId: string, contentKey: string, newValue: any) => void;
   customConfig?: any; // To pass active builder configurations directly in editor
@@ -31,11 +36,29 @@ const getSectionIcon = (iconName: string) => {
 export default function PublicSite({ 
   agency, 
   trips: initialTrips, 
+  salesCars: initialSalesCars = [],
+  rentalCars: initialRentalCars = [],
   isEditing = false, 
   onContentEdit, 
   customConfig 
 }: PublicSiteProps) {
   
+  const defaultSalesCars = [
+    { id: 'sc-1', brand: 'Hyundai', model: 'Tucson 2.0 Htrac', year: 2026, selling_price: 6500000, condition: 'new', mileage: 0, fuel_type: 'diesel', transmission: 'automatic', cover_image_url: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=600', import_type: 'local' },
+    { id: 'sc-2', brand: 'Seat', model: 'Ibiza FR Leon', year: 2025, selling_price: 4200000, condition: 'used', mileage: 15000, fuel_type: 'petrol', transmission: 'manual', cover_image_url: 'https://images.unsplash.com/photo-1617531653332-bd46c24f2068?w=600', import_type: 'imported' },
+    { id: 'sc-3', brand: 'Kia', model: 'Sportage GT-Line', year: 2026, selling_price: 7400000, condition: 'new', mileage: 0, fuel_type: 'diesel', transmission: 'automatic', cover_image_url: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=600', import_type: 'local' },
+    { id: 'sc-4', brand: 'Toyota', model: 'Land Cruiser Prado', year: 2026, selling_price: 18500000, condition: 'new', mileage: 0, fuel_type: 'diesel', transmission: 'automatic', cover_image_url: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=600', import_type: 'sur_command' }
+  ];
+
+  const defaultRentalCars = [
+    { id: 'rc-1', brand: 'Dacia', model: 'Sandero Stepway', year: 2025, daily_rate: 6500, security_deposit: 80000, transmission: 'manual', fuel_type: 'petrol', images: ['https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?w=600'], status: 'available' },
+    { id: 'rc-2', brand: 'Renault', model: 'Clio 5', year: 2025, daily_rate: 7500, security_deposit: 80000, transmission: 'automatic', fuel_type: 'diesel', images: ['https://images.unsplash.com/photo-1590362891991-f776e747a588?w=600'], status: 'available' },
+    { id: 'rc-3', brand: 'Hyundai', model: 'Tucson Htrac', year: 2026, daily_rate: 18000, security_deposit: 150000, transmission: 'automatic', fuel_type: 'hybrid', images: ['https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=600'], status: 'available' }
+  ];
+
+  const salesCars = initialSalesCars.length > 0 ? initialSalesCars : defaultSalesCars;
+  const rentalCars = initialRentalCars.length > 0 ? initialRentalCars : defaultRentalCars;
+
   const [trips, setTrips] = useState<any[]>(initialTrips || []);
   const [filteredTrips, setFilteredTrips] = useState<any[]>(initialTrips || []);
   const [comparedTrips, setComparedTrips] = useState<any[]>([]);
@@ -53,10 +76,29 @@ export default function PublicSite({
   const [loanDownPercent, setLoanDownPercent] = useState<number>(30);
   const [loanMonths, setLoanMonths] = useState<number>(48);
 
+  // Autoplay carousel slide index
+  const [activeSlideIdx, setActiveSlideIdx] = useState<number>(0);
+  // Brand Logo grid active filter
+  const [selectedBrandFilter, setSelectedBrandFilter] = useState<string>('all');
+  // RentPro Booking Form fields
+  const [pickupLocation, setPickupLocation] = useState<string>('Alger Centre');
+  const [returnLocation, setReturnLocation] = useState<string>('Alger Centre');
+  const [pickupDate, setPickupDate] = useState<string>('2026-05-20');
+  const [returnDate, setReturnDate] = useState<string>('2026-05-25');
+  const [pickupTime, setPickupTime] = useState<string>('10:00');
+
   const tripsRef = useRef<HTMLDivElement>(null);
 
   // Load preview templates from URL or custom configurations
   const [activeTemplate, setActiveTemplate] = useState<any>(null);
+
+  // Autoplay loop for carousel slide
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveSlideIdx((prev) => (prev + 1) % 3);
+    }, 4500);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     setTrips(initialTrips || []);
@@ -74,8 +116,54 @@ export default function PublicSite({
     }
   }, []);
 
-  // Determine active configuration (builder customState > URL previewTemplate > saved agencyConfig > defaultTemplate)
-  const config = customConfig || activeTemplate || agency?.website_config || templatesList[0];
+  // ── CAR SHOWROOM: Use new ShowroomPublicSite with builder config ──────────
+  if (agency?.business_type_slug === 'car_showroom') {
+    // Try to use the saved new-format builder config (global + sections)
+    let showroomConfig: ShowroomBuilderConfig = PERFECT_SHOWROOM_TEMPLATE;
+    
+    const savedConfig = customConfig || agency?.website_config;
+    if (savedConfig?.global?.primaryColor && Array.isArray(savedConfig?.sections) && savedConfig.sections.length > 0) {
+      showroomConfig = savedConfig as ShowroomBuilderConfig;
+    } else if (savedConfig?.builder_data?.global?.primaryColor && Array.isArray(savedConfig?.builder_data?.sections)) {
+      showroomConfig = savedConfig.builder_data as ShowroomBuilderConfig;
+    }
+
+    // Merge agency contact info into global
+    if (agency) {
+      showroomConfig = {
+        ...showroomConfig,
+        global: {
+          ...showroomConfig.global,
+          companyName: agency.company_name || showroomConfig.global.companyName,
+          phone: agency.phone || showroomConfig.global.phone,
+          whatsapp: agency.phone || showroomConfig.global.whatsapp,
+          address: agency.address || showroomConfig.global.address,
+          logoUrl: agency.website_settings?.logo_url || showroomConfig.global.logoUrl,
+        }
+      };
+    }
+
+    return (
+      <ShowroomPublicSite
+        config={showroomConfig}
+        salesCars={salesCars}
+        rentalCars={rentalCars}
+        isPreview={isEditing}
+      />
+    );
+  }
+
+  // ── TRAVEL AGENCY: Use existing template renderer below ───────────────────
+  const defaultTravelTemplate = templatesList.find(t => t.business_type_slug === 'travel') || templatesList[0];
+  let config = customConfig || activeTemplate || agency?.website_config || defaultTravelTemplate;
+
+  // If config accidentally has car sections for a travel agency, reset
+  const travelSections = config?.structure?.sections || [];
+  const hasCarSections = travelSections.some((s: any) => ['Car Grid', 'Services', 'SalesInventory', 'RentalFleet'].includes(s.type));
+  if (hasCarSections || travelSections.length === 0) {
+    config = defaultTravelTemplate;
+  }
+
   const globalStyles = config?.global_styles || templatesList[0].global_styles;
   const sections = config?.structure?.sections || templatesList[0].structure.sections;
 
@@ -306,34 +394,211 @@ export default function PublicSite({
                 
                 {/* 1. HERO SECTION */}
                 {section.type === 'Hero' && (
-                  <div className="text-center max-w-3xl mx-auto space-y-6">
-                    {section.content?.badge && (
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-black tracking-wider uppercase bg-white/10 text-white backdrop-blur border border-white/20">
-                        <EditableText sectionId={section.id} contentKey="badge" value={section.content.badge} />
-                      </span>
+                  <>
+                    {section.variant === 'carousel' ? (
+                      <div className="relative w-full overflow-hidden rounded-[2.5rem] bg-slate-950/40 border border-white/10 p-8 sm:p-16 text-center space-y-6 min-h-[500px] flex flex-col justify-center items-center">
+                        {/* Background Transition Slideshow */}
+                        {(() => {
+                          const slides = section.content?.items || [
+                            { title: "2S Oto Importation", subtitle: "Votre spécialiste d'importation de véhicules neufs en Algérie.", bg: "https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=1200" },
+                            { title: "Gamme Multi-Marques Premium", subtitle: "Des modèles exclusifs sélectionnés avec soin pour votre confort.", bg: "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=1200" },
+                            { title: "Service Clé en Main", subtitle: "De la commande à la livraison finale de votre véhicule.", bg: "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=1200" }
+                          ];
+                          const activeSlide = slides[activeSlideIdx % slides.length] || slides[0];
+
+                          return (
+                            <>
+                              <div className="absolute inset-0 z-0 transition-all duration-1000 ease-in-out opacity-45" style={{ backgroundImage: `url(${activeSlide.bg || activeSlide.image_url})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+                              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/40 to-transparent z-0" />
+                              
+                              <div className="relative z-10 space-y-6 max-w-3xl animate-fade-in">
+                                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-black tracking-wider uppercase bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                                  {section.content?.badge || 'EXCLUSIVE PRESTIGE'}
+                                </span>
+                                <h1 
+                                  className="font-extrabold tracking-tight text-white drop-shadow-md text-3xl sm:text-5xl" 
+                                  style={{ 
+                                    fontFamily: headingFont, 
+                                    lineHeight: 1.15
+                                  }}
+                                >
+                                  {activeSlide.title}
+                                </h1>
+                                <p className="text-sm sm:text-base font-medium text-slate-200 max-w-2xl mx-auto leading-relaxed drop-shadow">
+                                  {activeSlide.subtitle}
+                                </p>
+                                
+                                <div className="flex items-center justify-center gap-3 pt-2">
+                                  <button onClick={() => {
+                                    const element = document.getElementById('sales-inventory') || document.getElementById('trips-grid');
+                                    element?.scrollIntoView({ behavior: 'smooth' });
+                                  }} className="px-6 py-2.5 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-lg transition">
+                                    {section.content?.primary_cta || 'Découvrir la Gamme'}
+                                  </button>
+                                  <a href="#contact" className="px-6 py-2.5 border-2 border-white/40 text-white hover:bg-white/10 rounded-xl text-sm font-bold transition">
+                                    {section.content?.secondary_cta || 'Nous Contacter'}
+                                  </a>
+                                </div>
+
+                                {/* Slide dots */}
+                                <div className="flex justify-center gap-2 pt-6">
+                                  {slides.map((_: any, sIdx: number) => (
+                                    <button 
+                                      key={sIdx} 
+                                      onClick={() => setActiveSlideIdx(sIdx)}
+                                      className={`h-2 rounded-full transition-all duration-300 ${sIdx === activeSlideIdx ? 'w-6 bg-indigo-500' : 'w-2 bg-white/40'}`} 
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    ) : section.variant === 'booking_form' ? (
+                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center text-left">
+                        {/* Left Side: Editorial Banner text */}
+                        <div className="lg:col-span-7 space-y-6">
+                          {section.content?.badge && (
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-black tracking-wider uppercase bg-white/10 text-white backdrop-blur border border-white/20">
+                              <EditableText sectionId={section.id} contentKey="badge" value={section.content.badge} />
+                            </span>
+                          )}
+                          <h1 
+                            className="font-extrabold tracking-tight text-white" 
+                            style={{ 
+                              fontFamily: headingFont, 
+                              fontSize: `${headingSize}px`,
+                              lineHeight: 1.15
+                            }}
+                          >
+                            <EditableText sectionId={section.id} contentKey="title" value={section.content.title} />
+                          </h1>
+                          <p className="text-sm sm:text-base font-medium opacity-90 max-w-2xl leading-relaxed text-slate-100">
+                            <EditableText sectionId={section.id} contentKey="subtitle" value={section.content.subtitle} multiline />
+                          </p>
+                          <div className="flex gap-4 pt-2">
+                            <div className="flex items-center gap-2 text-xs font-bold text-white bg-white/10 border border-white/15 px-3 py-1.5 rounded-full">
+                              ⭐ 4.9/5 Avis Clients
+                            </div>
+                            <div className="flex items-center gap-2 text-xs font-bold text-white bg-white/10 border border-white/15 px-3 py-1.5 rounded-full">
+                              🚗 00km & Garantie
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Right Side: RentPro Booking search estimator */}
+                        <div className="lg:col-span-5 bg-white border border-slate-200 rounded-[2rem] p-6 shadow-2xl space-y-4 text-slate-800">
+                          <div className="border-b border-slate-100 pb-3">
+                            <h3 className="text-sm font-black text-slate-850 flex items-center gap-2">
+                              🔑 Louer un véhicule
+                            </h3>
+                            <p className="text-[10px] text-slate-400 font-bold mt-0.5 uppercase tracking-wide">Tarifs compétitifs avec caution flexible</p>
+                          </div>
+
+                          <div className="space-y-3 text-[10px] font-bold">
+                            <div className="space-y-1">
+                              <label className="text-slate-500 uppercase tracking-wide">Lieu de prise en charge</label>
+                              <select 
+                                value={pickupLocation} 
+                                onChange={e => {
+                                  setPickupLocation(e.target.value);
+                                  setReturnLocation(e.target.value);
+                                }}
+                                className="w-full h-9 rounded-xl border border-slate-200 px-3 bg-slate-50 font-bold text-xs"
+                              >
+                                <option value="Alger Centre">Alger Centre (Grande Poste)</option>
+                                <option value="Aéroport Alger">Aéroport d'Alger Houari Boumédiène (ALG)</option>
+                                <option value="Oran">Oran (Centre)</option>
+                                <option value="Constantine">Constantine (Centre)</option>
+                              </select>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-1">
+                                <label className="text-slate-500 uppercase tracking-wide">Date départ</label>
+                                <input 
+                                  type="date" 
+                                  value={pickupDate} 
+                                  onChange={e => setPickupDate(e.target.value)} 
+                                  className="w-full h-9 rounded-xl border border-slate-200 px-3 bg-slate-50 font-semibold text-xs"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-slate-500 uppercase tracking-wide">Heure départ</label>
+                                <input 
+                                  type="time" 
+                                  value={pickupTime} 
+                                  onChange={e => setPickupTime(e.target.value)}
+                                  className="w-full h-9 rounded-xl border border-slate-200 px-3 bg-slate-50 font-semibold text-xs"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-1">
+                                <label className="text-slate-500 uppercase tracking-wide">Date retour</label>
+                                <input 
+                                  type="date" 
+                                  value={returnDate} 
+                                  onChange={e => setReturnDate(e.target.value)}
+                                  className="w-full h-9 rounded-xl border border-slate-200 px-3 bg-slate-50 font-semibold text-xs"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-slate-500 uppercase tracking-wide">Heure retour</label>
+                                <input 
+                                  type="time" 
+                                  value={pickupTime} 
+                                  disabled
+                                  className="w-full h-9 rounded-xl border border-slate-200 px-3 bg-slate-100 opacity-60 text-slate-400 font-semibold text-xs"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          <button 
+                            onClick={() => {
+                              const element = document.getElementById('rental-fleet') || document.getElementById('trips-grid');
+                              element?.scrollIntoView({ behavior: 'smooth' });
+                            }}
+                            className="w-full py-2.5 bg-indigo-650 hover:bg-indigo-700 text-white rounded-xl text-xs font-black shadow-md transition flex items-center justify-center gap-1.5"
+                          >
+                            🔍 Rechercher un véhicule
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center max-w-3xl mx-auto space-y-6">
+                        {section.content?.badge && (
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-black tracking-wider uppercase bg-white/10 text-white backdrop-blur border border-white/20">
+                            <EditableText sectionId={section.id} contentKey="badge" value={section.content.badge} />
+                          </span>
+                        )}
+                        <h1 
+                          className="font-extrabold tracking-tight text-white" 
+                          style={{ 
+                            fontFamily: headingFont, 
+                            fontSize: `${headingSize}px`,
+                            lineHeight: 1.15
+                          }}
+                        >
+                          <EditableText sectionId={section.id} contentKey="title" value={section.content.title} />
+                        </h1>
+                        <p className="text-sm md:text-base font-medium opacity-90 max-w-2xl mx-auto leading-relaxed text-white">
+                          <EditableText sectionId={section.id} contentKey="subtitle" value={section.content.subtitle} multiline />
+                        </p>
+                        <div className="flex items-center justify-center gap-3 pt-2">
+                          <button onClick={scrollToTrips} className={getButtonStyle()}>
+                            <EditableText sectionId={section.id} contentKey="primary_cta" value={section.content.primary_cta || 'Découvrir'} />
+                          </button>
+                          <a href="#contact" className="px-6 py-2.5 border-2 border-white/40 text-white hover:bg-white/10 rounded-xl text-sm font-bold transition">
+                            <EditableText sectionId={section.id} contentKey="secondary_cta" value={section.content.secondary_cta || 'Contact'} />
+                          </a>
+                        </div>
+                      </div>
                     )}
-                    <h1 
-                      className="font-extrabold tracking-tight" 
-                      style={{ 
-                        fontFamily: headingFont, 
-                        fontSize: `${headingSize}px`,
-                        lineHeight: 1.15
-                      }}
-                    >
-                      <EditableText sectionId={section.id} contentKey="title" value={section.content.title} />
-                    </h1>
-                    <p className="text-sm md:text-base font-medium opacity-90 max-w-2xl mx-auto leading-relaxed">
-                      <EditableText sectionId={section.id} contentKey="subtitle" value={section.content.subtitle} multiline />
-                    </p>
-                    <div className="flex items-center justify-center gap-3 pt-2">
-                      <button onClick={scrollToTrips} className={getButtonStyle()}>
-                        <EditableText sectionId={section.id} contentKey="primary_cta" value={section.content.primary_cta || 'Découvrir'} />
-                      </button>
-                      <a href="#contact" className="px-6 py-2.5 border-2 border-white/40 text-white hover:bg-white/10 rounded-xl text-sm font-bold transition">
-                        <EditableText sectionId={section.id} contentKey="secondary_cta" value={section.content.secondary_cta || 'Contact'} />
-                      </a>
-                    </div>
-                  </div>
+                  </>
                 )}
 
                 {/* 2. STATS BAR */}
@@ -360,7 +625,7 @@ export default function PublicSite({
 
                 {/* 3. WHY CHOOSE US */}
                 {section.type === 'WhyUs' && (
-                  <div className="space-y-10">
+                  <div className="space-y-10 text-left">
                     <div className="text-center max-w-xl mx-auto space-y-2">
                       <h2 className="text-2xl font-black tracking-tight" style={{ fontFamily: headingFont, fontSize: `${headingSize * 0.75}px` }}>
                         <EditableText sectionId={section.id} contentKey="title" value={section.content.title} />
@@ -370,21 +635,137 @@ export default function PublicSite({
                       </p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      {(section.content?.items || []).map((item: any, idx: number) => {
-                        const CardIcon = getSectionIcon(item.icon);
-                        return (
-                          <div key={idx} className="bg-[var(--card-bg)] border border-[var(--border)] p-6 rounded-2xl space-y-3 hover:shadow-md transition">
-                            <div className="h-10 w-10 rounded-xl bg-[var(--primary)]/10 text-[var(--primary)] flex items-center justify-center shrink-0">
-                              <CardIcon className="h-5 w-5" />
+                    {section.variant === 'categories_scroll' ? (
+                      <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-none snap-x -mx-6 px-6">
+                        {[
+                          { title: "Économique", desc: "Parfait pour la ville, consommation ultra réduite.", icon: "Compass", count: "12 véhicules", bg: "https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?w=300" },
+                          { title: "Berline", desc: "Idéal pour les longs trajets professionnels.", icon: "Shield", count: "8 véhicules", bg: "https://images.unsplash.com/photo-1617531653332-bd46c24f2068?w=300" },
+                          { title: "SUV / Familiale", desc: "Espace et confort pour toute la famille.", icon: "HeartHandshake", count: "15 véhicules", bg: "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=300" },
+                          { title: "Luxe & Sport", desc: "Faites sensation pour vos événements.", icon: "Award", count: "5 véhicules", bg: "https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=300" }
+                        ].map((cat, idx) => {
+                          const IconComp = getSectionIcon(cat.icon);
+                          return (
+                            <div 
+                              key={idx} 
+                              onClick={() => {
+                                const element = document.getElementById('rental-fleet') || document.getElementById('trips-grid');
+                                element?.scrollIntoView({ behavior: 'smooth' });
+                              }}
+                              className="relative min-w-[240px] sm:min-w-[280px] h-48 rounded-[2rem] overflow-hidden snap-center group border border-slate-100 hover:border-indigo-400 hover:shadow-lg transition cursor-pointer"
+                            >
+                              <div className="absolute inset-0 bg-slate-900/60 z-10 transition group-hover:bg-slate-900/50" />
+                              <img src={cat.bg} alt="" className="absolute inset-0 w-full h-full object-cover transition-all duration-700 group-hover:scale-110" />
+                              <div className="absolute inset-0 z-20 p-5 flex flex-col justify-between text-white">
+                                <div className="h-8 w-8 rounded-lg bg-white/20 backdrop-blur text-white flex items-center justify-center">
+                                  <IconComp className="h-4 w-4" />
+                                </div>
+                                <div className="space-y-1">
+                                  <span className="text-[9px] font-black uppercase text-indigo-300 tracking-widest">{cat.count}</span>
+                                  <h4 className="text-xs font-black">{cat.title}</h4>
+                                  <p className="text-[10px] opacity-80 leading-normal line-clamp-2">{cat.desc}</p>
+                                </div>
+                              </div>
                             </div>
-                            <h3 className="text-sm font-bold text-slate-800" style={{ fontFamily: headingFont }}>
-                              <EditableText sectionId={section.id} contentKey={`items.${idx}.title`} value={item.title} />
-                            </h3>
-                            <p className="text-xs text-slate-500 leading-relaxed">
-                              <EditableText sectionId={section.id} contentKey={`items.${idx}.description`} value={item.description} multiline />
-                            </p>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {(section.content?.items || []).map((item: any, idx: number) => {
+                          const CardIcon = getSectionIcon(item.icon);
+                          return (
+                            <div key={idx} className="bg-[var(--card-bg)] border border-[var(--border)] p-6 rounded-2xl space-y-3 hover:shadow-md transition">
+                              <div className="h-10 w-10 rounded-xl bg-[var(--primary)]/10 text-[var(--primary)] flex items-center justify-center shrink-0">
+                                <CardIcon className="h-5 w-5" />
+                              </div>
+                              <h3 className="text-sm font-bold text-slate-800" style={{ fontFamily: headingFont }}>
+                                <EditableText sectionId={section.id} contentKey={`items.${idx}.title`} value={item.title} />
+                              </h3>
+                              <p className="text-xs text-slate-500 leading-relaxed">
+                                <EditableText sectionId={section.id} contentKey={`items.${idx}.description`} value={item.description} multiline />
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 3a. TIMELINE PROCESS SECTION */}
+                {section.type === 'Timeline' && (
+                  <div className="space-y-10 text-left">
+                    <div className="text-center max-w-xl mx-auto space-y-2">
+                      <h2 className="text-2xl font-black tracking-tight" style={{ fontFamily: headingFont, fontSize: `${headingSize * 0.75}px` }}>
+                        <EditableText sectionId={section.id} contentKey="title" value={section.content.title || 'Notre Processus en 4 Étapes'} />
+                      </h2>
+                      <p className="text-xs text-slate-500 font-semibold">
+                        <EditableText sectionId={section.id} contentKey="subtitle" value={section.content.subtitle || 'Comment commander votre véhicule importé en toute simplicité.'} />
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 relative">
+                      <div className="hidden md:block absolute top-1/2 left-4 right-4 h-0.5 bg-indigo-100 -translate-y-1/2 z-0" />
+                      
+                      {(section.content?.items || [
+                        { step: "01", title: "Choix du modèle", desc: "Configurez le véhicule de vos rêves sur commande." },
+                        { step: "02", title: "Validation et Acompte", desc: "Signature du contrat d'importation et premier paiement." },
+                        { step: "03", title: "Achat & Transit", desc: "Achat en Europe et transport sécurisé vers le port d'Alger." },
+                        { step: "04", title: "Dédouanement & Livraison", desc: "Formalités douanières et remise des clés clé-en-main." }
+                      ]).map((item: any, idx: number) => (
+                        <div key={idx} className="relative z-10 bg-white border border-slate-200/80 p-6 rounded-[2rem] hover:shadow-lg transition space-y-4">
+                          <span className="h-10 w-10 rounded-full bg-indigo-650 text-white font-black text-xs flex items-center justify-center shadow-md">
+                            {item.step}
+                          </span>
+                          <div className="space-y-1">
+                            <h4 className="text-xs font-black text-slate-800">{item.title}</h4>
+                            <p className="text-[10px] text-slate-500 leading-relaxed">{item.desc}</p>
                           </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 3b. BRAND LOGO GRID SECTION */}
+                {section.type === 'BrandGrid' && (
+                  <div className="space-y-8 text-left">
+                    <div className="text-center max-w-xl mx-auto space-y-2">
+                      <h2 className="text-xl font-black tracking-tight" style={{ fontFamily: headingFont }}>
+                        <EditableText sectionId={section.id} contentKey="title" value={section.content.title || 'Marques Disponibles'} />
+                      </h2>
+                      <p className="text-xs text-slate-500 font-semibold">
+                        <EditableText sectionId={section.id} contentKey="subtitle" value={section.content.subtitle || 'Filtrez le catalogue en sélectionnant l\'une de nos marques phares.'} />
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-4">
+                      {[
+                        { name: 'all', label: 'Toutes', logo: '🌐' },
+                        { name: 'Hyundai', label: 'Hyundai', logo: '🚗' },
+                        { name: 'Kia', label: 'Kia', logo: '🚙' },
+                        { name: 'Seat', label: 'Seat', logo: '🏎️' },
+                        { name: 'Toyota', label: 'Toyota', logo: '🚐' },
+                        { name: 'Renault', label: 'Renault', logo: '🚜' }
+                      ].map((brand) => {
+                        const isActive = selectedBrandFilter === brand.name;
+                        return (
+                          <button
+                            key={brand.name}
+                            onClick={() => {
+                              setSelectedBrandFilter(brand.name);
+                              const element = document.getElementById('sales-inventory') || document.getElementById('trips-grid');
+                              element?.scrollIntoView({ behavior: 'smooth' });
+                            }}
+                            className={`p-4 rounded-[1.5rem] border text-center transition flex flex-col items-center justify-center gap-2 ${
+                              isActive 
+                                ? 'bg-indigo-650 border-indigo-600 text-white shadow-md hover:bg-indigo-700' 
+                                : 'bg-white border-slate-200 text-slate-650 hover:border-indigo-400 hover:shadow-sm'
+                            }`}
+                          >
+                            <span className="text-xl">{brand.logo}</span>
+                            <span className="text-[10px] font-bold uppercase tracking-wider">{brand.label}</span>
+                          </button>
                         );
                       })}
                     </div>
@@ -743,7 +1124,7 @@ export default function PublicSite({
 
                 {/* 15. DYNAMIC SALES SHOWROOM (Vente) */}
                 {section.type === 'SalesInventory' && (
-                  <div className="space-y-8 text-left">
+                  <div id="sales-inventory" className="space-y-8 text-left">
                     <div className="text-center max-w-xl mx-auto space-y-2">
                       <h2 className="text-2xl font-black tracking-tight" style={{ fontFamily: headingFont }}>
                         <EditableText sectionId={section.id} contentKey="title" value={section.content.title || 'Notre Showroom Véhicules'} />
@@ -753,41 +1134,69 @@ export default function PublicSite({
                       </p>
                     </div>
 
+                    {/* Show filter helper if filtered brand active */}
+                    {selectedBrandFilter !== 'all' && (
+                      <div className="flex items-center justify-between bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-2xl max-w-xs">
+                        <span className="text-[10px] text-slate-500 font-bold">Filtre actif: <strong className="text-indigo-650 font-black uppercase">{selectedBrandFilter}</strong></span>
+                        <button onClick={() => setSelectedBrandFilter('all')} className="text-[10px] text-red-500 hover:text-red-700 font-bold uppercase tracking-wider">Effacer</button>
+                      </div>
+                    )}
+
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                      {[
-                        { id: 'sc-1', brand: 'Hyundai', model: 'Tucson 2.0 Htrac', year: 2026, price: 6500000, condition: 'new', km: 0, fuel: 'Diesel', trans: 'Automatic', img: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=400' },
-                        { id: 'sc-2', brand: 'Seat', model: 'Ibiza FR Leon', year: 2025, price: 4200000, condition: 'used', km: 15000, fuel: 'Essence', trans: 'Manual', img: 'https://images.unsplash.com/photo-1617531653332-bd46c24f2068?w=400' },
-                        { id: 'sc-3', brand: 'Kia', model: 'Sportage GT-Line', year: 2026, price: 7400000, condition: 'new', km: 0, fuel: 'Diesel', trans: 'Automatic', img: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=400' }
-                      ].map((car) => (
-                        <div key={car.id} className="bg-white border border-slate-200/80 rounded-3xl overflow-hidden hover:shadow-lg transition flex flex-col justify-between">
-                          <div className="relative aspect-video bg-slate-100">
-                            <img src={car.img} alt="" className="object-cover w-full h-full" />
-                            <span className={`absolute top-3 left-3 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded text-white ${car.condition === 'new' ? 'bg-emerald-600' : 'bg-amber-600'}`}>
-                              {car.condition === 'new' ? 'Neuf 00km' : 'Occasion'}
-                            </span>
+                      {(() => {
+                        const list = salesCars.filter(car => 
+                          selectedBrandFilter === 'all' || car.brand?.toLowerCase() === selectedBrandFilter.toLowerCase()
+                        );
+                        if (list.length === 0) {
+                          return (
+                            <div className="col-span-full bg-slate-50 border border-slate-200/80 rounded-3xl p-10 text-center space-y-2">
+                              <span className="text-2xl">🚗</span>
+                              <h4 className="text-xs font-black text-slate-800">Aucun véhicule trouvé</h4>
+                              <p className="text-[10px] text-slate-500 leading-normal">Nous n'avons pas encore de véhicules enregistrés pour la marque {selectedBrandFilter}.</p>
+                              <button onClick={() => setSelectedBrandFilter('all')} className="px-4 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-[10px] font-black rounded-xl transition mt-2">Voir tous les véhicules</button>
+                            </div>
+                          );
+                        }
+                        return list.map((car) => (
+                          <div key={car.id} className="bg-white border border-slate-200/80 rounded-3xl overflow-hidden hover:shadow-lg transition flex flex-col justify-between group">
+                            <div className="relative aspect-video bg-slate-100 overflow-hidden">
+                              <img 
+                                src={car.cover_image_url || car.img} 
+                                alt="" 
+                                className="object-cover w-full h-full transition duration-700 group-hover:scale-110" 
+                              />
+                              <span className={`absolute top-3 left-3 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded text-white ${car.condition === 'new' ? 'bg-emerald-600' : 'bg-amber-600'}`}>
+                                {car.condition === 'new' ? 'Neuf 00km' : 'Occasion'}
+                              </span>
+                              {car.import_type && (
+                                <span className="absolute top-3 right-3 text-[8px] font-extrabold uppercase bg-slate-900/80 backdrop-blur text-slate-200 px-2 py-0.5 rounded-full tracking-wider">
+                                  {car.import_type === 'sur_command' ? 'Sur commande' : car.import_type === 'imported' ? 'Importé' : 'Disponible Local'}
+                                </span>
+                              )}
+                            </div>
+                            <div className="p-5 space-y-3 flex-1 flex flex-col justify-between">
+                              <div className="space-y-1">
+                                <span className="text-[9px] font-extrabold text-[var(--primary)] uppercase tracking-wider">{car.brand}</span>
+                                <h4 className="text-xs font-black text-slate-800">{car.model} ({car.year})</h4>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-500 font-bold py-2 border-y border-slate-100">
+                                <span>⛽ {car.fuel_type || car.fuel}</span>
+                                <span>⚙️ {car.transmission || car.trans}</span>
+                                {car.mileage > 0 && <span className="col-span-2">🛣️ {car.mileage.toLocaleString()} km</span>}
+                              </div>
+                              <div className="pt-2 flex justify-between items-center mt-auto">
+                                <span className="text-xs font-black text-indigo-650">{(car.selling_price || car.price).toLocaleString()} DZD</span>
+                                <button 
+                                  onClick={() => setSelectedSalesCarForLoan(car)}
+                                  className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-650 text-[10px] font-black rounded-xl transition"
+                                >
+                                  Simuler Crédit
+                                </button>
+                              </div>
+                            </div>
                           </div>
-                          <div className="p-5 space-y-3 flex-1 flex flex-col justify-between">
-                            <div className="space-y-1">
-                              <span className="text-[9px] font-extrabold text-[var(--primary)] uppercase tracking-wider">{car.brand}</span>
-                              <h4 className="text-xs font-black text-slate-800">{car.model} ({car.year})</h4>
-                            </div>
-                            <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-500 font-bold py-2 border-y border-slate-100">
-                              <span>⛽ {car.fuel}</span>
-                              <span>⚙️ {car.trans}</span>
-                              {car.condition === 'used' && <span className="col-span-2">🛣️ {car.km.toLocaleString()} km</span>}
-                            </div>
-                            <div className="pt-2 flex justify-between items-center mt-auto">
-                              <span className="text-xs font-black text-indigo-600">{car.price.toLocaleString()} DZD</span>
-                              <button 
-                                onClick={() => setSelectedSalesCarForLoan(car)}
-                                className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-[10px] font-black rounded-xl transition"
-                              >
-                                Simuler Crédit
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+                        ));
+                      })()}
                     </div>
 
                     {/* Simulate Loan Credit Drawer/Modal */}
@@ -866,7 +1275,7 @@ export default function PublicSite({
 
                 {/* 16. DYNAMIC CAR RENTAL (Location) */}
                 {section.type === 'RentalBooking' && (
-                  <div className="space-y-8 text-left">
+                  <div id="rental-fleet" className="space-y-8 text-left">
                     <div className="text-center max-w-xl mx-auto space-y-2">
                       <h2 className="text-2xl font-black tracking-tight" style={{ fontFamily: headingFont }}>
                         <EditableText sectionId={section.id} contentKey="title" value={section.content.title || 'Location de Voitures'} />
@@ -877,28 +1286,40 @@ export default function PublicSite({
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      {[
-                        { name: 'Dacia Sandero Stepway', rate: 8000, img: 'https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?w=400' },
-                        { name: 'Renault Clio 5', rate: 7500, img: 'https://images.unsplash.com/photo-1590362891991-f776e747a588?w=400' },
-                        { name: 'Hyundai Accent', rate: 9000, img: 'https://images.unsplash.com/photo-1605559424843-9e4c228bf1c2?w=400' }
-                      ].map((car, idx) => {
-                        const isSelected = selectedRentalCar === car.name;
+                      {rentalCars.map((car: any, idx: number) => {
+                        const isSelected = selectedRentalCar === car.model;
+                        const carImg = car.images?.[0] || 'https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?w=400';
                         return (
                           <div 
-                            key={idx} 
-                            onClick={() => setSelectedRentalCar(car.name)}
-                            className={`bg-white border rounded-3xl overflow-hidden cursor-pointer transition-all duration-300 ${isSelected ? 'ring-2 ring-indigo-600 border-transparent shadow-md' : 'border-slate-200/80 hover:border-slate-300'}`}
+                            key={car.id || idx} 
+                            onClick={() => setSelectedRentalCar(car.model)}
+                            className={`bg-white border rounded-3xl overflow-hidden cursor-pointer transition-all duration-300 ${isSelected ? 'ring-2 ring-indigo-650 border-transparent shadow-md scale-[1.01]' : 'border-slate-200/80 hover:border-slate-300 hover:shadow-sm'}`}
                           >
-                            <img src={car.img} alt="" className="aspect-video w-full object-cover bg-slate-100" />
-                            <div className="p-4 flex justify-between items-center">
+                            <div className="relative aspect-video bg-slate-100 overflow-hidden">
+                              <img src={carImg} alt="" className="w-full h-full object-cover transition-all duration-500 hover:scale-105" />
+                              {car.status && (
+                                <span className={`absolute top-3 left-3 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded text-white ${car.status === 'available' ? 'bg-emerald-650' : 'bg-red-650'}`}>
+                                  {car.status === 'available' ? 'Disponible' : 'Réservé'}
+                                </span>
+                              )}
+                            </div>
+                            <div className="p-5 space-y-3">
                               <div>
-                                <h4 className="text-xs font-black text-slate-800">{car.name}</h4>
-                                <p className="text-[10px] text-slate-400 font-bold mt-0.5">Kilométrage illimité</p>
+                                <span className="text-[9px] font-extrabold text-indigo-600 uppercase tracking-wider">{car.brand}</span>
+                                <h4 className="text-xs font-black text-slate-800">{car.model}</h4>
                               </div>
-                              <span className="text-xs font-black text-indigo-600 font-mono">{car.rate.toLocaleString()} DZD/J</span>
+                              <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-500 font-semibold py-2 border-y border-slate-100">
+                                <span>⚙️ {car.transmission || 'Manuelle'}</span>
+                                <span>⛽ {car.fuel_type || 'Essence'}</span>
+                                <span className="col-span-2">🔒 Caution: {(car.security_deposit || 80000).toLocaleString()} DZD</span>
+                              </div>
+                              <div className="pt-1 flex justify-between items-center">
+                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Tarif Journalier</span>
+                                <span className="text-xs font-black text-indigo-650">{(car.daily_rate || car.rate || 7500).toLocaleString()} DZD/J</span>
+                              </div>
                             </div>
                           </div>
-                        )
+                        );
                       })}
                     </div>
 
@@ -907,22 +1328,24 @@ export default function PublicSite({
                       <div className="space-y-4">
                         <h4 className="text-xs font-black text-slate-800">📅 Calculateur Express de Location</h4>
                         
-                        <div className="grid grid-cols-2 gap-4 text-[10px] font-bold text-slate-600">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-[10px] font-bold text-slate-600">
                           <div className="space-y-1">
                             <label className="text-slate-450 uppercase">Modèle Sélectionné</label>
                             <select 
                               value={selectedRentalCar} 
                               onChange={e => setSelectedRentalCar(e.target.value)}
-                              className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-[11px]"
+                              className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-[11px] font-semibold"
                             >
-                              <option value="Dacia Sandero Stepway">Dacia Sandero Stepway (8,000 DZD/J)</option>
-                              <option value="Renault Clio 5">Renault Clio 5 (7,500 DZD/J)</option>
-                              <option value="Hyundai Accent">Hyundai Accent (9,000 DZD/J)</option>
+                              {rentalCars.map((car: any) => (
+                                <option key={car.id} value={car.model}>
+                                  {car.brand} {car.model} ({(car.daily_rate).toLocaleString()} DZD/J)
+                                </option>
+                              ))}
                             </select>
                           </div>
                           
                           <div className="space-y-1">
-                            <label className="text-slate-455 uppercase">Durée (Jours)</label>
+                            <label className="text-slate-455 uppercase">Durée de location (Jours)</label>
                             <input 
                               type="number" min="1" max="30" value={rentalDays} 
                               onChange={e => setRentalDays(Math.max(1, Number(e.target.value)))}
@@ -934,14 +1357,11 @@ export default function PublicSite({
 
                       {/* Display calculations */}
                       {(() => {
-                        const rates: Record<string, number> = {
-                          'Dacia Sandero Stepway': 8000,
-                          'Renault Clio 5': 7500,
-                          'Hyundai Accent': 9000
-                        };
-                        const selectedRate = rates[selectedRentalCar] || 8000;
-                        const subtotal = selectedRate * rentalDays;
-                        const insurance = 1500 * rentalDays; // 1,500 DZD per day insurance
+                        const activeCar = rentalCars.find(c => c.model === selectedRentalCar) || rentalCars[0];
+                        const dailyRate = activeCar?.daily_rate || 7500;
+                        const securityDeposit = activeCar?.security_deposit || 80000;
+                        const subtotal = dailyRate * rentalDays;
+                        const insuranceFee = 1500 * rentalDays; // Standard comprehensive insurance
 
                         return (
                           <div className="p-5 bg-white border border-slate-200 rounded-2xl text-xs space-y-3 font-bold">
@@ -949,21 +1369,25 @@ export default function PublicSite({
                             
                             <div className="space-y-2">
                               <div className="flex justify-between text-slate-500 text-[10px]">
-                                <span>Tarif Journalier:</span>
-                                <span>{selectedRate.toLocaleString()} DZD</span>
+                                <span>Tarif Journalier ({activeCar?.brand} {activeCar?.model}):</span>
+                                <span>{dailyRate.toLocaleString()} DZD</span>
                               </div>
                               <div className="flex justify-between text-slate-500 text-[10px]">
                                 <span>Durée totale:</span>
                                 <span>{rentalDays} jours</span>
                               </div>
                               <div className="flex justify-between text-slate-500 text-[10px]">
-                                <span>Assurance collision incluse:</span>
-                                <span>{insurance.toLocaleString()} DZD</span>
+                                <span>Assurance collision (incluse):</span>
+                                <span>{insuranceFee.toLocaleString()} DZD</span>
+                              </div>
+                              <div className="flex justify-between text-amber-600 text-[10px] border-t border-dashed border-slate-100 pt-1.5">
+                                <span>Caution de garantie (Restituée):</span>
+                                <span>{securityDeposit.toLocaleString()} DZD</span>
                               </div>
                               <div className="pt-2 border-t border-slate-100 flex justify-between items-baseline">
                                 <span className="text-[10px] text-slate-400 uppercase">Total Estimé:</span>
-                                <span className="text-sm font-black text-indigo-600">
-                                  {(subtotal + insurance).toLocaleString()} DZD
+                                <span className="text-sm font-black text-indigo-650">
+                                  {(subtotal + insuranceFee).toLocaleString()} DZD
                                 </span>
                               </div>
                             </div>

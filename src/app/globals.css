@@ -140,3 +140,191 @@
 .page-enter {
   animation: slideFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* Premium Performance-Optimized Glassmorphism Styles (Reduced Blurs & Hardware-Accelerated) */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(8px) saturate(120%); /* Reduced blur from 20px to 8px - massive rendering performance boost! */
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 8px 24px 0 rgba(31, 38, 135, 0.02);
+  will-change: transform, opacity;
+  transform: translate3d(0, 0, 0);
+}
+
+.glass-panel-dark {
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(8px) saturate(120%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 24px 0 rgba(0, 0, 0, 0.15);
+  will-change: transform, opacity;
+  transform: translate3d(0, 0, 0);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(6px); /* Reduced from 12px to 6px */
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease; /* Transition specific layout-safe properties, avoid 'all' */
+  will-change: transform, box-shadow;
+  transform: translate3d(0, 0, 0);
+}
+
+.glass-card:hover {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translate3d(0, -2px, 0); /* 3D GPU transition */
+  box-shadow: 0 12px 20px -8px rgba(0, 0, 0, 0.04);
+}
+
+.glass-card-dark {
+  background: rgba(30, 41, 59, 0.65);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+  will-change: transform, box-shadow;
+  transform: translate3d(0, 0, 0);
+}
+
+.glass-card-dark:hover {
+  background: rgba(30, 41, 59, 0.8);
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translate3d(0, -2px, 0);
+  box-shadow: 0 12px 20px -8px rgba(0, 0, 0, 0.2);
+}
+
+.glass-input {
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  will-change: background-color, border-color, box-shadow;
+}
+
+.glass-input:focus {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(99, 102, 241, 0.45) !important;
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.08) !important;
+}
+
+.glass-input-dark {
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: white;
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  will-change: background-color, border-color, box-shadow;
+}
+
+.glass-input-dark:focus {
+  background: rgba(15, 23, 42, 0.85);
+  border-color: rgba(236, 72, 153, 0.45) !important;
+  box-shadow: 0 0 10px rgba(236, 72, 153, 0.12) !important;
+}
+
+/* Elegant Scrollbars */
+.glass-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.glass-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.glass-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 99px;
+}
+.glass-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.glass-scrollbar-dark::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.glass-scrollbar-dark::-webkit-scrollbar-track {
+  background: transparent;
+}
+.glass-scrollbar-dark::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 99px;
+}
+.glass-scrollbar-dark::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* WhatsApp Doodle/Grid background pattern */
+.whatsapp-pattern {
+  background-color: #efeae2;
+  background-image: 
+    radial-gradient(rgba(37, 211, 102, 0.06) 1.5px, transparent 0),
+    radial-gradient(rgba(37, 211, 102, 0.06) 1.5px, transparent 0);
+  background-size: 24px 24px;
+  background-position: 0 0, 12px 12px;
+}
+
+/* Performance-optimized hardware keyframes */
+@keyframes floatGlow-1 {
+  0% { transform: translate3d(0px, 0px, 0) scale(1); }
+  33% { transform: translate3d(30px, -50px, 0) scale(1.05); }
+  66% { transform: translate3d(-20px, 20px, 0) scale(0.98); }
+  100% { transform: translate3d(0px, 0px, 0) scale(1); }
+}
+
+@keyframes floatGlow-2 {
+  0% { transform: translate3d(0px, 0px, 0) scale(1); }
+  50% { transform: translate3d(-40px, 40px, 0) scale(1.02); }
+  100% { transform: translate3d(0px, 0px, 0) scale(1); }
+}
+
+.animate-glow-1 {
+  animation: floatGlow-1 15s infinite ease-in-out;
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+}
+
+.animate-glow-2 {
+  animation: floatGlow-2 18s infinite ease-in-out;
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+}
+
+/* ── Snappier UI Animation Utilities with GPU Hardware Acceleration ── */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale3d(0.96, 0.96, 1) translate3d(0, 4px, 0); }
+  to   { opacity: 1; transform: scale3d(1, 1, 1)       translate3d(0, 0, 0);   }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translate3d(30px, 0, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0);    }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translate3d(-30px, 0, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0);     }
+}
+
+@keyframes slideInUp {
+  from { opacity: 0; transform: translate3d(0, 15px, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0);    }
+}
+
+.animate-fadeIn       { animation: fadeIn       0.12s ease-out forwards; will-change: opacity; }
+.animate-scaleIn      { animation: scaleIn      0.16s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; will-change: transform, opacity; }
+.animate-slideInRight { animation: slideInRight 0.18s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; will-change: transform, opacity; }
+.animate-slideInLeft  { animation: slideInLeft  0.18s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; will-change: transform, opacity; }
+.animate-slideInUp    { animation: slideInUp    0.16s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; will-change: transform, opacity; }
+
+/* ── Thin scrollbar ─────────────────────────────────── */
+.scrollbar-thin::-webkit-scrollbar       { width: 4px; height: 4px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 99px; }
+.scrollbar-thin::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.22); }
+
+.scrollbar-none                          { scrollbar-width: none; }
+.scrollbar-none::-webkit-scrollbar      { display: none; }

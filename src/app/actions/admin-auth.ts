@@ -39,7 +39,7 @@ export async function setupOwnerAccount(formData: FormData) {
   }
 
   // Create profile
-  const { error: profileError } = await (adminClient.from('profiles') as any).insert({
+  const { error: profileError } = await (adminClient.from('profiles')).insert({
     id: createData.user.id,
     full_name: fullName,
     role: 'superadmin',

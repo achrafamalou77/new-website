@@ -7,11 +7,16 @@ import { ChatPanel } from '@/components/dashboard/ChatPanel'
 import { mockConversations, mockMessages, mockProfiles, Conversation, Message } from '@/lib/mock-data'
 import { createClient, isSupabaseConnected } from '@/lib/supabase/client'
 import { Flame, Bell, Check, Users, Sparkles } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 export interface ExtendedConversation extends Conversation {
   unread?: boolean
   assignee_id?: string | null
   tags?: string[]
+  customer_name?: string | null
+  customer_phone?: string | null
+  lead_summary?: string | null
+  ai_status?: boolean | null
 }
 
 export default function InboxPage() {
@@ -158,7 +163,7 @@ export default function InboxPage() {
   const handleSendMessage = (content: string, options?: { is_internal_note?: boolean; is_voice_note?: boolean; duration?: string; transcript?: string }) => {
     if (!selectedId) return
 
-    const newMsg: Message = {
+    const newMsg: any = {
       id: Math.random().toString(36).substring(2, 9),
       conversation_id: selectedId,
       sender_type: 'human',
@@ -245,38 +250,76 @@ export default function InboxPage() {
   )
 
   return (
-    <div className="flex h-[calc(100vh-64px)] w-full overflow-hidden bg-slate-50 relative page-enter">
+    <div className={cn(
+      "flex h-[calc(100vh-64px)] w-full overflow-hidden relative page-enter transition-colors duration-700",
+      activePlatform === 'instagram' ? "bg-slate-950 text-white" : "bg-slate-50/50 text-slate-800"
+    )}>
       
+      {/* Dynamic Ambient Background Glows */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        <div className={cn(
+          "absolute -top-[10%] -left-[10%] w-[50%] h-[50%] rounded-full blur-[120px] mix-blend-multiply opacity-25 transition-all duration-1000 animate-glow-1",
+          activePlatform === 'whatsapp' ? "bg-emerald-400" :
+          activePlatform === 'instagram' ? "bg-purple-600" :
+          activePlatform === 'facebook' ? "bg-blue-500" :
+          "bg-indigo-500"
+        )} />
+        <div className={cn(
+          "absolute -bottom-[10%] -right-[10%] w-[50%] h-[50%] rounded-full blur-[120px] mix-blend-multiply opacity-25 transition-all duration-1000 animate-glow-2",
+          activePlatform === 'whatsapp' ? "bg-teal-400" :
+          activePlatform === 'instagram' ? "bg-pink-500" :
+          activePlatform === 'facebook' ? "bg-sky-400" :
+          "bg-violet-500"
+        )} />
+        {activePlatform === 'instagram' && (
+          <div className="absolute top-[30%] right-[20%] w-[35%] h-[35%] rounded-full blur-[100px] mix-blend-multiply bg-amber-400 opacity-15 transition-all duration-1000 animate-pulse" />
+        )}
+      </div>
+
       {/* Toast Notification Container (Floating Bottom-Right) */}
       <div className="absolute bottom-6 right-6 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
         {toasts.map(toast => (
           <div 
             key={toast.id}
-            className={`pointer-events-auto flex items-start gap-3 p-4 rounded-xl border shadow-lg transition-all duration-300 transform translate-y-0 animate-bounce-short ${
+            className={cn(
+              "pointer-events-auto flex items-start gap-3 p-4 rounded-xl border shadow-lg transition-all duration-300 transform translate-y-0 animate-bounce-short",
               toast.type === 'hot' 
-                ? 'bg-red-50 border-red-200 text-red-900' 
-                : 'bg-white border-slate-200 text-slate-800'
-            }`}
+                ? "bg-red-50 border-red-200 text-red-900" 
+                : activePlatform === 'instagram'
+                ? "bg-slate-900/90 border-white/10 text-white shadow-black/40 backdrop-blur-md"
+                : "bg-white/90 border-slate-200/80 text-slate-800 backdrop-blur-md"
+            )}
           >
             <div className={`mt-0.5 rounded-full p-1 shrink-0 ${toast.type === 'hot' ? 'bg-red-500 text-white' : 'bg-blue-500 text-white'}`}>
               {toast.type === 'hot' ? <Flame className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
             </div>
             <div className="flex-1 text-left">
               <h4 className="text-xs font-bold tracking-tight">{toast.title}</h4>
-              <p className="text-[11px] font-medium text-slate-500 mt-0.5 leading-relaxed">{toast.description}</p>
+              <p className={cn(
+                "text-[11px] font-medium mt-0.5 leading-relaxed",
+                toast.type === 'hot' ? "text-red-700" : activePlatform === 'instagram' ? "text-slate-400" : "text-slate-500"
+              )}>{toast.description}</p>
             </div>
           </div>
         ))}
       </div>
 
       {!isSupabaseConnected && (
-        <div className="absolute top-0 left-0 right-0 z-30 bg-indigo-50/95 backdrop-blur-sm text-indigo-700 px-4 py-1.5 text-xs text-center font-bold border-b border-indigo-100 flex items-center justify-center gap-1.5 select-none shadow-sm">
+        <div className={cn(
+          "absolute top-0 left-0 right-0 z-30 px-4 py-1.5 text-xs text-center font-bold border-b flex items-center justify-center gap-1.5 select-none shadow-sm transition-all duration-500",
+          activePlatform === 'instagram'
+            ? "bg-slate-900/95 border-white/10 text-pink-400"
+            : "bg-indigo-50/95 border-indigo-100 text-indigo-700"
+        )}>
           <Sparkles className="h-3.5 w-3.5" /> Running in Premium Demo Mode — Cloud Synchronization Active
         </div>
       )}
 
       {/* Main 3-Column Layout Container */}
-      <div className={`flex w-full h-full ${!isSupabaseConnected ? 'pt-8' : ''}`}>
+      <div className={cn(
+        "flex w-full h-full z-10",
+        !isSupabaseConnected ? 'pt-8' : ''
+      )}>
         
         {/* COLUMN 1: Platform Selector (80px) */}
         <PlatformSelector 
@@ -294,7 +337,13 @@ export default function InboxPage() {
         />
 
         {/* COLUMN 2: Conversation List (320px) */}
-        <div className={`h-full w-full lg:w-[320px] shrink-0 border-r border-slate-200 bg-white z-10 ${selectedId ? 'hidden lg:block' : 'block'}`}>
+        <div className={cn(
+          "h-full w-full lg:w-[320px] shrink-0 z-10 transition-all duration-500",
+          selectedId ? "hidden lg:block" : "block",
+          activePlatform === 'instagram' 
+            ? "bg-slate-900/30 border-r border-white/5 backdrop-blur-xl" 
+            : "bg-white/10 border-r border-white/20 backdrop-blur-md"
+        )}>
           <ConversationList 
             conversations={conversations}
             selectedId={selectedId}

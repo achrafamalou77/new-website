@@ -16,6 +16,7 @@ interface ConversationCardProps {
   onClick: () => void
   isBulkSelected: boolean
   onToggleSelect: () => void
+  isDarkTheme?: boolean
 }
 
 export function ConversationCard({
@@ -23,7 +24,8 @@ export function ConversationCard({
   isSelected,
   onClick,
   isBulkSelected,
-  onToggleSelect
+  onToggleSelect,
+  isDarkTheme = false
 }: ConversationCardProps) {
   
   // Calculate relative time ago
@@ -46,17 +48,37 @@ export function ConversationCard({
   const name = conversation.customer_name || 'Guest'
   const initials = name.substring(0, 2).toUpperCase()
 
-  // Select platform colors for avatar ring
+  // Select platform colors for avatar ring & selected card states
   const getPlatformColors = () => {
     switch (conversation.platform) {
       case 'whatsapp':
-        return { ring: 'ring-[#25D366]', bg: 'bg-[#25D366]/10 text-[#25D366]', svg: WhatsAppIcon }
+        return { 
+          ring: 'ring-emerald-500/80 border-emerald-500/20', 
+          bg: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400', 
+          selectedBg: 'bg-emerald-500/15 border-emerald-500/35 text-emerald-950 dark:text-emerald-100 shadow-emerald-500/5', 
+          svg: WhatsAppIcon 
+        }
       case 'facebook':
-        return { ring: 'ring-[#0084FF]', bg: 'bg-[#0084FF]/10 text-[#0084FF]', svg: MessengerIcon }
+        return { 
+          ring: 'ring-blue-500/80 border-blue-500/20', 
+          bg: 'bg-blue-500/10 text-blue-600 dark:text-blue-400', 
+          selectedBg: 'bg-blue-500/15 border-blue-500/35 text-blue-950 dark:text-blue-100 shadow-blue-500/5', 
+          svg: MessengerIcon 
+        }
       case 'instagram':
-        return { ring: 'ring-[#d6249f]', bg: 'bg-gradient-to-tr from-[#fdf497]/20 via-[#fd5949]/20 to-[#d6249f]/20 text-[#d6249f]', svg: InstagramIcon }
+        return { 
+          ring: 'ring-pink-500/80 border-pink-500/20', 
+          bg: 'bg-gradient-to-tr from-[#fdf497]/15 via-[#fd5949]/15 to-[#d6249f]/15 text-pink-500', 
+          selectedBg: 'bg-gradient-to-r from-pink-500/15 to-purple-500/15 border-pink-500/35 text-pink-50 dark:text-pink-100 shadow-pink-500/5', 
+          svg: InstagramIcon 
+        }
       default:
-        return { ring: 'ring-slate-300', bg: 'bg-slate-100 text-slate-600', svg: User }
+        return { 
+          ring: 'ring-indigo-500/80 border-indigo-500/20', 
+          bg: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400', 
+          selectedBg: 'bg-indigo-500/15 border-indigo-500/35 text-indigo-950 dark:text-indigo-100 shadow-indigo-500/5', 
+          svg: User 
+        }
     }
   }
 
@@ -71,10 +93,12 @@ export function ConversationCard({
         onClick()
       }}
       className={cn(
-        "group relative flex items-start gap-3.5 p-4 cursor-pointer transition-all duration-300 rounded-2xl mb-2.5 mx-1 border text-left overflow-hidden select-none",
+        "group relative flex items-start gap-3.5 p-4 cursor-pointer transition-all duration-300 rounded-2xl mb-2.5 mx-1 border text-left overflow-hidden select-none shadow-xs hover:shadow-md hover:-translate-y-0.5",
         isSelected 
-          ? "bg-blue-50/40 border-blue-200/80 shadow-xs border-l-[3px] border-l-blue-600 rounded-l-none" 
-          : "bg-white border-slate-200/60 hover:bg-slate-50/50 hover:border-slate-300/80 shadow-xs hover:shadow-sm"
+          ? colors.selectedBg
+          : isDarkTheme 
+            ? "glass-card-dark border-white/5 text-slate-350 hover:text-white" 
+            : "glass-card border-slate-200/40 text-slate-700 hover:text-slate-900"
       )}
     >
       
@@ -85,10 +109,10 @@ export function ConversationCard({
           onToggleSelect()
         }}
         className={cn(
-          "checkbox-area absolute left-2 top-2 p-1.5 rounded-lg transition-all duration-200 z-20 hover:scale-110",
+          "checkbox-area absolute left-2 top-2 p-1.5 rounded-lg transition-all duration-200 z-20 hover:scale-110 cursor-pointer",
           isBulkSelected 
-            ? "block text-blue-600" 
-            : "hidden group-hover:block bg-white border border-slate-200 text-slate-400 hover:text-slate-600 shadow-sm"
+            ? isDarkTheme ? "text-pink-400 block" : "text-blue-600 block" 
+            : "hidden group-hover:block border text-slate-400 hover:text-slate-600 shadow-sm bg-white/80 border-slate-200/60 backdrop-blur-md dark:bg-slate-900/80 dark:border-white/10 dark:text-slate-400 dark:hover:text-white"
         )}
       >
         {isBulkSelected ? <CheckSquare className="h-4.5 w-4.5" /> : <Square className="h-4.5 w-4.5" />}
@@ -97,7 +121,8 @@ export function ConversationCard({
       {/* Customer Avatar & Indicators */}
       <div className="relative shrink-0 mt-0.5">
         <div className={cn(
-          "h-10 w-10 rounded-full flex items-center justify-center font-bold text-xs ring-2 ring-offset-1 ring-offset-white transition-all duration-300 group-hover:scale-105",
+          "h-10 w-10 rounded-full flex items-center justify-center font-bold text-xs ring-2 ring-offset-2 transition-all duration-300 group-hover:scale-105 shadow-inner",
+          isDarkTheme ? "ring-offset-slate-950" : "ring-offset-white",
           colors.ring,
           colors.bg
         )}>
@@ -105,11 +130,19 @@ export function ConversationCard({
         </div>
         
         {/* Real-time Online Dot (mock indicator) */}
-        <span className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-emerald-500 border-2 border-white ring-1 ring-emerald-400/20" />
+        <span className={cn(
+          "absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-emerald-500 border-2",
+          isDarkTheme ? "border-slate-950 border-slate-900" : "border-white"
+        )} />
 
         {/* Unread Alert Dot indicator */}
         {conversation.unread && (
-          <span className="absolute -top-1 -right-1 block h-3 w-3 rounded-full bg-blue-600 border-2 border-white ring-2 ring-blue-500/20 animate-pulse" />
+          <span className={cn(
+            "absolute -top-1 -right-1 block h-3 w-3 rounded-full border-2 animate-pulse",
+            isDarkTheme 
+              ? "bg-pink-500 border-slate-950 ring-2 ring-pink-500/20" 
+              : "bg-blue-600 border-white ring-2 ring-blue-500/20"
+          )} />
         )}
       </div>
 
@@ -117,23 +150,33 @@ export function ConversationCard({
       <div className="flex-1 min-w-0">
         <div className="flex justify-between items-center gap-2 mb-1">
           <h4 className={cn(
-            "text-xs truncate tracking-tight text-slate-800",
-            conversation.unread ? "font-extrabold text-slate-900" : "font-semibold"
+            "text-xs truncate tracking-tight font-heading",
+            conversation.unread 
+              ? "font-extrabold" 
+              : "font-semibold",
+            conversation.unread
+              ? isDarkTheme ? "text-white" : "text-slate-900"
+              : isDarkTheme ? "text-slate-300 group-hover:text-white" : "text-slate-700 group-hover:text-slate-900"
           )}>
             {name}
           </h4>
-          <span suppressHydrationWarning className="text-[10px] font-bold text-slate-450 whitespace-nowrap shrink-0">{shortTimeAgo}</span>
+          <span suppressHydrationWarning className={cn(
+            "text-[10px] font-bold whitespace-nowrap shrink-0 transition-colors",
+            isDarkTheme ? "text-slate-500 group-hover:text-slate-400" : "text-slate-400 group-hover:text-slate-500"
+          )}>{shortTimeAgo}</span>
         </div>
 
         {/* Message preview details */}
         <div className="flex items-center gap-1.5 mb-2.5">
-          <PlatformSVG className="h-3.5 w-3.5 shrink-0" />
+          <PlatformSVG className="h-3.5 w-3.5 shrink-0 opacity-90 transition-opacity" />
           <p className={cn(
-            "text-[11px] truncate leading-tight",
-            conversation.unread ? "font-bold text-slate-700 font-semibold" : "text-slate-400"
+            "text-[11px] truncate leading-tight transition-colors duration-200",
+            conversation.unread 
+              ? isDarkTheme ? "font-extrabold text-pink-400" : "font-extrabold text-blue-600"
+              : isDarkTheme ? "text-slate-400 group-hover:text-slate-300" : "text-slate-500 group-hover:text-slate-650"
           )}>
             {conversation.lead_summary?.startsWith('Voice') || conversation.lead_summary?.includes('🎤') ? (
-              <span className="text-indigo-600 font-bold">🎤 Voice note received</span>
+              <span className={cn("font-bold", isDarkTheme ? "text-pink-400" : "text-blue-600")}>🎤 Voice note received</span>
             ) : (
               conversation.lead_summary || "No messages yet"
             )}
@@ -141,22 +184,25 @@ export function ConversationCard({
         </div>
 
         {/* Interactive pills action row */}
-        <div className="flex flex-wrap items-center justify-between gap-1.5 pt-2 border-t border-slate-100">
+        <div className={cn(
+          "flex flex-wrap items-center justify-between gap-1.5 pt-2 border-t transition-colors duration-500",
+          isDarkTheme ? "border-white/5" : "border-slate-100"
+        )}>
           
           {/* Animated score badges */}
           {conversation.lead_score === 'HOT' && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-black bg-red-50 text-red-600 border border-red-200 uppercase tracking-widest animate-pulse shadow-xs">
-              <Flame className="h-3 w-3 text-red-500 fill-red-100 animate-bounce" /> HOT
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-black bg-red-500/10 text-red-500 border border-red-500/20 uppercase tracking-widest animate-pulse shadow-sm">
+              <Flame className="h-3 w-3 text-red-500 fill-red-500/10 animate-bounce" /> HOT
             </span>
           )}
           {conversation.lead_score === 'WARM' && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-black bg-amber-50 text-amber-600 border border-amber-200 uppercase tracking-widest shadow-xs">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-black bg-amber-500/10 text-amber-500 border border-amber-500/20 uppercase tracking-widest shadow-sm">
               <Sun className="h-3 w-3 text-amber-550 animate-[spin_10s_linear_infinite]" /> WARM
             </span>
           )}
           {conversation.lead_score === 'COLD' && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-black bg-slate-50 text-slate-500 border border-slate-200 uppercase tracking-widest shadow-xs">
-              <Snowflake className="h-3 w-3 text-slate-400 animate-bounce" /> COLD
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-black bg-slate-500/10 text-slate-400 border border-slate-500/20 uppercase tracking-widest shadow-sm">
+              <Snowflake className="h-3 w-3 text-blue-400 animate-bounce" /> COLD
             </span>
           )}
 
@@ -165,17 +211,27 @@ export function ConversationCard({
             {assignee && (
               <div 
                 title={`Assigned to ${assignee.full_name}`}
-                className="h-4.5 px-1.5 rounded-md bg-indigo-50 border border-indigo-100 text-indigo-600 text-[8px] font-extrabold flex items-center gap-0.5 uppercase tracking-wider"
+                className={cn(
+                  "h-4.5 px-1.5 rounded-md border text-[8px] font-extrabold flex items-center gap-0.5 uppercase tracking-wider shadow-xs",
+                  isDarkTheme 
+                    ? "bg-white/5 border-white/10 text-slate-300" 
+                    : "bg-indigo-50 border-indigo-100 text-indigo-650"
+                )}
               >
                 <User className="h-2 w-2" /> {assignee.full_name.split(' ')[0]}
               </div>
             )}
             
-            <div className="flex items-center gap-1 text-[9px] font-bold text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded-md border border-slate-150">
+            <div className={cn(
+              "flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-md border",
+              isDarkTheme 
+                ? "bg-white/5 border-white/10 text-slate-350" 
+                : "bg-slate-50 border-slate-200/80 text-slate-500"
+            )}>
               {conversation.ai_status ? (
-                <><Bot className="h-2.5 w-2.5 text-emerald-500 animate-pulse" /> <span className="text-emerald-600 text-[8px] uppercase tracking-wider font-extrabold">AI</span></>
+                <><Bot className="h-2.5 w-2.5 text-emerald-500 animate-pulse" /> <span className="text-emerald-500 text-[8px] uppercase tracking-wider font-black">AI</span></>
               ) : (
-                <><User className="h-2.5 w-2.5 text-blue-500" /> <span className="text-slate-500 text-[8px] uppercase tracking-wider font-extrabold">Agent</span></>
+                <><User className={cn("h-2.5 w-2.5", isDarkTheme ? "text-pink-400" : "text-blue-500")} /> <span className={cn("text-[8px] uppercase tracking-wider font-black", isDarkTheme ? "text-slate-400" : "text-slate-550")}>Agent</span></>
               )}
             </div>
           </div>

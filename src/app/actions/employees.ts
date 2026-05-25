@@ -15,14 +15,16 @@ async function getAuthSession() {
     .eq('id', user.id)
     .single()
 
-  return { user, profile: profile as any }
+  return { user, profile: profile }
 }
 
 // 1. Employees Actions
 export async function getEmployees() {
   const supabase = await createClient()
   const session = await getAuthSession()
-  if (!session.user || !session.profile) return []
+  if (!session.user || !session.profile || !session.profile.agency_id) return []
+
+  const agencyId = session.profile.agency_id as string
 
   const { data, error } = await supabase
     .from('employees')
@@ -35,7 +37,7 @@ export async function getEmployees() {
         created_at
       )
     `)
-    .eq('agency_id', session.profile.agency_id)
+    .eq('agency_id', agencyId)
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -55,7 +57,9 @@ export async function getEmployees() {
 export async function getEmployeeById(employeeId: string) {
   const supabase = await createClient()
   const session = await getAuthSession()
-  if (!session.user || !session.profile) return null
+  if (!session.user || !session.profile || !session.profile.agency_id) return null
+
+  const agencyId = session.profile.agency_id as string
 
   const { data, error } = await supabase
     .from('employees')
@@ -69,7 +73,7 @@ export async function getEmployeeById(employeeId: string) {
       )
     `)
     .eq('id', employeeId)
-    .eq('agency_id', session.profile.agency_id)
+    .eq('agency_id', agencyId)
     .single()
 
   if (error || !data) {
@@ -77,7 +81,7 @@ export async function getEmployeeById(employeeId: string) {
     return null
   }
 
-  const emp = data as any
+  const emp = data
   return {
     ...emp,
     full_name: emp.profiles?.full_name || 'Guest',
@@ -137,12 +141,14 @@ export async function updateEmployee(employeeId: string, payload: any) {
 export async function getRoles() {
   const supabase = await createClient()
   const session = await getAuthSession()
-  if (!session.user || !session.profile) return []
+  if (!session.user || !session.profile || !session.profile.agency_id) return []
+
+  const agencyId = session.profile.agency_id as string
 
   const { data, error } = await supabase
     .from('roles')
     .select('id, agency_id, name, permissions, created_at, updated_at')
-    .eq('agency_id', session.profile.agency_id)
+    .eq('agency_id', agencyId)
     .order('name', { ascending: true })
 
   if (error) return []
@@ -152,14 +158,16 @@ export async function getRoles() {
 export async function createCustomRole(name: string, permissions: string[]) {
   const supabase = await createClient()
   const session = await getAuthSession()
-  if (!session.user || !session.profile || session.profile.role !== 'superadmin') {
+  if (!session.user || !session.profile || !session.profile.agency_id || session.profile.role !== 'superadmin') {
     return { success: false, error: 'Only Superadmins can create custom roles' }
   }
+
+  const agencyId = session.profile.agency_id as string
 
   const rolesTable: any = supabase.from('roles')
   const { error } = await rolesTable
     .insert({
-      agency_id: session.profile.agency_id,
+      agency_id: agencyId,
       name,
       permissions
     })
@@ -174,7 +182,9 @@ export async function createCustomRole(name: string, permissions: string[]) {
 export async function getAttendanceRecords(year: number, month: number) {
   const supabase = await createClient()
   const session = await getAuthSession()
-  if (!session.user || !session.profile) return []
+  if (!session.user || !session.profile || !session.profile.agency_id) return []
+
+  const agencyId = session.profile.agency_id as string
 
   const startDate = `${year}-${String(month).padStart(2, '0')}-01`
   const endDate = `${year}-${String(month).padStart(2, '0')}-31`
@@ -182,7 +192,7 @@ export async function getAttendanceRecords(year: number, month: number) {
   const { data, error } = await supabase
     .from('attendance')
     .select('id, employee_id, agency_id, date, status, check_in, check_out, notes, created_at, updated_at')
-    .eq('agency_id', session.profile.agency_id)
+    .eq('agency_id', agencyId)
     .gte('date', startDate)
     .lte('date', endDate)
 
@@ -193,13 +203,15 @@ export async function getAttendanceRecords(year: number, month: number) {
 export async function recordAttendance(employeeId: string, date: string, status: string, checkIn?: string, checkOut?: string, notes?: string) {
   const supabase = await createClient()
   const session = await getAuthSession()
-  if (!session.user || !session.profile) return { success: false, error: 'Unauthorized' }
+  if (!session.user || !session.profile || !session.profile.agency_id) return { success: false, error: 'Unauthorized' }
+
+  const agencyId = session.profile.agency_id as string
 
   const attendanceTable: any = supabase.from('attendance')
   const { error } = await attendanceTable
     .upsert({
       employee_id: employeeId,
-      agency_id: session.profile.agency_id,
+      agency_id: agencyId,
       date,
       status,
       check_in: checkIn || null,
@@ -219,17 +231,19 @@ export async function recordAttendance(employeeId: string, date: string, status:
 export async function getLeaveRequests() {
   const supabase = await createClient()
   const session = await getAuthSession()
-  if (!session.user || !session.profile) return []
+  if (!session.user || !session.profile || !session.profile.agency_id) return []
+
+  const agencyId = session.profile.agency_id as string
 
   const { data, error } = await supabase
     .from('leaves')
     .select(`
-      id, employee_id, agency_id, leave_type, start_date, end_date, reason, status, approved_by, approved_at, created_at, updated_at,
+      id, employee_id, agency_id, leave_type, start_date, end_date, reason, status, approved_by, created_at, updated_at,
       profiles!leaves_employee_id_fkey (
         full_name
       )
     `)
-    .eq('agency_id', session.profile.agency_id)
+    .eq('agency_id', agencyId)
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -246,7 +260,9 @@ export async function getLeaveRequests() {
 export async function createLeaveRequest(payload: { leave_type: string, start_date: string, end_date: string, reason: string }) {
   const supabase = await createClient()
   const session = await getAuthSession()
-  if (!session.user || !session.profile) return { success: false, error: 'Unauthorized' }
+  if (!session.user || !session.profile || !session.profile.agency_id) return { success: false, error: 'Unauthorized' }
+
+  const agencyId = session.profile.agency_id as string
 
   const employeesTable: any = supabase.from('employees')
   const { data: employeeData } = await employeesTable
@@ -254,7 +270,7 @@ export async function createLeaveRequest(payload: { leave_type: string, start_da
     .eq('id', session.user.id)
     .single()
 
-  const employee = employeeData as any
+  const employee = employeeData
 
   const start = new Date(payload.start_date)
   const end = new Date(payload.end_date)
@@ -271,7 +287,7 @@ export async function createLeaveRequest(payload: { leave_type: string, start_da
   const { error } = await leavesTable
     .insert({
       employee_id: session.user.id,
-      agency_id: session.profile.agency_id,
+      agency_id: agencyId,
       leave_type: payload.leave_type,
       start_date: payload.start_date,
       end_date: payload.end_date,
@@ -288,18 +304,18 @@ export async function createLeaveRequest(payload: { leave_type: string, start_da
 export async function approveOrRejectLeave(leaveId: string, status: 'approved' | 'rejected') {
   const supabase = await createClient()
   const session = await getAuthSession()
-  if (!session.user || !session.profile || !['superadmin', 'manager'].includes(session.profile.role)) {
+  if (!session.user || !session.profile || !['superadmin', 'manager'].includes(session.profile.role || '')) {
     return { success: false, error: 'Only admins/managers can approve or reject leaves' }
   }
 
   // 1. Get leave details
   const leavesTable: any = supabase.from('leaves')
   const { data: leaveData, error: fetchErr } = await leavesTable
-    .select('id, employee_id, agency_id, leave_type, start_date, end_date, reason, status, approved_by, approved_at, created_at, updated_at')
+    .select('id, employee_id, agency_id, leave_type, start_date, end_date, reason, status, approved_by, created_at, updated_at')
     .eq('id', leaveId)
     .single()
 
-  const leave = leaveData as any
+  const leave = leaveData
   if (fetchErr || !leave) return { success: false, error: 'Leave request not found' }
 
   if (status === 'approved' && leave.status !== 'approved') {
@@ -315,7 +331,7 @@ export async function approveOrRejectLeave(leaveId: string, status: 'approved' |
       .eq('id', leave.employee_id)
       .single()
 
-    const employee = employeeData as any
+    const employee = employeeData
 
     if (employee) {
       const updateFields: any = {}
@@ -351,7 +367,9 @@ export async function approveOrRejectLeave(leaveId: string, status: 'approved' |
 export async function getPayrollRecords() {
   const supabase = await createClient()
   const session = await getAuthSession()
-  if (!session.user || !session.profile) return []
+  if (!session.user || !session.profile || !session.profile.agency_id) return []
+
+  const agencyId = session.profile.agency_id as string
 
   const { data, error } = await supabase
     .from('payroll')
@@ -361,7 +379,7 @@ export async function getPayrollRecords() {
         full_name
       )
     `)
-    .eq('agency_id', session.profile.agency_id)
+    .eq('agency_id', agencyId)
     .order('year', { ascending: false })
     .order('month', { ascending: false })
 
@@ -407,9 +425,9 @@ export async function calculateClosedBookingsCommission(employeeId: string, mont
     .eq('id', employeeId)
     .single()
 
-  const employee = employeeData as any
+  const employee = employeeData
 
-  const bookingsList = (bookings || []) as any[]
+  const bookingsList = (bookings || [])
   const commPercent = Number(employee?.commission_percent || 0)
   const totalVolume = bookingsList.reduce((sum, b) => sum + (b.total_price || 0), 0)
   const totalCommission = Math.round((totalVolume * commPercent) / 100)
@@ -434,15 +452,17 @@ export async function recordPayroll(payload: {
 }) {
   const supabase = await createClient()
   const session = await getAuthSession()
-  if (!session.user || !session.profile || !['superadmin', 'manager'].includes(session.profile.role)) {
+  if (!session.user || !session.profile || !session.profile.agency_id || !['superadmin', 'manager'].includes(session.profile.role || '')) {
     return { success: false, error: 'Unauthorized' }
   }
+
+  const agencyId = session.profile.agency_id as string
 
   const payrollTable: any = supabase.from('payroll')
   const { error } = await payrollTable
     .upsert({
       employee_id: payload.employee_id,
-      agency_id: session.profile.agency_id,
+      agency_id: agencyId,
       month: payload.month,
       year: payload.year,
       base_salary: payload.base_salary,
@@ -465,7 +485,9 @@ export async function recordPayroll(payload: {
 export async function getKanbanTasks() {
   const supabase = await createClient()
   const session = await getAuthSession()
-  if (!session.user || !session.profile) return []
+  if (!session.user || !session.profile || !session.profile.agency_id) return []
+
+  const agencyId = session.profile.agency_id as string
 
   const { data, error } = await supabase
     .from('hr_tasks')
@@ -475,7 +497,7 @@ export async function getKanbanTasks() {
         full_name
       )
     `)
-    .eq('agency_id', session.profile.agency_id)
+    .eq('agency_id', agencyId)
     .order('created_at', { ascending: false })
 
   if (error) return []
@@ -488,12 +510,14 @@ export async function getKanbanTasks() {
 export async function createKanbanTask(payload: { title: string, description: string, assignee_id?: string, due_date?: string, status?: string }) {
   const supabase = await createClient()
   const session = await getAuthSession()
-  if (!session.user || !session.profile) return { success: false, error: 'Unauthorized' }
+  if (!session.user || !session.profile || !session.profile.agency_id) return { success: false, error: 'Unauthorized' }
+
+  const agencyId = session.profile.agency_id as string
 
   const hrTasksTable: any = supabase.from('hr_tasks')
   const { error } = await hrTasksTable
     .insert({
-      agency_id: session.profile.agency_id,
+      agency_id: agencyId,
       title: payload.title,
       description: payload.description,
       assignee_id: payload.assignee_id || null,
@@ -527,7 +551,9 @@ export async function updateKanbanTaskStatus(taskId: string, status: string) {
 export async function getAnnouncements() {
   const supabase = await createClient()
   const session = await getAuthSession()
-  if (!session.user || !session.profile) return []
+  if (!session.user || !session.profile || !session.profile.agency_id) return []
+
+  const agencyId = session.profile.agency_id as string
 
   const { data, error } = await supabase
     .from('announcements')
@@ -537,7 +563,7 @@ export async function getAnnouncements() {
         full_name
       )
     `)
-    .eq('agency_id', session.profile.agency_id)
+    .eq('agency_id', agencyId)
     .order('is_pinned', { ascending: false })
     .order('created_at', { ascending: false })
 
@@ -551,14 +577,16 @@ export async function getAnnouncements() {
 export async function createAnnouncement(content: string, isPinned: boolean = false) {
   const supabase = await createClient()
   const session = await getAuthSession()
-  if (!session.user || !session.profile || !['superadmin', 'manager'].includes(session.profile.role)) {
+  if (!session.user || !session.profile || !session.profile.agency_id || !['superadmin', 'manager'].includes(session.profile.role || '')) {
     return { success: false, error: 'Only admins or managers can publish announcements' }
   }
+
+  const agencyId = session.profile.agency_id as string
 
   const announcementsTable: any = supabase.from('announcements')
   const { error } = await announcementsTable
     .insert({
-      agency_id: session.profile.agency_id,
+      agency_id: agencyId,
       author_id: session.user.id,
       content,
       is_pinned: isPinned,
@@ -582,7 +610,7 @@ export async function markAnnouncementAsRead(announcementId: string) {
     .eq('id', announcementId)
     .single()
 
-  const announcement = announcementData as any
+  const announcement = announcementData
 
   const readBy = Array.isArray(announcement?.read_by) ? announcement.read_by : []
   if (!readBy.includes(session.user.id)) {

@@ -10,9 +10,9 @@ export async function toggleAiStatus(conversationId: string, aiStatus: boolean) 
 
   const supabase = await createClient()
   
-  const { error } = await (supabase as any)
+  const { error } = await (supabase)
     .from('conversations')
-    .update({ ai_status: aiStatus })
+    .update({ ai_status: aiStatus } as any)
     .eq('id', conversationId)
     
   if (error) {

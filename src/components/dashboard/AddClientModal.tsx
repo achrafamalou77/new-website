@@ -1,19 +1,23 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
-import { User, Phone, Mail, FileText, Calendar, MapPin, Share2 } from 'lucide-react'
-import { createClientAction, updateClientAction } from '@/app/actions/clients'
+import { User, Phone, Mail, FileText, Calendar, MapPin, Building2, Briefcase, BadgePercent, Car, Key, Package, CreditCard } from 'lucide-react'
+import { getAvailableInventoryAction } from '@/app/actions/inventory-fetch'
+import { createClientWithTransactionAction } from '@/app/actions/client-transaction'
+import { updateClientAction } from '@/app/actions/clients'
 
 interface AddClientModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   existingClients?: Array<{ id: string; full_name: string }>
-  clientToEdit?: any // If provided, modal acts as "Edit Client"
+  clientToEdit?: any 
   onSuccess?: () => void
+  activeTransactionTab?: 'ventes' | 'location' | 'commande'
+  activeClientTypeTab?: 'normal' | 'gros'
 }
 
 export function AddClientModal({
@@ -21,11 +25,57 @@ export function AddClientModal({
   onOpenChange,
   existingClients = [],
   clientToEdit = null,
-  onSuccess
+  onSuccess,
+  activeTransactionTab = 'ventes',
+  activeClientTypeTab = 'normal'
 }: AddClientModalProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  
+  // Client States
   const [source, setSource] = useState(clientToEdit?.source || 'walk_in')
+  const [classification, setClassification] = useState<'retail' | 'b2b' | 'corporate' | 'wholesale'>(
+    clientToEdit?.classification || (activeClientTypeTab === 'normal' ? 'retail' : 'b2b')
+  )
+  const isB2B = classification !== 'retail'
+
+  // Inventory / Transaction States
+  const [inventory, setInventory] = useState<any[]>([])
+  const [transactionData, setTransactionData] = useState({
+    car_id: '',
+    car_name: '',
+    start_date: '',
+    end_date: '',
+    sale_price: '',
+    total_price: '',
+    payment_method: 'Cash',
+    id_card_url: clientToEdit?.id_card_url || '',
+    passport_url: clientToEdit?.passport_url || '',
+    license_url: clientToEdit?.license_url || ''
+  })
+
+  // Fetch Inventory on mount if we're dealing with transactions
+  useEffect(() => {
+    if (open) {
+      getAvailableInventoryAction().then(res => {
+        if (res.success && res.cars) {
+          setInventory(res.cars)
+        }
+      })
+    }
+  }, [open])
+
+  const handleCarSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedId = e.target.value
+    const car = inventory.find(c => c.id === selectedId)
+    setTransactionData(prev => ({
+      ...prev,
+      car_id: selectedId,
+      car_name: car ? `${car.brand} ${car.model} (${car.year})` : '',
+      sale_price: car ? car.final_price : prev.sale_price,
+      total_price: car ? car.final_price : prev.total_price
+    }))
+  }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -33,7 +83,9 @@ export function AddClientModal({
     setError(null)
 
     const formData = new FormData(e.currentTarget)
-    const payload = {
+    
+    // 1. Gather Client Data
+    const clientData: any = {
       full_name: formData.get('full_name') as string,
       phone: formData.get('phone') as string,
       email: formData.get('email') as string,
@@ -45,18 +97,49 @@ export function AddClientModal({
       source: formData.get('source') as any,
       referred_by_id: formData.get('referred_by_id') as string || null,
       notes: formData.get('notes') as string,
+      classification,
+      id_card_url: transactionData.id_card_url,
+      passport_url: transactionData.passport_url,
+      license_url: transactionData.license_url
+    }
+
+    if (isB2B) {
+      clientData.company_legal_name = formData.get('company_legal_name') as string
+      clientData.company_nif = formData.get('company_nif') as string
+      clientData.company_rc = formData.get('company_rc') as string
+      clientData.company_address = formData.get('company_address') as string
+      clientData.contact_person = formData.get('contact_person') as string
+      const discountTier = formData.get('volume_discount_tier') as string
+      clientData.volume_discount_tier = discountTier ? Number(discountTier) : 0
     }
 
     try {
-      const res = clientToEdit 
-        ? await updateClientAction(clientToEdit.id, payload)
-        : await createClientAction(payload)
-
-      if (res.success) {
-        onOpenChange(false)
-        if (onSuccess) onSuccess()
+      if (clientToEdit && !transactionData.car_id) {
+        // Just updating client, no new transaction being registered
+        const res = await updateClientAction(clientToEdit.id, clientData)
+        if (res.success) {
+          onOpenChange(false)
+          if (onSuccess) onSuccess()
+        } else {
+          setError(res.error || "Erreur de mise à jour")
+        }
       } else {
-        setError(res.error || 'Something went wrong')
+        // Creating client and/or new transaction
+        const payload = {
+          clientToEditId: clientToEdit?.id,
+          clientData,
+          transactionType: activeTransactionTab,
+          transactionData
+        }
+
+        const res = await createClientWithTransactionAction(payload)
+        
+        if (res.success) {
+          onOpenChange(false)
+          if (onSuccess) onSuccess()
+        } else {
+          setError(res.error || 'Erreur lors de la création de la transaction')
+        }
       }
     } catch (err: any) {
       setError(err.message || 'An error occurred')
@@ -69,204 +152,232 @@ export function AddClientModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl rounded-2xl overflow-hidden font-geist bg-white border border-slate-100 shadow-xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl rounded-2xl overflow-hidden font-geist bg-white border border-slate-100 shadow-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="text-left pb-2 border-b border-slate-100">
           <DialogTitle className="text-lg font-bold text-slate-800 flex items-center gap-2">
-            <User className="h-5 w-5 text-indigo-500" />
-            {isEdit ? 'Modifier la Fiche Client' : 'Ajouter un Nouveau Client'}
+            {activeTransactionTab === 'ventes' && <Car className="h-5 w-5 text-indigo-500" />}
+            {activeTransactionTab === 'location' && <Key className="h-5 w-5 text-teal-500" />}
+            {activeTransactionTab === 'commande' && <Package className="h-5 w-5 text-orange-500" />}
+            {isEdit ? 'Modifier la Fiche Client & Transaction' : `Ajouter un Client (${activeTransactionTab.toUpperCase()})`}
           </DialogTitle>
           <DialogDescription className="text-slate-400 text-xs">
-            {isEdit ? 'Mettre à jour les informations du dossier de votre client.' : 'Enregistrez les informations personnelles et de contact de votre client voyageur.'}
+            Enregistrez les informations du client ainsi que les détails de sa transaction. Une facture sera générée automatiquement.
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-5 py-4 text-left">
+        <form onSubmit={handleSubmit} className="py-4 text-left">
           {error && (
-            <div className="p-3 bg-red-50 text-red-700 text-xs font-semibold rounded-xl border border-red-100">
+            <div className="p-3 mb-4 bg-red-50 text-red-700 text-xs font-semibold rounded-xl border border-red-100">
               {error}
             </div>
           )}
 
-          {/* Section 1: Informations Primaires */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1.5 col-span-1 md:col-span-2">
-              <Label className="text-xs font-semibold text-slate-600">Nom Complet / Full Name <span className="text-red-500">*</span></Label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <Input 
-                  className="rounded-xl bg-slate-100 border-0 text-sm focus:bg-white pl-9 transition" 
-                  name="full_name" 
-                  required 
-                  defaultValue={clientToEdit?.full_name || ''} 
-                  placeholder="E.g., Achraf Amalou" 
-                />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            
+            {/* LEFT COLUMN: CLIENT INFO */}
+            <div className="space-y-5">
+              <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+                <User className="h-4 w-4 text-slate-400" />
+                <h3 className="text-sm font-black text-slate-700 uppercase tracking-widest">Infos Client</h3>
+              </div>
+
+              {/* Client Type Selector */}
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { value: 'retail', label: 'Retail', icon: '👤', color: 'border-slate-300 text-slate-700' },
+                  { value: 'b2b', label: 'B2B', icon: '🏢', color: 'border-purple-300 text-purple-700' },
+                  { value: 'corporate', label: 'Corporate', icon: '🏛️', color: 'border-orange-300 text-orange-700' },
+                  { value: 'wholesale', label: 'Wholesale', icon: '📦', color: 'border-amber-300 text-amber-700' },
+                ].map(opt => {
+                  // Only show relevant options based on the active top-level tab
+                  if (activeClientTypeTab === 'normal' && opt.value !== 'retail') return null
+                  if (activeClientTypeTab === 'gros' && opt.value === 'retail') return null
+                  
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setClassification(opt.value as any)}
+                      className={`p-2 rounded-xl border-2 text-center transition font-bold text-xs space-y-0.5 focus:outline-none ${
+                        classification === opt.value
+                          ? opt.color + ' ring-2 ring-offset-1 ring-indigo-400 bg-slate-50'
+                          : 'border-slate-200 bg-white text-slate-400 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="text-base">{opt.icon} {opt.label}</div>
+                    </button>
+                  )
+                })}
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-600">Nom Complet <span className="text-red-500">*</span></Label>
+                  <Input className="rounded-xl bg-slate-50 border-0" name="full_name" required defaultValue={clientToEdit?.full_name || ''} placeholder="Ex: Achraf Amalou" />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-600">Téléphone</Label>
+                    <Input className="rounded-xl bg-slate-50 border-0" name="phone" defaultValue={clientToEdit?.phone || ''} placeholder="+213..." />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-600">Email</Label>
+                    <Input className="rounded-xl bg-slate-50 border-0" name="email" type="email" defaultValue={clientToEdit?.email || ''} placeholder="@" />
+                  </div>
+                </div>
+
+                {isB2B && (
+                  <div className="space-y-4 rounded-xl border border-amber-200 bg-amber-50/30 p-4 mt-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold text-amber-800">Raison Sociale</Label>
+                      <Input className="rounded-xl bg-white border-amber-200" name="company_legal_name" defaultValue={clientToEdit?.company_legal_name || ''} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold text-amber-800">NIF</Label>
+                        <Input className="rounded-xl bg-white border-amber-200" name="company_nif" defaultValue={clientToEdit?.company_nif || ''} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold text-amber-800">RC</Label>
+                        <Input className="rounded-xl bg-white border-amber-200" name="company_rc" defaultValue={clientToEdit?.company_rc || ''} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-600">N° Carte Nationale</Label>
+                    <Input className="rounded-xl bg-slate-50 border-0" name="id_card_number" defaultValue={clientToEdit?.id_card_number || ''} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-600">Date de Naissance</Label>
+                    <Input className="rounded-xl bg-slate-50 border-0" name="date_of_birth" type="date" defaultValue={clientToEdit?.date_of_birth || ''} />
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-600">Téléphone / Phone</Label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <Input 
-                  className="rounded-xl bg-slate-100 border-0 text-sm focus:bg-white pl-9 transition" 
-                  name="phone" 
-                  defaultValue={clientToEdit?.phone || ''} 
-                  placeholder="E.g., +213 555 12 34 56" 
-                />
+            {/* RIGHT COLUMN: TRANSACTION INFO */}
+            <div className="space-y-5 bg-slate-50/50 rounded-2xl p-5 border border-slate-100">
+              <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+                <CreditCard className="h-4 w-4 text-indigo-500" />
+                <h3 className="text-sm font-black text-indigo-900 uppercase tracking-widest">
+                  Transaction & Documents
+                </h3>
               </div>
-            </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-600">Adresse Email</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <Input 
-                  className="rounded-xl bg-slate-100 border-0 text-sm focus:bg-white pl-9 transition" 
-                  name="email" 
-                  type="email" 
-                  defaultValue={clientToEdit?.email || ''} 
-                  placeholder="E.g., client@example.com" 
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Section 2: Pièces d'identité & Naissance */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-slate-50 pt-4">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-600">N° Carte Nationale (CNI)</Label>
-              <div className="relative">
-                <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <Input 
-                  className="rounded-xl bg-slate-100 border-0 text-sm focus:bg-white pl-9 transition" 
-                  name="id_card_number" 
-                  defaultValue={clientToEdit?.id_card_number || ''} 
-                  placeholder="18-digit ID" 
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-600">N° Passeport</Label>
-              <div className="relative">
-                <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <Input 
-                  className="rounded-xl bg-slate-100 border-0 text-sm focus:bg-white pl-9 transition" 
-                  name="passport_number" 
-                  defaultValue={clientToEdit?.passport_number || ''} 
-                  placeholder="Passport number" 
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-600">Date de Naissance</Label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <Input 
-                  className="rounded-xl bg-slate-100 border-0 text-sm focus:bg-white pl-9 transition" 
-                  name="date_of_birth" 
-                  type="date" 
-                  defaultValue={clientToEdit?.date_of_birth || ''} 
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Section 3: Adresse et Localisation */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-50 pt-4">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-600">Ville / City</Label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <Input 
-                  className="rounded-xl bg-slate-100 border-0 text-sm focus:bg-white pl-9 transition" 
-                  name="city" 
-                  defaultValue={clientToEdit?.city || ''} 
-                  placeholder="E.g., Alger, Oran, Constantine" 
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-600">Adresse Résidence</Label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <Input 
-                  className="rounded-xl bg-slate-100 border-0 text-sm focus:bg-white pl-9 transition" 
-                  name="address" 
-                  defaultValue={clientToEdit?.address || ''} 
-                  placeholder="Adresse complète" 
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Section 4: Provenance / Acquisition */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-50 pt-4">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-600">Canal d'Acquisition / Source <span className="text-red-500">*</span></Label>
-              <select 
-                name="source" 
-                value={source}
-                onChange={(e) => setSource(e.target.value)}
-                className="flex h-10 w-full items-center justify-between rounded-xl border-0 bg-slate-100 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-              >
-                {/* Walk-in is first and slate colored style is added in rendering */}
-                <option value="walk_in" className="text-slate-700 font-semibold">Walk-in (Sur Place / Slate)</option>
-                <option value="whatsapp" className="text-[#25D366] font-semibold">WhatsApp</option>
-                <option value="facebook" className="text-[#0084FF] font-semibold">Facebook</option>
-                <option value="instagram" className="text-pink-600 font-semibold">Instagram</option>
-                <option value="phone" className="text-blue-600 font-semibold">Téléphone / Phone</option>
-                <option value="referral" className="text-amber-600 font-semibold">Referral (Parrainage)</option>
-              </select>
-            </div>
-
-            {/* Conditional Referral Dropdown */}
-            {source === 'referral' && (
+              {/* Car Selection */}
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-600">Parrainé par / Referred by</Label>
-                <div className="relative">
+                <Label className="text-xs font-semibold text-slate-600">Sélectionner un Véhicule <span className="text-red-500">*</span></Label>
+                <select 
+                  className="flex h-10 w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  value={transactionData.car_id}
+                  onChange={handleCarSelect}
+                >
+                  <option value="">-- Choisir un véhicule du Stock --</option>
+                  {inventory.map(car => (
+                    <option key={car.id} value={car.id}>
+                      {car.brand} {car.model} {car.year} - {car.final_price?.toLocaleString()} DZD ({car.car_type})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Dynamic Transaction Fields */}
+              {activeTransactionTab === 'location' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-600">Date de Début</Label>
+                    <Input 
+                      className="rounded-xl bg-white border border-slate-200" 
+                      type="datetime-local" 
+                      value={transactionData.start_date}
+                      onChange={(e) => setTransactionData({...transactionData, start_date: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-600">Date de Fin</Label>
+                    <Input 
+                      className="rounded-xl bg-white border border-slate-200" 
+                      type="datetime-local" 
+                      value={transactionData.end_date}
+                      onChange={(e) => setTransactionData({...transactionData, end_date: e.target.value})}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-600">
+                    {activeTransactionTab === 'ventes' ? 'Prix de Vente (DZD)' : 'Montant Total (DZD)'}
+                  </Label>
+                  <Input 
+                    className="rounded-xl bg-white border border-indigo-200 font-bold text-indigo-700" 
+                    type="number"
+                    value={activeTransactionTab === 'ventes' ? transactionData.sale_price : transactionData.total_price}
+                    onChange={(e) => setTransactionData(prev => ({
+                      ...prev,
+                      sale_price: e.target.value,
+                      total_price: e.target.value
+                    }))}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-600">Méthode de Paiement</Label>
                   <select 
-                    name="referred_by_id" 
-                    defaultValue={clientToEdit?.referred_by_id || ''}
-                    className="flex h-10 w-full items-center justify-between rounded-xl border-0 bg-slate-100 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    className="flex h-10 w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    value={transactionData.payment_method}
+                    onChange={(e) => setTransactionData({...transactionData, payment_method: e.target.value})}
                   >
-                    <option value="">-- Sélectionner un parrain --</option>
-                    {existingClients.map(c => (
-                      <option key={c.id} value={c.id}>{c.full_name}</option>
-                    ))}
+                    <option value="Cash">Espèces (Cash)</option>
+                    <option value="Bank Transfer">Virement Bancaire</option>
+                    <option value="Check">Chèque</option>
                   </select>
                 </div>
               </div>
-            )}
+
+              {/* Document Uploads / URLs */}
+              <div className="pt-4 border-t border-slate-200 space-y-3">
+                <Label className="text-xs font-black text-slate-700 uppercase tracking-wider">Documents Joints (Liens/URLs)</Label>
+                <div className="space-y-2">
+                  <Input 
+                    className="rounded-xl bg-white border border-slate-200 text-xs" 
+                    placeholder="Lien URL - Carte d'Identité / ID Card" 
+                    value={transactionData.id_card_url}
+                    onChange={(e) => setTransactionData({...transactionData, id_card_url: e.target.value})}
+                  />
+                  {activeTransactionTab === 'location' && (
+                    <Input 
+                      className="rounded-xl bg-white border border-slate-200 text-xs" 
+                      placeholder="Lien URL - Permis de Conduire (License)" 
+                      value={transactionData.license_url}
+                      onChange={(e) => setTransactionData({...transactionData, license_url: e.target.value})}
+                    />
+                  )}
+                  {activeTransactionTab === 'commande' && (
+                    <Input 
+                      className="rounded-xl bg-white border border-slate-200 text-xs" 
+                      placeholder="Lien URL - Passeport (Passport)" 
+                      value={transactionData.passport_url}
+                      onChange={(e) => setTransactionData({...transactionData, passport_url: e.target.value})}
+                    />
+                  )}
+                </div>
+                <p className="text-[10px] text-slate-400 font-semibold italic">Collez les liens Google Drive ou Supabase de vos documents scannés.</p>
+              </div>
+
+            </div>
           </div>
 
-          <div className="space-y-1.5 border-t border-slate-50 pt-4">
-            <Label className="text-xs font-semibold text-slate-600">Notes / Remarques Internes</Label>
-            <textarea 
-              className="flex min-h-[80px] w-full rounded-xl border-0 bg-slate-100 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition resize-y" 
-              name="notes" 
-              defaultValue={clientToEdit?.notes || ''} 
-              placeholder="Ajoutez des spécificités sur le voyageur (ex: repas spécial, visa en cours)..." 
-            />
-          </div>
-
-          <DialogFooter className="pt-4 border-t border-slate-100 gap-2 flex items-center justify-end">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => onOpenChange(false)}
-              className="rounded-xl border-slate-200 text-slate-600"
-            >
+          <DialogFooter className="pt-6 mt-6 border-t border-slate-100 gap-2 flex items-center justify-end">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl border-slate-200 text-slate-600">
               Annuler
             </Button>
-            <Button 
-              type="submit" 
-              disabled={loading}
-              className="bg-indigo-650 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold shadow-md shadow-indigo-150"
-            >
-              {loading ? 'Enregistrement...' : isEdit ? 'Enregistrer les Modifications' : 'Enregistrer le Client'}
+            <Button type="submit" disabled={loading} className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold px-8 shadow-md">
+              {loading ? 'Enregistrement...' : 'Enregistrer & Générer Facture'}
             </Button>
           </DialogFooter>
         </form>

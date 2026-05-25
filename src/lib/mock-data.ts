@@ -5,7 +5,7 @@ export type Message = Database['public']['Tables']['messages']['Row']
 
 const AGENCY_ID = '00000000-0000-0000-0000-000000000000'
 
-export const mockConversations: Conversation[] = [
+export const mockConversations: any[] = [
   {
     id: 'conv-1',
     agency_id: AGENCY_ID,
@@ -112,7 +112,7 @@ export const mockConversations: Conversation[] = [
   },
 ]
 
-export const mockMessages: Message[] = [
+export const mockMessages: any[] = [
   // Conversation 1 - HOT
   {
     id: 'msg-1',
@@ -169,7 +169,7 @@ export type Trip = Database['public']['Tables']['trips']['Row']
 export type Booking = Database['public']['Tables']['bookings']['Row']
 export type Profile = Database['public']['Tables']['profiles']['Row']
 
-export const mockTrips: Trip[] = [
+export const mockTrips: any[] = [
   {
     id: 'trip-1',
     agency_id: AGENCY_ID,
@@ -208,7 +208,7 @@ export const mockTrips: Trip[] = [
   },
 ]
 
-export const mockBookings: Booking[] = [
+export const mockBookings: any[] = [
   {
     id: 'book-1',
     agency_id: AGENCY_ID,
@@ -241,7 +241,7 @@ export const mockBookings: Booking[] = [
   },
 ]
 
-export const mockProfiles: Profile[] = [
+export const mockProfiles: any[] = [
   {
     id: 'prof-1',
     agency_id: AGENCY_ID,

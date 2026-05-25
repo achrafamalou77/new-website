@@ -34,41 +34,47 @@ export default async function DashboardHome() {
   let financingApps = 3
   let salesVolume = 76500000
 
+  const agencyIdHeader = headersList.get('x-agency-id')
+
   if (isSupabaseConnected) {
     try {
       const supabase = await createClient()
       const { data: { user } } = await supabase.auth.getUser()
       
       if (user) {
-        let agencyId = user.id
+        let agencyId = agencyIdHeader || null
         const { data: profileData } = await supabase.from('profiles').select('full_name, agency_id').eq('id', user.id).single()
         const profile = profileData as any
         if (profile) {
           userName = profile.full_name
-          agencyId = profile.agency_id
+          if (!agencyId) {
+            agencyId = profile.agency_id
+          }
         }
 
-        // Fetch features details
-        const { data: agencyData } = await supabase.from('agencies').select('business_type_slug').eq('id', agencyId).single()
-        const agency = agencyData as any
-        if (agency?.business_type_slug) {
-          businessTypeSlug = agency.business_type_slug
-        }
+        if (agencyId) {
+          // Fetch features details
+          const { data: agencyData } = await supabase.from('agencies').select('business_type_slug').eq('id', agencyId).single()
+          const agency = agencyData as any
+          if (agency?.business_type_slug) {
+            businessTypeSlug = agency.business_type_slug === 'travel_agency' ? 'travel' : agency.business_type_slug
+          }
 
-        const { data: stats } = await (supabase as any).rpc('get_dashboard_stats', {
-          p_agency_id: agencyId
-        })
+          const { data: stats } = await (supabase as any).rpc('get_dashboard_stats', {
+            p_agency_id: agencyId
+          })
 
-        if (stats) {
-          totalConversations = stats.totalConversations || 0
-          hotLeads = stats.hotLeads || 0
-          bookingsThisMonth = stats.bookingsThisMonth || 0
-          tripsCount = stats.tripsCount || 0
-          invoicesCount = stats.invoicesCount || 0
-          accountsCount = stats.accountsCount || 0
-          faqsCount = stats.faqsCount || 0
-          visaApplicationsCount = stats.visaApplicationsCount || 0
-          visaRevenue = stats.visaRevenue || 0
+          if (stats) {
+            totalConversations = stats.totalConversations || 0
+            hotLeads = stats.hotLeads || 0
+            bookingsThisMonth = stats.bookingsThisMonth || 0
+            tripsCount = stats.tripsCount || 0
+            invoicesCount = stats.invoicesCount || 0
+            accountsCount = stats.accountsCount || 0
+            faqsCount = stats.faqsCount || 0
+            visaApplicationsCount = stats.visaApplicationsCount || 0
+            visaRevenue = stats.visaRevenue || 0
+          }
         }
 
         const { data: recent } = await supabase
@@ -79,15 +85,29 @@ export default async function DashboardHome() {
         
         recentConversations = recent || []
 
-        // Load car counts
-        const { count: cCount } = await supabase.from('car_inventory').select('*', { count: 'exact', head: true })
-        if (cCount !== null && cCount !== undefined) carsCount = cCount
+        // Load car counts and showroom specific metrics only if businessTypeSlug is car_showroom
+        if (businessTypeSlug === 'car_showroom') {
+          try {
+            const { count: cCount } = await supabase.from('car_inventory').select('*', { count: 'exact', head: true })
+            if (cCount !== null && cCount !== undefined) carsCount = cCount
+          } catch (err) {
+            console.error('Error loading car_inventory count:', err)
+          }
 
-        const { count: tdCount } = await supabase.from('test_drives').select('*', { count: 'exact', head: true })
-        if (tdCount !== null && tdCount !== undefined) testDrivesScheduled = tdCount
+          try {
+            const { count: tdCount } = await supabase.from('test_drives').select('*', { count: 'exact', head: true })
+            if (tdCount !== null && tdCount !== undefined) testDrivesScheduled = tdCount
+          } catch (err) {
+            console.error('Error loading test_drives count:', err)
+          }
 
-        const { count: finCount } = await supabase.from('financing_applications').select('*', { count: 'exact', head: true })
-        if (finCount !== null && finCount !== undefined) financingApps = finCount
+          try {
+            const { count: finCount } = await supabase.from('financing_applications').select('*', { count: 'exact', head: true })
+            if (finCount !== null && finCount !== undefined) financingApps = finCount
+          } catch (err) {
+            console.error('Error loading financing_applications count:', err)
+          }
+        }
       }
     } catch (e) {
       console.error('Error fetching dashboard stats:', e)
@@ -104,7 +124,7 @@ export default async function DashboardHome() {
     faqsCount = 5
 
     // Populate simulated showroom conversions
-    recentConversations = mockConversations.map(c => ({
+    recentConversations = mockConversations.map((c: any) => ({
       ...c,
       lead_summary: c.customer_name === 'Achraf' 
         ? 'Interested in the 2024 Toyota Tucson, asking about the 30% down payment options.' 

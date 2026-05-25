@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache'
 
 export async function getPlans() {
   const adminClient = createAdminClient()
-  const { data } = await (adminClient.from('plans') as any)
+  const { data } = await (adminClient.from('plans'))
     .select('id, name, description, price, max_trips, max_employees, ai_credits_monthly, features, created_at, updated_at')
     .order('price', { ascending: true })
   
@@ -41,7 +41,7 @@ export async function savePlan(formData: FormData) {
     features
   }
 
-  const { error } = await (adminClient.from('plans') as any)
+  const { error } = await (adminClient.from('plans'))
     .upsert(payload)
 
   if (error) return { success: false, error: error.message }

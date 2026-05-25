@@ -12,9 +12,9 @@ export default async function NewInvoicePage() {
       const supabase = await createClient()
 
       // Fetch clients
-      const { data: clientsData } = await supabase
+      const { data: clientsData } = await (supabase as any)
         .from('clients')
-        .select('id, full_name, phone, email')
+        .select('id, full_name, phone, email, classification, company_legal_name, company_nif, company_rc, volume_discount_tier')
         .order('full_name')
       
       clients = clientsData || []

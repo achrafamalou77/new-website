@@ -18,7 +18,16 @@ CREATE INDEX IF NOT EXISTS idx_trips_agency_featured ON trips(agency_id, is_feat
 
 -- Conversations / Inbox
 CREATE INDEX IF NOT EXISTS idx_conversations_agency_id ON conversations(agency_id);
-CREATE INDEX IF NOT EXISTS idx_conversations_customer_phone ON conversations(customer_phone);
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 
+    FROM information_schema.columns 
+    WHERE table_name='conversations' AND column_name='customer_phone'
+  ) THEN
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_conversations_customer_phone ON conversations(customer_phone)';
+  END IF;
+END $$;
 CREATE INDEX IF NOT EXISTS idx_conversations_lead_score ON conversations(lead_score);
 CREATE INDEX IF NOT EXISTS idx_conversations_platform ON conversations(platform);
 CREATE INDEX IF NOT EXISTS idx_conversations_last_message_at ON conversations(last_message_at DESC);

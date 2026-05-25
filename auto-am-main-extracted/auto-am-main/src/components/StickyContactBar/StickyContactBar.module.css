@@ -1,0 +1,128 @@
+/* ===== Sticky Contact Bar — Amine Auto ===== */
+
+.bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 900;
+  background: rgba(10, 14, 23, 0.85);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  border-top: 1px solid var(--color-border);
+  padding: 12px 24px;
+  transition: all var(--transition-normal);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.collapsed {
+  padding: 8px 16px;
+  background: transparent;
+  border-top: none;
+  backdrop-filter: none;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+.collapsed .toggle,
+.collapsed .miniWa {
+  pointer-events: all;
+}
+
+/* Toggle */
+.toggle {
+  position: absolute;
+  top: -32px;
+  right: 24px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px 8px 0 0;
+  background: rgba(10, 14, 23, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--color-border);
+  border-bottom: none;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.toggle:hover {
+  color: var(--color-primary);
+}
+
+/* Content */
+.content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  max-width: var(--container-max);
+  margin: 0 auto;
+}
+
+.text {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.waBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  background: var(--color-whatsapp);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.85rem;
+  border-radius: var(--radius-full);
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.waBtn:hover {
+  background: #22c55e;
+  transform: scale(1.03);
+  box-shadow: 0 4px 20px rgba(37, 211, 102, 0.35);
+}
+
+/* Mini WA */
+.miniWa {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--color-whatsapp);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  box-shadow: 0 4px 20px rgba(37, 211, 102, 0.35);
+  animation: pulseWa 2s ease-in-out infinite;
+}
+
+.miniWa:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 30px rgba(37, 211, 102, 0.5);
+  animation: none;
+}
+
+@keyframes pulseWa {
+  0%, 100% { box-shadow: 0 4px 20px rgba(37, 211, 102, 0.35); }
+  50% { box-shadow: 0 4px 30px rgba(37, 211, 102, 0.6); }
+}
+
+@media (max-width: 640px) {
+  .text {
+    display: none;
+  }
+  .content {
+    justify-content: center;
+  }
+}

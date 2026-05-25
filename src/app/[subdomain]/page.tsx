@@ -49,8 +49,8 @@ export default async function SubdomainPage(props: { params: Promise<{ subdomain
   const supabase = createAdminClient()
 
   // 1. Fetch agency
-  const { data: agencyData, error: agencyError } = await supabase
-    .from('agencies')
+  const { data: agencyData, error: agencyError } = await (supabase
+    .from('agencies') as any)
     .select('*')
     .eq('subdomain', params.subdomain)
     .single()
@@ -59,7 +59,19 @@ export default async function SubdomainPage(props: { params: Promise<{ subdomain
     notFound()
   }
 
-  const agency = agencyData as any
+  // Fetch live website config from the visual builder configs table
+  const { data: configData } = await (supabase
+    .from('website_configs') as any)
+    .select('*')
+    .eq('agency_id', (agencyData as any).id)
+    .maybeSingle()
+
+  const agency = {
+    ...agencyData,
+    website_config: configData?.builder_data && Object.keys(configData.builder_data).length > 0
+      ? configData.builder_data
+      : agencyData.website_config
+  } as any
 
   // 2. Fetch active trips for this agency
   const { data: tripsData } = await supabase
@@ -71,7 +83,51 @@ export default async function SubdomainPage(props: { params: Promise<{ subdomain
 
   const trips = (tripsData as any[]) || []
 
-  // No need for featured filtering per spec – show all active trips
+  // 3. Fetch showroom inventory if business vertical is showroom
+  let salesCars: any[] = []
+  let rentalCars: any[] = []
+
+  if (agency.business_type_slug === 'car_showroom') {
+    const { data: salesData } = await supabase
+      .from('car_sales_inventory')
+      .select('*')
+      .eq('agency_id', agency.id)
+      .eq('status', 'available')
+      .order('created_at', { ascending: false })
+    salesCars = ((salesData as any[]) || []).map((car: any) => {
+      const specs = car.specs || {}
+      return {
+        ...car,
+        ...specs,
+        color_exterior: car.color || specs.color_exterior || '',
+        selling_price: car.price || specs.selling_price || 0,
+        purchase_price: car.cost_price || specs.purchase_price || 0,
+        car_type: car.car_type || car.type || specs.car_type || 'sell',
+        condition: specs.condition || 'new',
+        show_on_website: specs.show_on_website !== false,
+      }
+    }).filter(car => car.show_on_website !== false)
+
+    const { data: rentalData } = await supabase
+      .from('car_rental_fleet')
+      .select('*')
+      .eq('agency_id', agency.id)
+      .eq('status', 'available')
+      .order('created_at', { ascending: false })
+    rentalCars = ((rentalData as any[]) || []).map((car: any) => {
+      const specs = car.specs || {}
+      return {
+        ...car,
+        ...specs,
+        color_exterior: car.color || specs.color_exterior || '',
+        selling_price: car.price || specs.selling_price || car.daily_rate || 0,
+        purchase_price: car.cost_price || specs.purchase_price || 0,
+        car_type: 'rental',
+        condition: specs.condition || 'new',
+        show_on_website: specs.show_on_website !== false,
+      }
+    }).filter(car => car.show_on_website !== false)
+  }
 
   // Extract theme colors for CSS custom properties (fallback to defaults)
   const primaryColor = agency.website_config?.design?.primary_color || '#0f172a'
@@ -82,7 +138,7 @@ export default async function SubdomainPage(props: { params: Promise<{ subdomain
       className="min-h-screen bg-white font-geist overflow-x-hidden antialiased"
       style={{ '--primary': primaryColor, '--secondary': secondaryColor } as React.CSSProperties}
     >
-      <PublicSite agency={agency} trips={trips} />
+      <PublicSite agency={agency} trips={trips} salesCars={salesCars} rentalCars={rentalCars} />
     </div>
   )
 }

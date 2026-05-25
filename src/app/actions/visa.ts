@@ -137,8 +137,9 @@ let mockApplications: EnhancedVisaApplication[] = [
       biometric_required: true,
       interview_required: false,
       applicable_wilayas: [16, 31, 25],
-      documents_required: []
-    } as any,
+      documents_required: [],
+      is_active: true
+    },
     assignee: {
       id: 'emp-1',
       full_name: 'Amine Belkadi',
@@ -196,8 +197,9 @@ let mockApplications: EnhancedVisaApplication[] = [
       biometric_required: false,
       interview_required: false,
       applicable_wilayas: [],
-      documents_required: []
-    } as any,
+      documents_required: [],
+      is_active: true
+    },
     assignee: {
       id: 'emp-1',
       full_name: 'Amine Belkadi'
@@ -274,9 +276,8 @@ export async function getVisaTypes() {
 
   try {
     const supabase = await createClient()
-    const { data, error } = await supabase
-      .from('visa_types')
-      .select('id, agency_id, name, destination_country, category, processing_time, validity, stay_duration, govt_fee, service_fee, express_fee, requires_appointment, requires_biometrics, required_documents, algerian_wilaya_availability, active, created_at')
+    const { data, error } = await (supabase.from('visa_types') as any)
+      .select('id, agency_id, name, destination_country, category, processing_time, validity, stay_duration, government_fee, service_fee, express_fee, application_method, application_url, biometric_required, interview_required, applicable_wilayas, documents_required, is_active, created_at')
       .order('name', { ascending: true })
 
     if (error) throw error
@@ -319,10 +320,10 @@ export async function createVisaType(formData: any) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { success: false, error: 'Unauthorized' }
     
-    const { data: profile } = await (supabase as any).from('profiles').select('agency_id').eq('id', user.id).single()
+    const { data: profile } = await (supabase).from('profiles').select('agency_id').eq('id', user.id).single()
     if (!profile) return { success: false, error: 'Agency profile not found' }
 
-    const { data, error } = await (supabase as any)
+    const { data, error } = await (supabase)
       .from('visa_types')
       .insert({
         agency_id: profile.agency_id,
@@ -382,8 +383,7 @@ export async function getVisaApplications(filters?: {
 
   try {
     const supabase = await createClient()
-    let query = (supabase as any)
-      .from('visa_applications')
+    let query = (supabase.from('visa_applications') as any)
       .select(`
         id, agency_id, client_id, visa_type_id, status, service_level, assigned_to, group_id, group_name, government_fee, service_fee, extra_fee, total_fee, amount_paid, payment_status, appointment_date, target_application_date, decision_date, expiry_date, rejection_reason, client_notes, internal_notes, documents_status, created_at, updated_at,
         client:clients(id, full_name, email, phone, avatar_url, cni_number),
@@ -401,7 +401,7 @@ export async function getVisaApplications(filters?: {
 
     if (error) throw error
 
-    let result = data as EnhancedVisaApplication[]
+    let result = data as any as EnhancedVisaApplication[]
     // Client-side country and search filtering to support complex inner structures cleanly
     if (filters?.country) {
       result = result.filter(a => a.visa_type?.destination_country.toLowerCase().includes(filters.country!.toLowerCase()))
@@ -432,8 +432,7 @@ export async function getVisaApplicationById(id: string) {
 
   try {
     const supabase = await createClient()
-    const { data: application, error: appError } = await (supabase as any)
-      .from('visa_applications')
+    const { data: application, error: appError } = await (supabase.from('visa_applications') as any)
       .select(`
         id, agency_id, client_id, visa_type_id, status, service_level, assigned_to, group_id, group_name, government_fee, service_fee, extra_fee, total_fee, amount_paid, payment_status, appointment_date, target_application_date, decision_date, expiry_date, rejection_reason, client_notes, internal_notes, documents_status, created_at, updated_at,
         client:clients(id, full_name, email, phone, avatar_url, cni_number),
@@ -445,13 +444,13 @@ export async function getVisaApplicationById(id: string) {
 
     if (appError) throw appError
 
-    const { data: payments } = await (supabase as any)
+    const { data: payments } = await (supabase)
       .from('visa_payments')
       .select('id, application_id, amount, payment_method, payment_date, reference_number, receipt_url, notes, received_by, created_at')
       .eq('application_id', id)
       .order('payment_date', { ascending: false })
 
-    const { data: timeline } = await (supabase as any)
+    const { data: timeline } = await (supabase)
       .from('visa_timeline_events')
       .select('id, application_id, event_type, title, description, created_by, is_internal, created_at')
       .eq('application_id', id)
@@ -460,7 +459,7 @@ export async function getVisaApplicationById(id: string) {
     return { 
       success: true, 
       data: { 
-        application: application as EnhancedVisaApplication, 
+        application: application as any as EnhancedVisaApplication, 
         payments: payments || [], 
         timeline: timeline || [] 
       } 
@@ -532,7 +531,7 @@ export async function createVisaApplication(data: {
           full_name: cId === 'client-1' ? 'Yacine Benmansour' : cId === 'client-2' ? 'Riad Belkaid' : 'Assigned Client',
           phone: '0550123456'
         },
-        visa_type: visaType as any,
+        visa_type: visaType,
         client_notes: data.client_notes,
         internal_notes: data.internal_notes,
         created_at: new Date().toISOString(),
@@ -562,15 +561,15 @@ export async function createVisaApplication(data: {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { success: false, error: 'Unauthorized' }
 
-    const { data: profile } = await (supabase as any).from('profiles').select('agency_id').eq('id', user.id).single()
+    const { data: profile } = await (supabase).from('profiles').select('agency_id').eq('id', user.id).single()
     if (!profile) return { success: false, error: 'Agency not found' }
 
     // Fetch real visa type fees
-    const { data: realVisaType } = await (supabase as any).from('visa_types').select('id, agency_id, name, destination_country, category, processing_time, validity, stay_duration, government_fee, service_fee, express_fee, application_method, application_url, biometric_required, interview_required, applicable_wilayas, documents_required, special_notes, is_active, created_at, updated_at').eq('id', data.visa_type_id).single()
+    const { data: realVisaType } = await (supabase).from('visa_types').select('id, agency_id, name, destination_country, category, processing_time, validity, stay_duration, government_fee, service_fee, express_fee, application_method, application_url, biometric_required, interview_required, applicable_wilayas, documents_required, special_notes, is_active, created_at, updated_at').eq('id', data.visa_type_id).single()
     if (realVisaType) {
-      govFee = (realVisaType as any).government_fee
-      servFee = data.service_level === 'express' ? (realVisaType as any).express_fee : (realVisaType as any).service_fee
-      if (data.service_level === 'vip') servFee = (realVisaType as any).express_fee + 10000
+      govFee = (realVisaType).government_fee
+      servFee = data.service_level === 'express' ? (realVisaType).express_fee : (realVisaType).service_fee
+      if (data.service_level === 'vip') servFee = (realVisaType).express_fee + 10000
     }
 
     const finalTotalFee = govFee + servFee + extraFee
@@ -578,14 +577,15 @@ export async function createVisaApplication(data: {
     const insertedApps: any[] = []
 
     for (const cId of clientsToCreate) {
-      const documentsStatus = realVisaType?.documents_required
-        ? ((realVisaType as any).documents_required as any[]).map(doc => ({
-            name: doc.name,
-            status: 'pending'
-          }))
+      const docsArray = Array.isArray(realVisaType?.documents_required)
+        ? (realVisaType.documents_required as any[])
         : []
+      const documentsStatus = docsArray.map(doc => ({
+        name: String(doc.name || ''),
+        status: 'pending'
+      }))
 
-      const { data: newApp, error } = await (supabase as any)
+      const { data: newApp, error } = await (supabase)
         .from('visa_applications')
         .insert({
           agency_id: profile.agency_id,
@@ -616,7 +616,7 @@ export async function createVisaApplication(data: {
       insertedApps.push(newApp)
 
       // Insert default timeline event
-      await (supabase as any).from('visa_timeline_events').insert({
+      await (supabase).from('visa_timeline_events').insert({
         application_id: newApp.id,
         event_type: 'created',
         title: 'Application Created',
@@ -673,7 +673,7 @@ export async function updateVisaApplicationStatus(
     if (status === 'approved') updateData.decision_date = new Date().toISOString().split('T')[0]
     if (status === 'rejected') updateData.decision_date = new Date().toISOString().split('T')[0]
 
-    const { data, error } = await (supabase as any)
+    const { data, error } = await (supabase)
       .from('visa_applications')
       .update(updateData)
       .eq('id', id)
@@ -687,7 +687,7 @@ export async function updateVisaApplicationStatus(
     if (status === 'approved') title = 'Visa Approved 🎉'
     if (status === 'rejected') title = 'Visa Rejected ❌'
 
-    await (supabase as any).from('visa_timeline_events').insert({
+    await (supabase).from('visa_timeline_events').insert({
       application_id: id,
       event_type: 'status_changed',
       title,
@@ -754,7 +754,7 @@ export async function recordVisaPayment(data: {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
-    const { data: payment, error } = await (supabase as any)
+    const { data: payment, error } = await (supabase)
       .from('visa_payments')
       .insert({
         application_id: data.application_id,
@@ -772,7 +772,7 @@ export async function recordVisaPayment(data: {
     if (error) throw error
 
     // Create payment timeline event
-    await (supabase as any).from('visa_timeline_events').insert({
+    await (supabase).from('visa_timeline_events').insert({
       application_id: data.application_id,
       event_type: 'payment_received',
       title: `Payment Received (${data.payment_method})`,
@@ -799,10 +799,10 @@ export async function updateVisaApplicationChecklist(id: string, docs: DocumentS
 
   try {
     const supabase = await createClient()
-    const { error } = await (supabase as any)
+    const { error } = await (supabase)
       .from('visa_applications')
       .update({
-        documents_status: docs,
+        documents_status: docs as any,
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
@@ -847,7 +847,7 @@ export async function sendVisaWhatsAppReminder(id: string, type: 'document_reque
 
   try {
     const supabase = await createClient()
-    await (supabase as any).from('visa_timeline_events').insert({
+    await (supabase).from('visa_timeline_events').insert({
       application_id: id,
       event_type: 'whatsapp_reminder',
       title,
@@ -891,31 +891,31 @@ export async function getVisaStats() {
     const supabase = await createClient()
     
     // 1. Active applications count
-    const { count: activeCount } = await (supabase as any)
+    const { count: activeCount } = await (supabase)
       .from('visa_applications')
       .select('*', { count: 'exact', head: true })
       .in('status', ['documents_pending', 'documents_received', 'application_submitted', 'under_review'])
 
     // 2. Pending docs count
-    const { count: pendingCount } = await (supabase as any)
+    const { count: pendingCount } = await (supabase)
       .from('visa_applications')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'documents_pending')
 
     // 3. Review count
-    const { count: reviewCount } = await (supabase as any)
+    const { count: reviewCount } = await (supabase)
       .from('visa_applications')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'under_review')
 
     // 4. Approved count (simulating current month)
-    const { count: approvedCount } = await (supabase as any)
+    const { count: approvedCount } = await (supabase)
       .from('visa_applications')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'approved')
 
     // 5. Revenue tracking from payments
-    const { data: paymentsData } = await (supabase as any)
+    const { data: paymentsData } = await (supabase)
       .from('visa_payments')
       .select('amount, payment_method')
 

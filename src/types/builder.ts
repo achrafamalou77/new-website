@@ -19,7 +19,12 @@ export type SectionType =
   | 'ImportCalculator'
   | 'BrandGrid'
   | 'Banner'
-  | 'Timeline';
+  | 'Timeline'
+  | 'Navbar'
+  | 'Car Grid'
+  | 'Services'
+  | 'Map'
+  | 'Footer';
 
 export interface Section {
   id: string;

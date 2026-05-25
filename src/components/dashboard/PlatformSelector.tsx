@@ -35,31 +35,39 @@ export function PlatformSelector({
       id: 'all', 
       label: 'All Inbox', 
       icon: Layers, 
-      activeClass: 'bg-slate-900 text-white shadow-md shadow-slate-300 ring-2 ring-slate-900 ring-offset-2', 
-      hoverClass: 'text-slate-400 hover:text-slate-800 hover:bg-slate-50' 
+      activeClass: 'bg-slate-900 text-white shadow-[0_0_12px_rgba(15,23,42,0.2)]', 
+      activeClassDark: 'bg-white text-slate-950 shadow-[0_0_15px_rgba(255,255,255,0.2)]',
+      hoverClass: 'text-slate-400 hover:text-slate-700 hover:bg-white/60',
+      hoverClassDark: 'text-slate-500 hover:text-white hover:bg-white/10' 
     },
     { 
       id: 'whatsapp', 
       label: 'WhatsApp', 
       icon: WhatsAppIcon, 
-      activeClass: 'bg-[#25D366] text-white shadow-md shadow-[#25D366]/30 ring-2 ring-[#25D366] ring-offset-2', 
-      hoverClass: 'text-slate-400 hover:text-[#25D366] hover:bg-emerald-50/40',
+      activeClass: 'bg-[#25D366] text-white shadow-[0_0_15px_rgba(37,211,102,0.35)]', 
+      activeClassDark: 'bg-[#25D366] text-white shadow-[0_0_20px_rgba(37,211,102,0.35)]', 
+      hoverClass: 'text-slate-400 hover:text-[#25D366] hover:bg-[#25D366]/10',
+      hoverClassDark: 'text-slate-550 hover:text-[#25D366] hover:bg-[#25D366]/15',
       unread: unreadCounts.whatsapp 
     },
     { 
       id: 'facebook', 
       label: 'Messenger', 
       icon: MessengerIcon, 
-      activeClass: 'bg-[#0084FF] text-white shadow-md shadow-[#0084FF]/30 ring-2 ring-[#0084FF] ring-offset-2', 
-      hoverClass: 'text-slate-400 hover:text-[#0084FF] hover:bg-blue-50/40',
+      activeClass: 'bg-[#0084FF] text-white shadow-[0_0_15px_rgba(0,132,255,0.35)]', 
+      activeClassDark: 'bg-[#0084FF] text-white shadow-[0_0_20px_rgba(0,132,255,0.35)]',
+      hoverClass: 'text-slate-400 hover:text-[#0084FF] hover:bg-[#0084FF]/10',
+      hoverClassDark: 'text-slate-550 hover:text-[#0084FF] hover:bg-[#0084FF]/15',
       unread: unreadCounts.facebook 
     },
     { 
       id: 'instagram', 
       label: 'Instagram', 
       icon: InstagramIcon, 
-      activeClass: 'bg-gradient-to-tr from-[#fdf497] via-[#fd5949] to-[#d6249f] text-white shadow-md shadow-pink-500/20 ring-2 ring-pink-500 ring-offset-2', 
-      hoverClass: 'text-slate-400 hover:text-[#d6249f] hover:bg-pink-50/30',
+      activeClass: 'bg-gradient-to-tr from-[#fdf497] via-[#fd5949] to-[#d6249f] text-white shadow-[0_0_15px_rgba(214,36,159,0.35)]', 
+      activeClassDark: 'bg-gradient-to-tr from-[#fdf497] via-[#fd5949] to-[#d6249f] text-white shadow-[0_0_20px_rgba(214,36,159,0.35)]',
+      hoverClass: 'text-slate-400 hover:text-pink-500 hover:bg-pink-500/10',
+      hoverClassDark: 'text-slate-550 hover:text-pink-400 hover:bg-white/10',
       unread: unreadCounts.instagram 
     }
   ]
@@ -70,8 +78,9 @@ export function PlatformSelector({
       label: 'HOT Leads', 
       icon: Flame, 
       colorClass: 'text-red-500',
-      activeClass: 'bg-red-50 border border-red-200 text-red-650 text-red-600 ring-2 ring-red-500 ring-offset-2', 
-      hoverClass: 'text-slate-400 hover:text-red-500 hover:bg-red-50/30',
+      activeClass: 'bg-red-500 text-white shadow-[0_0_15px_rgba(239,68,68,0.4)] border border-transparent', 
+      hoverClass: 'text-slate-400 hover:text-red-500 hover:bg-red-500/10',
+      hoverClassDark: 'text-slate-550 hover:text-red-400 hover:bg-red-500/15',
       unread: unreadCounts.hot 
     },
     { 
@@ -79,8 +88,9 @@ export function PlatformSelector({
       label: 'WARM Leads', 
       icon: Sun, 
       colorClass: 'text-amber-500',
-      activeClass: 'bg-amber-50 border border-amber-200 text-amber-650 text-amber-600 ring-2 ring-amber-500 ring-offset-2', 
-      hoverClass: 'text-slate-400 hover:text-amber-550 hover:text-amber-550 hover:bg-amber-50/30',
+      activeClass: 'bg-amber-500 text-white shadow-[0_0_15px_rgba(245,158,11,0.4)] border border-transparent', 
+      hoverClass: 'text-slate-400 hover:text-amber-500 hover:bg-amber-500/10',
+      hoverClassDark: 'text-slate-550 hover:text-amber-400 hover:bg-amber-500/15',
       unread: unreadCounts.warm 
     },
     { 
@@ -88,14 +98,22 @@ export function PlatformSelector({
       label: 'COLD Leads', 
       icon: Snowflake, 
       colorClass: 'text-blue-400',
-      activeClass: 'bg-blue-50 border border-blue-200 text-blue-650 text-blue-600 ring-2 ring-blue-450 ring-2 ring-blue-500 ring-offset-2', 
-      hoverClass: 'text-slate-400 hover:text-blue-500 hover:bg-blue-50/30',
+      activeClass: 'bg-sky-500 text-white shadow-[0_0_15px_rgba(14,165,233,0.4)] border border-transparent', 
+      hoverClass: 'text-slate-400 hover:text-sky-550 hover:bg-sky-500/10',
+      hoverClassDark: 'text-slate-550 hover:text-sky-400 hover:bg-sky-500/15',
       unread: unreadCounts.cold 
     }
   ]
 
+  const isDarkTheme = activePlatform === 'instagram'
+
   return (
-    <div className="w-[80px] shrink-0 border-r border-slate-200/80 bg-white flex flex-col items-center py-5 space-y-6 h-full select-none">
+    <div className={cn(
+      "w-[80px] shrink-0 flex flex-col items-center py-5 space-y-6 h-full select-none transition-all duration-500 z-10",
+      isDarkTheme 
+        ? "bg-slate-900/40 backdrop-blur-xl border-r border-white/5" 
+        : "bg-white/30 backdrop-blur-xl border-r border-white/20"
+    )}>
       
       {/* Platforms Segment */}
       <div className="flex flex-col items-center space-y-4 w-full">
@@ -117,8 +135,8 @@ export function PlatformSelector({
               className={cn(
                 "relative w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 group outline-none",
                 isActive 
-                  ? platform.activeClass 
-                  : platform.hoverClass
+                  ? (isDarkTheme ? platform.activeClassDark : platform.activeClass) 
+                  : (isDarkTheme ? platform.hoverClassDark : platform.hoverClass)
               )}
             >
               <Icon className="h-5 w-5 pointer-events-none group-hover:scale-110 transition-transform duration-300" />
@@ -140,7 +158,10 @@ export function PlatformSelector({
       </div>
 
       {/* Divider line */}
-      <div className="w-8 h-[1px] bg-slate-200 shrink-0" />
+      <div className={cn(
+        "w-8 h-[1px] shrink-0 transition-colors duration-500",
+        isDarkTheme ? "bg-white/10" : "bg-slate-200/50"
+      )} />
 
       {/* Lead Scores Segment */}
       <div className="flex flex-col items-center space-y-4 w-full flex-1">
@@ -159,18 +180,18 @@ export function PlatformSelector({
                 "relative w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 group outline-none",
                 isActive 
                   ? score.activeClass 
-                  : score.hoverClass
+                  : (isDarkTheme ? score.hoverClassDark : score.hoverClass)
               )}
             >
               <Icon 
                 className={cn(
                   "h-5 w-5 pointer-events-none transition-transform duration-300 group-hover:scale-110",
                   score.id === 'HOT' && !isActive && "text-red-500 animate-pulse",
-                  score.id === 'HOT' && isActive && "text-red-650 text-red-600",
+                  score.id === 'HOT' && isActive && "text-white",
                   score.id === 'WARM' && !isActive && "text-amber-500 group-hover:animate-spin-slow",
-                  score.id === 'WARM' && isActive && "text-amber-650 text-amber-600 animate-spin-slow",
+                  score.id === 'WARM' && isActive && "text-white animate-spin-slow",
                   score.id === 'COLD' && !isActive && "text-slate-400 group-hover:animate-bounce-short",
-                  score.id === 'COLD' && isActive && "text-blue-600"
+                  score.id === 'COLD' && isActive && "text-white"
                 )} 
               />
 

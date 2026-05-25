@@ -49,6 +49,7 @@ export const NAVIGATION_CONFIG: Record<string, NavigationGroup[]> = {
         { name: 'Car Sales', href: '/dashboard/management/sales', icon: Car, badgeKey: 'salesCount', badgeColor: 'bg-red-500 text-white' },
         { name: 'Car Rental', href: '/dashboard/management/rental', icon: Calendar, badgeKey: 'rentalCount', badgeColor: 'bg-blue-500 text-white' },
         { name: 'Car Import', href: '/dashboard/management/import', icon: Globe, badgeKey: 'importCount', badgeColor: 'bg-indigo-500 text-white' },
+        { name: 'Customs & Finance', href: '/dashboard/finance', icon: Landmark },
         { name: 'Team', href: '/dashboard/team', icon: Users2 },
       ]
     },

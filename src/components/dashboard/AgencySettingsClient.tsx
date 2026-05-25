@@ -45,15 +45,16 @@ export function AgencySettingsClient() {
         phone: agencyInfo.phone || '',
         email: agencyInfo.email || '',
         address: agencyInfo.address || '',
-        business_hours: businessHours || defaultBusinessHours,
-        social_media: socialMedia || defaultSocialMedia,
-        bank_integrations: (agencyInfo as any).bank_integrations || {
+        business_hours: { ...defaultBusinessHours, ...(businessHours || {}) },
+        social_media: { ...defaultSocialMedia, ...(socialMedia || {}) },
+        bank_integrations: {
           cpa: true,
           agb: true,
           badr: false,
           bdl: false,
           bna: false,
-          albaraka: false
+          albaraka: false,
+          ...((agencyInfo as any).bank_integrations || {})
         }
       })
       setHasInitialized(true)
@@ -169,7 +170,7 @@ export function AgencySettingsClient() {
               <Input 
                 id="company_name" 
                 className="rounded-xl bg-slate-100 border-0 text-sm focus:bg-white transition"
-                value={formData.company_name} 
+                value={formData.company_name || ''} 
                 onChange={e => setFormData({...formData, company_name: e.target.value})} 
               />
             </div>
@@ -216,7 +217,7 @@ export function AgencySettingsClient() {
                   id="phone" 
                   className="rounded-xl bg-slate-100 border-0 text-sm focus:bg-white transition"
                   placeholder="+213XXXXXXXXX"
-                  value={formData.phone} 
+                  value={formData.phone || ''} 
                   onChange={e => setFormData({...formData, phone: e.target.value})} 
                 />
               </div>
@@ -226,7 +227,7 @@ export function AgencySettingsClient() {
                   id="email" 
                   type="email"
                   className="rounded-xl bg-slate-100 border-0 text-sm focus:bg-white transition"
-                  value={formData.email} 
+                  value={formData.email || ''} 
                   onChange={e => setFormData({...formData, email: e.target.value})} 
                 />
               </div>
@@ -238,7 +239,7 @@ export function AgencySettingsClient() {
               <Textarea 
                 id="address" 
                 className="rounded-xl bg-slate-100 border-0 text-sm focus:bg-white transition min-h-[70px]"
-                value={formData.address} 
+                value={formData.address || ''} 
                 onChange={e => setFormData({...formData, address: e.target.value})} 
               />
             </div>
@@ -263,7 +264,7 @@ export function AgencySettingsClient() {
                 <Input 
                   id="facebook" 
                   className="rounded-xl bg-slate-100 border-0 text-sm focus:bg-white transition"
-                  value={formData.social_media.facebook} 
+                  value={formData.social_media?.facebook || ''} 
                   onChange={e => setFormData({...formData, social_media: {...formData.social_media, facebook: e.target.value}})} 
                 />
               </div>
@@ -272,7 +273,7 @@ export function AgencySettingsClient() {
                 <Input 
                   id="instagram" 
                   className="rounded-xl bg-slate-100 border-0 text-sm focus:bg-white transition"
-                  value={formData.social_media.instagram} 
+                  value={formData.social_media?.instagram || ''} 
                   onChange={e => setFormData({...formData, social_media: {...formData.social_media, instagram: e.target.value}})} 
                 />
               </div>
@@ -281,7 +282,7 @@ export function AgencySettingsClient() {
                 <Input 
                   id="tiktok" 
                   className="rounded-xl bg-slate-100 border-0 text-sm focus:bg-white transition"
-                  value={formData.social_media.tiktok} 
+                  value={formData.social_media?.tiktok || ''} 
                   onChange={e => setFormData({...formData, social_media: {...formData.social_media, tiktok: e.target.value}})} 
                 />
               </div>
@@ -290,7 +291,7 @@ export function AgencySettingsClient() {
                 <Input 
                   id="youtube" 
                   className="rounded-xl bg-slate-100 border-0 text-sm focus:bg-white transition"
-                  value={formData.social_media.youtube} 
+                  value={formData.social_media?.youtube || ''} 
                   onChange={e => setFormData({...formData, social_media: {...formData.social_media, youtube: e.target.value}})} 
                 />
               </div>
@@ -315,7 +316,7 @@ export function AgencySettingsClient() {
                 <Label className="w-24 capitalize text-xs font-semibold text-slate-600">{day}</Label>
                 <Input 
                   className="rounded-xl bg-slate-100 border-0 text-sm focus:bg-white transition max-w-sm"
-                  value={(formData.business_hours as any)[day]} 
+                  value={(formData.business_hours as any)?.[day] || ''} 
                   onChange={e => setFormData({...formData, business_hours: {...formData.business_hours, [day]: e.target.value}})} 
                   placeholder="09:00 - 18:00 or Closed"
                 />

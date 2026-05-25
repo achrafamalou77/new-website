@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { 
   FileText, User, Calendar, ListPlus, Sliders, CreditCard, Check, 
   ArrowRight, ArrowLeft, Trash2, Plus, AlertCircle, Compass, HelpCircle, 
-  Save, Copy, Sparkles, FolderHeart
+  Save, Copy, Sparkles, FolderHeart, Building2, BadgePercent
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -60,6 +60,12 @@ export function NewInvoiceWizardClient({ initialClients, initialTrips }: NewInvo
   // Step 4: Discounts & Taxes
   const [discountPercent, setDiscountPercent] = useState(0)
   const [taxPercent, setTaxPercent] = useState(0)
+  
+  // B2B Invoice fields
+  const [b2bCompanyNif, setB2bCompanyNif] = useState('')
+  const [b2bCompanyRc, setB2bCompanyRc] = useState('')
+  const [b2bCompanyLegalName, setB2bCompanyLegalName] = useState('')
+  const [volumeDiscountApplied, setVolumeDiscountApplied] = useState(false)
   
   // Step 5: Payment Method
   const [paymentMethod, setPaymentMethod] = useState<'CCP' | 'Edahabia' | 'Cash' | 'Bank Transfer' | 'Check'>('CCP')
@@ -132,10 +138,10 @@ export function NewInvoiceWizardClient({ initialClients, initialTrips }: NewInvo
             const inv = res.invoice
             setSelectedClientId(inv.client_id || '')
             setSelectedTripId(inv.trip_id || '')
-            setItems(inv.items || [{ description: '', qty: 1, unit_price: 0, total: 0 }])
+            setItems((inv.items as any) || [{ description: '', qty: 1, unit_price: 0, total: 0 }])
             setDiscountPercent(inv.discount_percent || 0)
             setTaxPercent(inv.tax_percent || 0)
-            setPaymentMethod(inv.payment_method || 'CCP')
+            setPaymentMethod((inv.payment_method as any) || 'CCP')
             setNotes(inv.notes || '')
             setTerms(inv.terms || '')
             setStep(3) // Skip directly to items to review
@@ -279,6 +285,26 @@ export function NewInvoiceWizardClient({ initialClients, initialTrips }: NewInvo
 
   const selectedClient = clients.find(c => c.id === selectedClientId)
   const selectedTrip = trips.find(t => t.id === selectedTripId)
+  const isB2BClient = selectedClient && ['b2b', 'corporate', 'wholesale'].includes(selectedClient.classification)
+
+  // Auto-apply B2B volume discount and company info when client changes
+  useEffect(() => {
+    if (selectedClient && isB2BClient) {
+      setB2bCompanyNif(selectedClient.company_nif || '')
+      setB2bCompanyRc(selectedClient.company_rc || '')
+      setB2bCompanyLegalName(selectedClient.company_legal_name || '')
+      if (selectedClient.volume_discount_tier && !volumeDiscountApplied) {
+        setDiscountPercent(Number(selectedClient.volume_discount_tier))
+        setVolumeDiscountApplied(true)
+      }
+    } else {
+      setB2bCompanyNif('')
+      setB2bCompanyRc('')
+      setB2bCompanyLegalName('')
+      setVolumeDiscountApplied(false)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedClientId])
 
   // Steps definitions
   const stepsList = [
@@ -307,9 +333,17 @@ export function NewInvoiceWizardClient({ initialClients, initialTrips }: NewInvo
           </h1>
           <p className="text-slate-400 text-xs">Générez une facture de voyage ou dupliquez un modèle en 6 étapes interactives.</p>
         </div>
-        <Badge className="bg-indigo-50 text-indigo-600 border-indigo-150 uppercase tracking-widest text-[9px] rounded-xl font-bold py-1">
-          SaaS Travel billing
-        </Badge>
+        <div className="flex items-center gap-2">
+          {isB2BClient && (
+            <Badge className="bg-purple-600 text-white border-purple-700 uppercase tracking-widest text-[9px] rounded-xl font-bold py-1 flex items-center gap-1">
+              <Building2 className="h-3 w-3" />
+              Facture Corporate
+            </Badge>
+          )}
+          <Badge className="bg-indigo-50 text-indigo-600 border-indigo-150 uppercase tracking-widest text-[9px] rounded-xl font-bold py-1">
+            SaaS Travel billing
+          </Badge>
+        </div>
       </div>
 
       {/* Step Indicators */}
@@ -396,13 +430,76 @@ export function NewInvoiceWizardClient({ initialClients, initialTrips }: NewInvo
             </div>
 
             {selectedClient && (
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-center gap-4 animate-fade-in text-left">
-                <div className="h-11 w-11 rounded-xl bg-indigo-50 text-indigo-650 font-bold text-sm flex items-center justify-center shrink-0">
+              <div className={cn(
+                "p-4 border rounded-2xl flex items-start gap-4 animate-fade-in text-left",
+                isB2BClient ? "bg-purple-50/60 border-purple-200" : "bg-slate-50 border-slate-200"
+              )}>
+                <div className={cn(
+                  "h-11 w-11 rounded-xl font-bold text-sm flex items-center justify-center shrink-0",
+                  isB2BClient ? "bg-purple-100 text-purple-700" : "bg-indigo-50 text-indigo-650"
+                )}>
                   {selectedClient.full_name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()}
                 </div>
-                <div className="text-xs">
+                <div className="text-xs flex-1">
                   <span className="font-bold text-slate-800 text-sm block">{selectedClient.full_name}</span>
                   <span className="text-slate-400 block mt-0.5">{selectedClient.email || 'Pas d\'email'} | {selectedClient.phone || 'Pas de téléphone'}</span>
+                  {isB2BClient && (
+                    <div className="mt-2 space-y-1">
+                      <div className="flex items-center gap-1.5">
+                        <Badge className="bg-purple-600 text-white text-[8px] rounded-md px-1.5 py-0 font-bold uppercase">
+                          {selectedClient.classification === 'b2b' ? 'B2B' : selectedClient.classification === 'corporate' ? 'Corporate' : 'Wholesale'}
+                        </Badge>
+                        {selectedClient.company_legal_name && (
+                          <span className="text-xs font-bold text-purple-700">{selectedClient.company_legal_name}</span>
+                        )}
+                      </div>
+                      {selectedClient.volume_discount_tier > 0 && (
+                        <span className="text-[10px] font-bold text-amber-600 flex items-center gap-1">
+                          <BadgePercent className="h-3 w-3" />
+                          Remise volume auto-appliquée : {selectedClient.volume_discount_tier}%
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* B2B Company Info Block */}
+            {isB2BClient && (
+              <div className="rounded-2xl border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-indigo-50 p-4 space-y-3">
+                <div className="flex items-center gap-2 border-b border-purple-200 pb-2">
+                  <Building2 className="h-4 w-4 text-purple-600" />
+                  <span className="text-xs font-extrabold text-purple-800 uppercase tracking-wider">Informations Société (Facture Corporate)</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="space-y-1 md:col-span-3">
+                    <label className="text-[10px] font-bold text-purple-700 uppercase tracking-wider">Raison Sociale</label>
+                    <input
+                      value={b2bCompanyLegalName}
+                      onChange={(e) => setB2bCompanyLegalName(e.target.value)}
+                      placeholder="Nom légal de la société"
+                      className="w-full rounded-xl bg-white border border-purple-200 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-400/20 font-bold"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-purple-700 uppercase tracking-wider">NIF</label>
+                    <input
+                      value={b2bCompanyNif}
+                      onChange={(e) => setB2bCompanyNif(e.target.value)}
+                      placeholder="Numéro Identification Fiscale"
+                      className="w-full rounded-xl bg-white border border-purple-200 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-400/20 font-bold"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-purple-700 uppercase tracking-wider">RC</label>
+                    <input
+                      value={b2bCompanyRc}
+                      onChange={(e) => setB2bCompanyRc(e.target.value)}
+                      placeholder="Registre du Commerce"
+                      className="w-full rounded-xl bg-white border border-purple-200 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-400/20 font-bold"
+                    />
+                  </div>
                 </div>
               </div>
             )}

@@ -25,8 +25,8 @@ export async function createClientAction(formData: any) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { success: false, error: 'Unauthorized' }
   
-  const { data: profile } = await (supabase.from('profiles').select('role, agency_id').eq('id', user.id).single() as any)
-  if (!profile) return { success: false, error: 'Profile not found' }
+  const { data: profile } = await (supabase.from('profiles').select('role, agency_id').eq('id', user.id).single())
+  if (!profile || !profile.agency_id) return { success: false, error: 'Agency profile not found' }
 
   // Validate form data
   const validation = clientValidationSchema.safeParse(formData)
@@ -35,7 +35,7 @@ export async function createClientAction(formData: any) {
   }
 
   const validatedData = validation.data
-  const { error } = await (supabase as any).from('clients').insert({
+  const { error } = await (supabase).from('clients').insert({
     agency_id: profile.agency_id,
     full_name: validatedData.full_name,
     phone: validatedData.phone || null,
@@ -48,7 +48,7 @@ export async function createClientAction(formData: any) {
     source: validatedData.source,
     referred_by_id: validatedData.referred_by_id || null,
     notes: validatedData.notes || null,
-  })
+  } as any)
 
   if (error) {
     return { success: false, error: error.message }
@@ -72,7 +72,7 @@ export async function updateClientAction(clientId: string, formData: any) {
   }
 
   const validatedData = validation.data
-  const { error } = await (supabase as any).from('clients').update({
+  const { error } = await (supabase).from('clients').update({
     full_name: validatedData.full_name,
     phone: validatedData.phone || null,
     email: validatedData.email || null,
@@ -84,7 +84,7 @@ export async function updateClientAction(clientId: string, formData: any) {
     source: validatedData.source,
     referred_by_id: validatedData.referred_by_id || null,
     notes: validatedData.notes || null,
-  }).eq('id', clientId)
+  } as any).eq('id', clientId)
 
   if (error) {
     return { success: false, error: error.message }
@@ -102,12 +102,12 @@ export async function deleteClientAction(clientId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { success: false, error: 'Unauthorized' }
   
-  const { data: profile } = await (supabase.from('profiles').select('role').eq('id', user.id).single() as any)
+  const { data: profile } = await (supabase.from('profiles').select('role').eq('id', user.id).single())
   if (profile?.role !== 'superadmin') {
     return { success: false, error: 'Only superadmins can delete clients' }
   }
 
-  const { error } = await (supabase as any).from('clients').delete().eq('id', clientId)
+  const { error } = await (supabase).from('clients').delete().eq('id', clientId)
 
   if (error) {
     return { success: false, error: error.message }

@@ -43,8 +43,10 @@ export async function createInvoiceAction(formData: any) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { success: false, error: 'Unauthorized' }
   
-  const { data: profile } = await (supabase.from('profiles').select('role, agency_id').eq('id', user.id).single() as any)
-  if (!profile) return { success: false, error: 'Profile not found' }
+  const { data: profile } = await (supabase.from('profiles').select('role, agency_id').eq('id', user.id).single())
+  if (!profile || !profile.agency_id) return { success: false, error: 'Agency ID not found' }
+
+  const agencyId = profile.agency_id as string
 
   // Validate form data
   const validation = invoiceValidationSchema.safeParse(formData)
@@ -55,8 +57,8 @@ export async function createInvoiceAction(formData: any) {
   const validatedData = validation.data
 
   // Auto-generate invoice number using database RPC function
-  const { data: invoiceNumber, error: rpcError } = await (supabase as any).rpc('get_next_invoice_number', {
-    p_agency_id: profile.agency_id,
+  const { data: invoiceNumber, error: rpcError } = await (supabase).rpc('get_next_invoice_number', {
+    p_agency_id: agencyId,
     p_issue_date: validatedData.issue_date
   })
 
@@ -64,8 +66,8 @@ export async function createInvoiceAction(formData: any) {
     return { success: false, error: rpcError?.message || 'Failed to generate invoice number' }
   }
 
-  const { data: newInvoice, error } = await (supabase as any).from('invoices').insert({
-    agency_id: profile.agency_id,
+  const { data: newInvoice, error } = await (supabase).from('invoices').insert({
+    agency_id: agencyId,
     client_id: validatedData.client_id,
     invoice_number: invoiceNumber,
     trip_id: validatedData.trip_id || null,
@@ -102,8 +104,8 @@ export async function updateInvoiceStatusAction(invoiceId: string, status: strin
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { success: false, error: 'Unauthorized' }
 
-  const { error } = await (supabase as any).from('invoices').update({
-    status: status as any,
+  const { error } = await (supabase).from('invoices').update({
+    status: status,
     updated_at: new Date().toISOString()
   }).eq('id', invoiceId)
 
@@ -112,11 +114,11 @@ export async function updateInvoiceStatusAction(invoiceId: string, status: strin
   }
 
   if (status === 'paid') {
-    const { data: invoice } = await (supabase as any).from('invoices').select('balance_due, agency_id').eq('id', invoiceId).single()
-    if (invoice && invoice.balance_due > 0) {
-      const { data: account } = await (supabase as any).from('financial_accounts').select('id').eq('agency_id', invoice.agency_id).eq('is_default', true).single()
+    const { data: invoice } = await (supabase).from('invoices').select('balance_due, agency_id').eq('id', invoiceId).single()
+    if (invoice && invoice.balance_due > 0 && invoice.agency_id) {
+      const { data: account } = await (supabase).from('financial_accounts').select('id').eq('agency_id', invoice.agency_id).eq('is_default', true).single()
       if (account) {
-        await (supabase as any).from('transactions').insert({
+        await (supabase).from('transactions').insert({
           agency_id: invoice.agency_id,
           account_id: account.id,
           type: 'income',
@@ -129,7 +131,7 @@ export async function updateInvoiceStatusAction(invoiceId: string, status: strin
         })
       }
       // Update balance
-      await (supabase as any).from('invoices').update({ balance_due: 0, payment_status: 'paid' }).eq('id', invoiceId)
+      await (supabase).from('invoices').update({ balance_due: 0, payment_status: 'paid' }).eq('id', invoiceId)
     }
   }
 
@@ -152,7 +154,7 @@ export async function recordPaymentAction(invoiceId: string, formData: any) {
   }
 
   const validatedData = validation.data
-  const { error } = await (supabase as any).from('invoice_payments').insert({
+  const { error } = await (supabase).from('invoice_payments').insert({
     invoice_id: invoiceId,
     amount: Number(validatedData.amount),
     payment_method: validatedData.payment_method,
@@ -167,15 +169,16 @@ export async function recordPaymentAction(invoiceId: string, formData: any) {
   }
 
   // Also create a financial transaction for this partial payment
-  const { data: profile } = await (supabase as any).from('profiles').select('agency_id').eq('id', user.id).single()
-  if (profile) {
-    const { data: account } = await (supabase as any).from('financial_accounts').select('id').eq('agency_id', profile.agency_id).order('is_default', { ascending: false }).limit(1).single()
+  const { data: profile } = await (supabase).from('profiles').select('agency_id').eq('id', user.id).single()
+  if (profile && profile.agency_id) {
+    const agencyId = profile.agency_id as string
+    const { data: account } = await (supabase).from('financial_accounts').select('id').eq('agency_id', agencyId).order('is_default', { ascending: false }).limit(1).single()
     if (account) {
       let pm = validatedData.payment_method.toLowerCase().replace(' ', '_')
       if (!['ccp', 'edahabia', 'cash', 'bank_transfer', 'check', 'other'].includes(pm)) pm = 'other'
       
-      await (supabase as any).from('transactions').insert({
-        agency_id: profile.agency_id,
+      await (supabase).from('transactions').insert({
+        agency_id: agencyId,
         account_id: account.id,
         type: 'income',
         category: 'booking_payment',
@@ -202,12 +205,12 @@ export async function deleteInvoiceAction(invoiceId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { success: false, error: 'Unauthorized' }
   
-  const { data: profile } = await (supabase.from('profiles').select('role').eq('id', user.id).single() as any)
+  const { data: profile } = await (supabase.from('profiles').select('role').eq('id', user.id).single())
   if (profile?.role !== 'superadmin') {
     return { success: false, error: 'Only superadmins can delete invoices' }
   }
 
-  const { error } = await (supabase as any).from('invoices').delete().eq('id', invoiceId)
+  const { error } = await (supabase).from('invoices').delete().eq('id', invoiceId)
 
   if (error) {
     return { success: false, error: error.message }
@@ -224,7 +227,7 @@ export async function getInvoiceAction(invoiceId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { success: false, error: 'Unauthorized' }
 
-  const { data: invoice, error } = await (supabase as any)
+  const { data: invoice, error } = await (supabase)
     .from('invoices')
     .select(`
       id, agency_id, client_id, trip_id, invoice_number, issue_date, due_date, status, items, subtotal, discount_amount, discount_percent, tax_amount, tax_percent, total_amount, balance_due, payment_method, payment_status, notes, terms, created_at, updated_at,

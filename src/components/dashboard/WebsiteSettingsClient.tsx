@@ -19,23 +19,25 @@ import {
   Download, Upload, RefreshCw, Smartphone, Monitor, Shield, Compass, HeartHandshake, 
   Users, Clock, Map, Camera, Plane, Ship, Ticket, Calendar, Phone, Mail, Award, 
   MapPin, Search, Star, MessageSquare, Plus, Trash2, ArrowRight, Palette, Copy, AlertCircle, Save,
-  HelpCircle, Video, Code, Landmark, Car
+  HelpCircle, Video, Code, Landmark, Car, Layers
 } from 'lucide-react'
 import { templatesList } from '@/lib/templates-data'
 import PublicSite from '@/components/website/PublicSite'
 
-export function WebsiteSettingsClient({ activeTrips }: { activeTrips: any[] }) {
+export function WebsiteSettingsClient({ activeTrips, salesCars = [], rentalCars = [] }: { activeTrips: any[], salesCars?: any[], rentalCars?: any[] }) {
   const { agencyInfo, websiteConfig, setWebsiteConfig, businessTypeSlug } = useSettingsStore()
 
   // Initialize with fallback to dynamic template preset based on business vertical
   const [formData, setFormData] = useState<any>(() => {
     const defaultTemplate = templatesList.find(t => t.business_type_slug === (businessTypeSlug || 'travel')) || templatesList[0]
     const config = (websiteConfig || defaultTemplate) as any
+    
+    
     return {
       active_template_id: config.active_template_id || defaultTemplate.id,
       global_styles: { ...defaultTemplate.global_styles, ...(config.global_styles || {}) },
       structure: { 
-        sections: config.structure?.sections || defaultTemplate.structure.sections 
+        sections: config.structure?.sections || defaultTemplate.structure.sections
       },
       content: { ...((defaultTemplate as any).content || {}), ...(config.content || {}) },
       trips_display: { ...((defaultTemplate as any).trips_display || {}), ...(config.trips_display || {}) },
@@ -98,7 +100,7 @@ export function WebsiteSettingsClient({ activeTrips }: { activeTrips: any[] }) {
     setLoading(false)
   }
 
-  // 14 Draggable / Clickable Sections Library items
+  // Draggable / Clickable Sections Library items
   const SECTION_LIBRARY = [
     { type: 'Hero', name: 'Hero Banner', icon: Sparkles, desc: 'Introductory slider or cover image with prominent CTA', defaultVariant: 'full' },
     { type: 'Stats', name: 'Numeric Stats', icon: Clock, desc: 'Display client numbers, trips, guides and certifications', defaultVariant: 'grid' },
@@ -184,26 +186,23 @@ export function WebsiteSettingsClient({ activeTrips }: { activeTrips: any[] }) {
 
   // Section Default contents provisioner
   const getSectionDefaultContent = (type: string) => {
-    const isCar = businessTypeSlug === 'car_showroom';
     switch (type) {
       case 'Hero':
         return {
-          badge: isCar ? '🚗 EXCLUSIVE SHOWROOM' : '🌴 EXPLORE EXCLUSIVES',
-          title: isCar ? 'Find Your Perfect Drive' : 'Discover Dream Horizons',
-          subtitle: isCar 
-            ? "Algeria's most premium multi-brand vehicle inventory. Virtual test drives, flexible bank partnership financing, and instant expert support."
-            : 'Best package prices, expert tour curators and 24/7 client booking assistants.',
-          primary_cta: isCar ? 'Explore Inventory' : 'Explore Trips',
-          secondary_cta: isCar ? 'Schedule Test Drive' : 'Contact Us'
+          badge: '🌴 EXPLORE EXCLUSIVES',
+          headline: 'Discover Dream Horizons',
+          subtitle: 'Best package prices, expert tour curators and 24/7 client booking assistants.',
+          primaryButtonText: 'Explore Trips',
+          primaryButtonUrl: '#stock',
+          secondaryButtonText: 'Contact Us',
+          secondaryButtonUrl: '#commande',
+          backgroundImage: 'https://images.unsplash.com/photo-1617814076367-b759c7d7e738?auto=format&fit=crop&w=1920&q=80',
+          enableOverlay: true
         };
       case 'Stats':
         return {
-          items: isCar ? [
-            { number: '250+', label: 'Vehicles Sold', icon: 'Car' },
-            { number: '4.9★', label: 'Client Reviews', icon: 'Star' },
-            { number: '100%', label: 'Financing Approved', icon: 'Landmark' },
-            { number: '24/7', label: 'Showroom Assistant', icon: 'Clock' }
-          ] : [
+          title: 'Notre Agence en Chiffres',
+          items: [
             { number: '12K+', label: 'Happy Tourists', icon: 'Users' },
             { number: '4.9★', label: 'Client Reviews', icon: 'Star' },
             { number: '15+', label: 'Desert Safaris', icon: 'Compass' },
@@ -212,15 +211,9 @@ export function WebsiteSettingsClient({ activeTrips }: { activeTrips: any[] }) {
         };
       case 'WhyUs':
         return {
-          title: isCar ? 'Why Choose Our Dealership?' : 'Why Travel With Ephedia?',
-          subtitle: isCar 
-            ? 'Uncompromising vehicle quality, certified inspections, and flexible bank financing.'
-            : 'Uncompromising quality, custom routes and local support.',
-          items: isCar ? [
-            { icon: 'Shield', title: 'Certified Inspections', description: 'Every vehicle passes a rigorous 150-point technical check before listing.' },
-            { icon: 'HeartHandshake', title: 'Bank Partnerships', description: 'Flexible financing integrations with local banking entities: CPA, AGB, BADR, BDL.' },
-            { icon: 'Compass', title: 'Nationwide Transport', description: 'Secure shipment and registration processing across all 58 Algerian wilayas.' }
-          ] : [
+          title: 'Why Travel With Ephedia?',
+          subtitle: 'Uncompromising quality, custom routes and local support.',
+          items: [
             { icon: 'Shield', title: 'Secured Payments', description: 'Easy CCP receipts matching and online deposit structures.' },
             { icon: 'HeartHandshake', title: 'Top Accommodations', description: 'Curated 4★-5★ hotels with demipension meal plans.' },
             { icon: 'Compass', title: 'Experienced Guides', description: 'Francophone guides detailing historical contexts.' }
@@ -228,18 +221,18 @@ export function WebsiteSettingsClient({ activeTrips }: { activeTrips: any[] }) {
         };
       case 'Trips':
         return {
-          title: isCar ? 'Premium Showroom Inventory' : 'Premium Touring Packages',
-          subtitle: isCar 
-            ? 'Browse our live catalog of certified new, used, and pre-owned automobiles.'
-            : 'Browse catalog of active adventures departing from Algiers.'
+          title: 'Premium Touring Packages',
+          subtitle: 'Browse catalog of active adventures departing from Algiers.'
+        };
+      case 'Gallery':
+        return {
+          title: 'Inspirations Voyage',
+          subtitle: 'Explorez nos destinations en images'
         };
       case 'Testimonials':
         return {
-          title: isCar ? 'What Our Buyers Say' : 'What Our Clients Say',
-          items: isCar ? [
-            { name: 'Yacine Meziane', quote: 'Organized and professional team. Purchased a Seat Ibiza and the financing application was validated in days.', rating: 5, avatar: 'YM', location: 'Alger' },
-            { name: 'Karim Rahal', quote: 'Excellent contact experience! The AI chatbot scheduled my test drive instantly, then walk-in service was top-notch.', rating: 5, avatar: 'KR', location: 'Oran' }
-          ] : [
+          title: 'What Our Clients Say',
+          items: [
             { name: 'Kamel Benziane', quote: 'An incredible Sahara adventure with the Amine tour team. Service was impeccable!', rating: 5, avatar: 'KB', location: 'Alger' },
             { name: 'Sarah Amalou', quote: 'The Umrah package was meticulously organized. The Amiri hotel was incredibly close.', rating: 5, avatar: 'SA', location: 'Constantine' }
           ]
@@ -250,21 +243,32 @@ export function WebsiteSettingsClient({ activeTrips }: { activeTrips: any[] }) {
         };
       case 'Team':
         return {
-          title: isCar ? 'Meet Our Showroom Staff' : 'Meet Our Curators'
+          title: 'Meet Our Curators'
         };
       case 'Blog':
         return {
-          title: isCar ? 'Automotive Advice & News' : 'Latest Travel Tips'
+          title: 'Latest Travel Tips'
         };
       case 'Contact':
         return {
           title: 'Connect With Us',
-          subtitle: isCar 
-            ? 'Schedule an on-site visit or review deposit and finance partnership options.'
-            : 'Drop us a line or complete payment deposit details.',
+          subtitle: 'Drop us a line or complete payment deposit details.',
+          showForm: true,
           email: 'contact@ephedia.dz',
           phone: '+213 555 12 34 56',
           address: '04 Rue Didouche Mourad, Alger'
+        };
+      case 'Map':
+        return {
+          title: 'Localisation de Notre Concession'
+        };
+      case 'Footer':
+        return {
+          columns: [
+            { title: 'Showroom', items: [{ label: 'Stock', url: '#stock' }, { label: 'Sur Commande', url: '#commande' }, { label: 'Location', url: '#location' }] },
+            { title: 'Société', items: [{ label: 'À Propos', url: '#' }, { label: 'Services', url: '#' }, { label: 'Contact', url: '#contact' }] }
+          ],
+          copyrightText: '© 2026 Amine Auto. Conçu avec le Visual Website Builder.'
         };
       default:
         return {
@@ -818,40 +822,7 @@ export function WebsiteSettingsClient({ activeTrips }: { activeTrips: any[] }) {
                 </CardContent>
               </Card>
 
-              {/* Showroom financing settings */}
-              {businessTypeSlug === 'car_showroom' && (
-                <Card className="bg-white border border-slate-200/60 rounded-2xl shadow-sm overflow-hidden text-left">
-                  <CardHeader className="border-b border-slate-100 p-5 bg-slate-50/50">
-                    <CardTitle className="text-xs font-bold tracking-tight text-slate-800 uppercase flex items-center gap-1.5">
-                      <Landmark className="h-4 w-4 text-emerald-500" /> Showroom Financing Settings
-                    </CardTitle>
-                    <CardDescription className="text-[10px] text-slate-500 font-medium">Configure default parameters for the dynamic financing calculators.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-5 space-y-4 text-xs font-medium">
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase">
-                        <span>Default Interest Rate (APR)</span>
-                        <span className="text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded font-mono font-bold">{(formData.advanced?.default_interest_rate !== undefined ? formData.advanced.default_interest_rate : 7.5).toFixed(2)}%</span>
-                      </div>
-                      <Slider 
-                        min={1} 
-                        max={25} 
-                        step={0.1}
-                        value={[formData.advanced?.default_interest_rate !== undefined ? formData.advanced.default_interest_rate : 7.5]} 
-                        onValueChange={(v: any) => {
-                          setFormData((prev: any) => ({
-                            ...prev,
-                            advanced: {
-                              ...prev.advanced,
-                              default_interest_rate: v[0]
-                            }
-                          }));
-                        }}
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+
 
               {/* Custom template saves */}
               <Card className="bg-white border border-slate-200/60 rounded-2xl shadow-sm overflow-hidden text-left">
@@ -1067,13 +1038,16 @@ export function WebsiteSettingsClient({ activeTrips }: { activeTrips: any[] }) {
                       {/* Rendering active visual preview element! */}
                       <div className="pointer-events-auto">
                         <PublicSite 
-                          agency={agencyInfo} 
+                          agency={{ ...agencyInfo, business_type_slug: businessTypeSlug }} 
                           trips={activeTrips} 
+                          salesCars={salesCars}
+                          rentalCars={rentalCars}
                           isEditing={true} 
                           onContentEdit={handleInlineEdit} 
                           customConfig={{
                             global_styles: formData.global_styles,
-                            structure: { sections: [sec] }
+                            structure: { sections: [sec] },
+                            sections: [sec]
                           }}
                         />
                       </div>
@@ -1167,8 +1141,10 @@ export function WebsiteSettingsClient({ activeTrips }: { activeTrips: any[] }) {
               >
                 {/* Embed actual upgraded PublicSite loaded dynamically with our state builder! */}
                 <PublicSite 
-                  agency={{ ...agencyInfo, website_config: formData }} 
+                  agency={{ ...agencyInfo, business_type_slug: businessTypeSlug, website_config: formData }} 
                   trips={activeTrips} 
+                  salesCars={salesCars}
+                  rentalCars={rentalCars}
                   isEditing={false} 
                 />
               </div>

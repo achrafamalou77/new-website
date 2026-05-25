@@ -15,7 +15,7 @@ export async function createTrip(formData: any) {
   if (!user) return { success: false, error: 'Unauthorized' }
   
   const { data: profileData } = await supabase.from('profiles').select('role, agency_id').eq('id', user.id).single()
-  const profile = profileData as any
+  const profile = profileData
   if (profile?.role !== 'superadmin') {
     return { success: false, error: 'Only superadmins can create trips' }
   }
@@ -104,7 +104,7 @@ export async function updateTrip(tripId: string, formData: any) {
   if (!user) return { success: false, error: 'Unauthorized' }
   
   const { data: profileData } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  const profile = profileData as any
+  const profile = profileData
   if (profile?.role !== 'superadmin') {
     return { success: false, error: 'Only superadmins can update trips' }
   }
@@ -192,7 +192,7 @@ export async function deleteTrip(tripId: string) {
   if (!user) return { success: false, error: 'Unauthorized' }
   
   const { data: profileData } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  const profile = profileData as any
+  const profile = profileData
   if (profile?.role !== 'superadmin') {
     return { success: false, error: 'Only superadmins can delete trips' }
   }

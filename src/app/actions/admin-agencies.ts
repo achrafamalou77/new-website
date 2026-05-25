@@ -21,14 +21,14 @@ export async function toggleAgencyStatus(agencyId: string, currentStatus: string
 
   const newStatus = currentStatus === 'active' ? 'inactive' : 'active'
 
-  const { error } = await (adminClient.from('agencies') as any)
+  const { error } = await (adminClient.from('agencies'))
     .update({ status: newStatus })
     .eq('id', agencyId)
 
   if (error) return { success: false, error: error.message }
 
   if (user?.email) {
-    await (adminClient.from('admin_audit_log') as any).insert({
+    await (adminClient.from('admin_audit_log')).insert({
       admin_email: user.email,
       action: `Toggled status to ${newStatus}`,
       target_agency_id: agencyId
@@ -52,7 +52,7 @@ export async function deleteAgency(agencyId: string) {
 
   if (profiles) {
     for (const p of profiles) {
-      await adminClient.auth.admin.deleteUser((p as any).id)
+      await adminClient.auth.admin.deleteUser((p).id)
     }
   }
 
@@ -64,7 +64,7 @@ export async function deleteAgency(agencyId: string) {
   if (error) return { success: false, error: error.message }
 
   if (user?.email) {
-    await (adminClient.from('admin_audit_log') as any).insert({
+    await (adminClient.from('admin_audit_log')).insert({
       admin_email: user.email,
       action: `Deleted agency`,
       target_agency_id: agencyId

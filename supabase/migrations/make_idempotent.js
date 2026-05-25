@@ -65,4 +65,30 @@ files.forEach(file => {
   console.log(`Successfully updated ${file}!`);
 });
 
-console.log("All migrations successfully transformed into idempotent SQL scripts!");
+// Combine all migrations in order
+const sortedSqlFiles = files
+  .filter(f => f !== 'all_migrations_combined.sql')
+  .sort((a, b) => a.localeCompare(b));
+
+let combinedContent = `-- =========================================================================\n` +
+  `-- COMBINED IDEMPOTENT MIGRATIONS (0001 to 0017)\n` +
+  `-- Generated on ${new Date().toISOString()}\n` +
+  `-- =========================================================================\n\n`;
+
+sortedSqlFiles.forEach(file => {
+  const filePath = path.join(migrationsDir, file);
+  const content = fs.readFileSync(filePath, 'utf8');
+  combinedContent += `-- =========================================================================\n` +
+    `-- START MIGRATION: ${file}\n` +
+    `-- =========================================================================\n\n` +
+    content + `\n\n` +
+    `-- =========================================================================\n` +
+    `-- END MIGRATION: ${file}\n` +
+    `-- =========================================================================\n\n\n`;
+});
+
+const combinedPath = path.join(migrationsDir, 'all_migrations_combined.sql');
+fs.writeFileSync(combinedPath, combinedContent, 'utf8');
+console.log(`Successfully generated combined migrations file at: ${combinedPath}`);
+
+console.log("All migrations successfully transformed and combined into idempotent SQL scripts!");

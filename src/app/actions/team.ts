@@ -17,7 +17,7 @@ export async function inviteEmployee(formData: FormData) {
   if (!user) return { success: false, error: 'Unauthorized' }
 
   const { data: profileData } = await supabase.from('profiles').select('agency_id, role').eq('id', user.id).single()
-  const profile = profileData as any
+  const profile = profileData
   if (profile?.role !== 'superadmin') {
     return { success: false, error: 'Only superadmins can invite team members' }
   }
@@ -91,7 +91,7 @@ export async function removeEmployee(employeeId: string) {
   }
 
   const { data: profileData } = await supabase.from('profiles').select('agency_id, role').eq('id', user.id).single()
-  const profile = profileData as any
+  const profile = profileData
   if (profile?.role !== 'superadmin') {
     return { success: false, error: 'Only superadmins can remove team members' }
   }

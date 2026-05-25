@@ -1,0 +1,327 @@
+/* ===== Inventaire Page — Amine Auto ===== */
+
+.page {
+  background: var(--color-bg);
+  min-height: 100vh;
+}
+
+.hero {
+  background: var(--color-dark);
+  padding: 120px 20px 60px;
+  text-align: center;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.hero h1 {
+  font-family: var(--font-display);
+  color: #fff;
+  font-size: 2.8rem;
+  font-weight: 700;
+  letter-spacing: -1px;
+  margin-bottom: 12px;
+}
+
+.hero p {
+  color: var(--color-text-muted);
+  font-size: 1.05rem;
+}
+
+.body {
+  padding: 32px 0 80px;
+}
+
+/* Filter Bar */
+.filterBar {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow-card);
+}
+
+.filterRow {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 0;
+}
+
+.filterRow + .filterRow {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+
+.filterSelect,
+.filterInput {
+  flex: 1;
+  min-width: 160px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  color: var(--color-text);
+  background: var(--color-bg);
+  transition: all var(--transition-fast);
+}
+
+.filterSelect:focus,
+.filterInput:focus {
+  border-color: var(--color-primary);
+  background: var(--color-bg-alt);
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+  outline: none;
+}
+
+.filterSelect option {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.moreFiltersBtn {
+  padding: 12px 20px;
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  border-radius: var(--radius-md);
+  background: rgba(212, 175, 55, 0.05);
+  color: var(--color-primary);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.moreFiltersBtn:hover {
+  background: rgba(212, 175, 55, 0.1);
+  border-color: var(--color-primary);
+}
+
+.clearBtn {
+  padding: 12px 20px;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: var(--radius-md);
+  background: rgba(239, 68, 68, 0.05);
+  color: #ef4444;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+}
+
+.clearBtn:hover {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+/* Toolbar */
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.conditionTabs {
+  display: flex;
+  gap: 4px;
+}
+
+.condTab {
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all var(--transition-fast);
+}
+
+.condTab:hover {
+  color: var(--color-text);
+}
+
+.condTabActive {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+.toolbarRight {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.searchBox {
+  position: relative;
+}
+
+.keywordInput {
+  padding: 10px 36px 10px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  width: 200px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  transition: all var(--transition-fast);
+}
+
+.keywordInput:focus {
+  border-color: var(--color-primary);
+  background: var(--color-bg-alt);
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+  outline: none;
+}
+
+.searchIcon {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.sortWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+
+.sortSelect {
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.resultCount {
+  font-size: 1.1rem;
+  color: var(--color-text);
+  margin-bottom: 24px;
+}
+
+/* Grid */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 28px;
+}
+
+.skeleton {
+  height: 380px;
+  background: var(--color-surface);
+  border-radius: 16px;
+  animation: pulse 1.5s infinite ease-in-out;
+  border: 1px solid var(--color-border);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.empty {
+  text-align: center;
+  padding: 60px;
+  background: var(--color-surface);
+  border-radius: 16px;
+  border: 1px solid var(--color-border);
+}
+
+.empty h3 {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  color: var(--color-text);
+}
+
+.empty p {
+  color: var(--color-text-muted);
+  margin-top: 8px;
+}
+
+/* Sections */
+.inventorySection {
+  margin-bottom: 40px;
+}
+
+.sectionHeading {
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: 8px;
+  letter-spacing: -0.5px;
+}
+
+.sectionSubtitle {
+  font-size: 1.05rem;
+  color: var(--color-text-muted);
+  margin-bottom: 32px;
+}
+
+@media (max-width: 768px) {
+  .hero {
+    padding: 90px 16px 40px;
+  }
+
+  .hero h1 { font-size: 2rem; }
+
+  .body {
+    padding: 24px 0 60px;
+  }
+
+  .toolbarRight { flex-wrap: wrap; }
+  .keywordInput { width: 140px; }
+  .filterSelect, .filterInput { min-width: 100%; }
+  .sectionHeading { font-size: 1.5rem; }
+
+  .grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .conditionTabs {
+    width: 100%;
+  }
+
+  .condTab {
+    flex: 1;
+    text-align: center;
+  }
+
+  .skeleton {
+    height: 280px;
+  }
+
+  .empty {
+    padding: 40px 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .filterBar {
+    padding: 14px;
+  }
+
+  .filterRow {
+    gap: 8px;
+  }
+}

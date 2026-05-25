@@ -74,15 +74,15 @@ export async function createAgency(formData: any) {
     social_links
   }
 
-  const { data: agencyData, error: agencyError } = await adminClient
-    .from('agencies')
+  const { data: agencyData, error: agencyError } = await (adminClient
+    .from('agencies') as any)
     .insert({
       company_name,
       subdomain,
       website_settings,
       active_modules: modules,
       business_type_slug: formData.business_type_slug || 'travel'
-    } as any)
+    })
     .select()
     .single()
 
@@ -97,12 +97,12 @@ export async function createAgency(formData: any) {
     .from('profiles')
     .insert({
       id: userData.user.id,
-      agency_id: (agencyData as any).id,
+      agency_id: (agencyData).id,
       full_name: admin_name,
       role: 'superadmin'
-    } as any)
+    })
 
-  const agency = agencyData as any
+  const agency = agencyData
 
   if (profileError) {
     // Rollback
@@ -134,8 +134,8 @@ export async function updateWebsiteConfig(config: any) {
   if (!user) return { success: false, error: 'Unauthorized' }
 
   const { data: profileData } = await supabase.from('profiles').select('agency_id, role').eq('id', user.id).single()
-  const profile = profileData as any
-  if (profile?.role !== 'superadmin') {
+  const profile = profileData
+  if (!profile || profile.role !== 'superadmin' || !profile.agency_id) {
     return { success: false, error: 'Only superadmins can update settings' }
   }
 
@@ -145,8 +145,8 @@ export async function updateWebsiteConfig(config: any) {
     return { success: false, error: validation.error.issues[0].message, details: validation.error.issues }
   }
 
-  const { error } = await (supabase.from('agencies') as any).update({
-    website_config: validation.data
+  const { error } = await (supabase.from('agencies')).update({
+    website_config: validation.data as any
   }).eq('id', profile.agency_id)
 
   if (error) return { success: false, error: error.message }
@@ -160,8 +160,8 @@ export async function updateChatbotConfig(config: any) {
   if (!user) return { success: false, error: 'Unauthorized' }
 
   const { data: profileData } = await supabase.from('profiles').select('agency_id, role').eq('id', user.id).single()
-  const profile = profileData as any
-  if (profile?.role !== 'superadmin') {
+  const profile = profileData
+  if (!profile || profile.role !== 'superadmin' || !profile.agency_id) {
     return { success: false, error: 'Only superadmins can update settings' }
   }
 
@@ -171,8 +171,8 @@ export async function updateChatbotConfig(config: any) {
     return { success: false, error: validation.error.issues[0].message, details: validation.error.issues }
   }
 
-  const { error } = await (supabase.from('agencies') as any).update({
-    chatbot_config: validation.data
+  const { error } = await (supabase.from('agencies')).update({
+    chatbot_config: validation.data as any
   }).eq('id', profile.agency_id)
 
   if (error) return { success: false, error: error.message }
@@ -186,8 +186,8 @@ export async function updateAgencyInfo(data: any) {
   if (!user) return { success: false, error: 'Unauthorized' }
 
   const { data: profileData } = await supabase.from('profiles').select('agency_id, role').eq('id', user.id).single()
-  const profile = profileData as any
-  if (profile?.role !== 'superadmin') {
+  const profile = profileData
+  if (!profile || profile.role !== 'superadmin' || !profile.agency_id) {
     return { success: false, error: 'Only superadmins can update settings' }
   }
 
@@ -200,13 +200,13 @@ export async function updateAgencyInfo(data: any) {
   const { company_name, phone, email, address, business_hours, social_media } = validation.data
 
   // Fetch existing website_settings to merge phone, email, and address
-  const { data: agencyData } = await supabase
-    .from('agencies')
+  const { data: agencyData } = await (supabase
+    .from('agencies') as any)
     .select('website_settings')
     .eq('id', profile.agency_id)
     .single()
 
-  const existingSettings = (agencyData as any)?.website_settings || {}
+  const existingSettings = (agencyData)?.website_settings || {}
   const website_settings = {
     ...existingSettings,
     phone: phone || '',
@@ -221,7 +221,7 @@ export async function updateAgencyInfo(data: any) {
     website_settings
   }
 
-  const { error } = await (supabase.from('agencies') as any)
+  const { error } = await (supabase.from('agencies'))
     .update(updatePayload)
     .eq('id', profile.agency_id)
 

@@ -14,7 +14,7 @@ async function getAuthSession() {
     .eq('id', user.id)
     .single()
 
-  return { user, profile: profileData as any }
+  return { user, profile: profileData }
 }
 
 // 1. Financial Accounts

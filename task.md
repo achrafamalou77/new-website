@@ -13,5 +13,9 @@
 - [x] Rewrite `Footer.tsx` — 4-column, Algerian hours, FB SVG icon
 - [x] Rewrite `WhatsAppButton.tsx` — green glow, aria-label
 - [x] Delete `tailwind.config.js`
-- [x] Build verification (`npm run build`)
+- [x] Execute Supabase database migration to add `containers` table and relation to `import_orders`
+- [x] Implement Server Actions in `src/app/actions/containers.ts` and `src/app/actions/import-orders.ts` to support Container CRUD and vehicle linking
+- [x] Create Dashboard UI components at `/dashboard/management/import` to register and view containers and vessel timelines
+- [x] Connect the Container tracking tool-call to the AI Chatbot to handle client container queries
+- [x] Run typescript and build verification (`npm run build`)
 - [x] Browser test all sections

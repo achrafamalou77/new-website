@@ -1,0 +1,326 @@
+/* ===== Vehicle Detail Page: Premium Layout — Amine Auto ===== */
+
+.page {
+  padding: calc(var(--nav-height) + 32px) 0 80px;
+  background: var(--color-bg);
+  min-height: 100vh;
+}
+
+/* ====== Two-Column Layout ====== */
+.layout {
+  display: grid;
+  grid-template-columns: 65fr 35fr;
+  gap: 36px;
+  align-items: start;
+}
+
+.mainCol {
+  min-width: 0;
+}
+
+.sidebarCol {
+  min-width: 0;
+}
+
+.sidebarSticky {
+  position: sticky;
+  top: calc(var(--nav-height) + 24px);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ====== Left Column: Content Sections ====== */
+.contentSection {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 32px;
+  box-shadow: var(--shadow-card);
+  margin-bottom: 24px;
+}
+
+.sectionTitle {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sectionTitle::before {
+  content: '';
+  width: 4px;
+  height: 22px;
+  background: var(--color-primary);
+  border-radius: 4px;
+  flex-shrink: 0;
+  box-shadow: 0 0 10px var(--color-primary-glow);
+}
+
+.descriptionText {
+  font-size: 1rem;
+  line-height: 1.85;
+  color: var(--color-text-muted);
+}
+
+/* ---- Features Pills ---- */
+.featuresPills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.featurePill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  background: var(--color-bg-alt);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 0.92rem;
+  font-weight: 500;
+  color: var(--color-text);
+  transition: all var(--transition-fast);
+}
+
+.featurePill:hover {
+  border-color: var(--color-primary);
+  background: rgba(212, 175, 55, 0.05);
+}
+
+.featureCheck {
+  flex-shrink: 0;
+  color: var(--color-primary);
+}
+
+/* ---- Inspection Badge ---- */
+.inspectionSection {
+  margin-bottom: 24px;
+}
+
+.inspectionBadge {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 24px 32px;
+  background: rgba(0, 255, 136, 0.05);
+  border: 1px solid rgba(0, 255, 136, 0.15);
+  border-radius: var(--radius-lg);
+}
+
+.inspectionIcon {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-full);
+  background: rgba(0, 255, 136, 0.12);
+  color: var(--color-disponible);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid rgba(0, 255, 136, 0.2);
+}
+
+.inspectionTitle {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--color-text);
+  display: block;
+  margin-bottom: 4px;
+}
+
+.inspectionSubtitle {
+  font-size: 0.88rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+/* ---- Map Embed ---- */
+.mapWrap {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  line-height: 0;
+  border: 1px solid var(--color-border);
+}
+
+/* ====== Right Column: Sidebar Cards ====== */
+
+/* ---- Header Card (Title + Year + Price) ---- */
+.headerCard {
+  background: var(--color-dark);
+  border-radius: var(--radius-lg);
+  padding: 28px 28px 24px;
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--color-border);
+}
+
+.vehicleTitle {
+  font-family: var(--font-display);
+  font-size: 1.65rem;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.2;
+  letter-spacing: -0.3px;
+  margin-bottom: 12px;
+}
+
+.vehicleMeta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.yearPill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  background: rgba(212, 175, 55, 0.15);
+  color: var(--color-primary);
+  border: 1px solid rgba(212, 175, 55, 0.2);
+  border-radius: 4px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.metaDot {
+  font-size: 0.88rem;
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+.metaDot::before {
+  content: '·';
+  margin-right: 10px;
+  color: var(--color-border);
+  font-weight: 700;
+}
+
+.metaDot:first-of-type::before {
+  display: none;
+}
+
+.priceValue {
+  font-family: var(--font-display);
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: var(--color-text);
+  letter-spacing: -0.5px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+}
+
+/* ---- Specs Card ---- */
+.specsCard {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--color-border);
+}
+
+.specsTitle {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 2px solid var(--color-primary);
+}
+
+.specsList {
+  display: flex;
+  flex-direction: column;
+}
+
+.specsRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 11px 0;
+  border-bottom: 1px dashed var(--color-border);
+}
+
+.specsRow:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.specsLabel {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.specsValue {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--color-text);
+  text-align: right;
+}
+
+/* ====== Responsive ====== */
+@media (max-width: 1024px) {
+  .layout {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+
+  .sidebarSticky {
+    position: static;
+  }
+
+  .vehicleTitle {
+    font-size: 1.45rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .page {
+    padding-top: calc(var(--nav-height) + 16px);
+    padding-bottom: 48px;
+  }
+
+  .vehicleTitle {
+    font-size: 1.3rem;
+  }
+
+  .priceValue {
+    font-size: 1.8rem;
+  }
+
+  .contentSection {
+    padding: 24px;
+  }
+
+  .featuresPills {
+    gap: 8px;
+  }
+
+  .featurePill {
+    padding: 8px 14px;
+    font-size: 0.85rem;
+  }
+
+  .inspectionBadge {
+    padding: 18px 20px;
+    gap: 14px;
+  }
+
+  .headerCard {
+    padding: 22px;
+  }
+
+  .specsCard {
+    padding: 20px;
+  }
+}

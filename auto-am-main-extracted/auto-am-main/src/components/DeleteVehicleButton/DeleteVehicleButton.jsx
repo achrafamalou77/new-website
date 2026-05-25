@@ -1,0 +1,41 @@
+'use client';
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { deleteVehicle } from '@/utils/supabaseClient';
+
+export default function DeleteVehicleButton({ id }) {
+  const [isDeleting, setIsDeleting] = useState(false);
+  const router = useRouter();
+
+  const handleDelete = async () => {
+    if (confirm("Êtes-vous sûr de vouloir supprimer ce véhicule ? Cette action est définitive.")) {
+      setIsDeleting(true);
+      try {
+        const success = await deleteVehicle(id);
+        if (success) {
+          // Rafraîchir la page côté serveur pour retirer le véhicule de la table
+          router.refresh();
+        }
+      } catch (error) {
+        console.error("Delete Error:", error);
+        alert("Erreur lors de la suppression: " + (error.message || JSON.stringify(error)));
+        setIsDeleting(false);
+      }
+    }
+  };
+
+  return (
+    <button 
+      onClick={handleDelete}
+      disabled={isDeleting}
+      className={`action-btn action-delete ${isDeleting ? 'loading' : ''}`} 
+      title="Supprimer"
+      style={{ opacity: isDeleting ? 0.5 : 1 }}
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6" />
+      </svg>
+    </button>
+  );
+}

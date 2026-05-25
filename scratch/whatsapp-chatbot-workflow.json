@@ -1,0 +1,923 @@
+{
+  "name": "WhatsApp Chatbot - Algeria Car Rental SaaS",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET_POST",
+        "path": "whatsapp/webhook",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1d2a14e9-0b2a-4db3-bd79-a78dbb64a2c5",
+      "name": "WhatsApp Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $request.method }}",
+        "rules": {
+          "rules": [
+            {
+              "value2": "GET",
+              "output": 0
+            },
+            {
+              "value2": "POST",
+              "output": 1
+            }
+          ]
+        }
+      },
+      "id": "00c73339-ff74-4b53-90d5-bf6774e1d1f0",
+      "name": "Route GET/POST",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        300,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.query[\"hub.verify_token\"] }}",
+              "operation": "equal",
+              "value2": "YOUR_VERIFY_TOKEN_HERE"
+            }
+          ]
+        }
+      },
+      "id": "4e72390a-a55e-4bb5-a309-80862024bcda",
+      "name": "Verify Handshake Token",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        500,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.query[\"hub.challenge\"] }}",
+        "options": {}
+      },
+      "id": "18f97cf3-009d-4e92-bb83-9b9319e7a829",
+      "name": "Respond GET Challenge",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        720,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "Verification token mismatch.",
+        "options": {
+          "statusCode": 403
+        }
+      },
+      "id": "cf6d6232-a50d-45b0-9db0-0112467d16cc",
+      "name": "Respond 403 Forbidden",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        720,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ !!($json.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]) }}",
+              "operation": "equal",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "78099cb2-ad3b-419b-a7eb-6c1bb0220261",
+      "name": "Is New Message?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        500,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = item.json.body;\nconst value = body.entry[0].changes[0].value;\nconst message = value.messages[0];\nconst contact = value.contacts ? value.contacts[0] : null;\n\n// Normalize phone numbers for easy querying in Supabase\nconst clientPhoneRaw = message.from; // raw WA phone (e.g. \"213555123456\")\nconst clientPhoneNormalized = '+' + clientPhoneRaw; // formatted standard (\"+213555123456\")\nconst businessPhone = value.metadata.display_phone_number; // display phone of agency\nconst phoneId = value.metadata.phone_number_id; // meta platform ID of phone\n\nreturn {\n  clientPhoneRaw,\n  clientPhoneNormalized,\n  clientName: contact ? contact.profile.name : \"Client WhatsApp\",\n  messageText: message.text ? message.text.body : \"\",\n  messageId: message.id,\n  timestamp: message.timestamp,\n  businessPhone,\n  phoneId\n};\n"
+      },
+      "id": "2bc8eeea-2401-4475-8123-018f97a1d123",
+      "name": "Parse WhatsApp Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "table": "agencies",
+        "filters": {
+          "conditions": [
+            {
+              "key": "status",
+              "operator": "eq",
+              "value": "active"
+            }
+          ]
+        }
+      },
+      "id": "31bb14e9-0d2a-4db3-bc19-a78dbb64a2f0",
+      "name": "Query Supabase: Agency",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        900,
+        420
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase connection"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "table": "clients",
+        "filters": {
+          "conditions": [
+            {
+              "key": "phone",
+              "operator": "like",
+              "value": "={{ '%' + $('Parse WhatsApp Message').item.json.clientPhoneRaw + '%' }}"
+            }
+          ]
+        }
+      },
+      "id": "db81a999-0123-4567-89ab-cdef01234567",
+      "name": "Query Supabase: Client",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        420
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase connection"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.length > 0 }}",
+              "operation": "equal",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "cb18290f-9012-4aef-b203-c19b20ab20e0",
+      "name": "Client Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "clientId",
+              "value": "={{ $json[0].id }}"
+            },
+            {
+              "name": "clientName",
+              "value": "={{ $json[0].full_name || $json[0].name }}"
+            }
+          ]
+        }
+      },
+      "id": "aa18280f-9012-4aef-b203-c19b20ab20aa",
+      "name": "Set Client Existing",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [
+        1500,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "table": "clients",
+        "fields": {
+          "agency_id": "={{ $('Query Supabase: Agency').item.json.id }}",
+          "full_name": "={{ $('Parse WhatsApp Message').item.json.clientName }}",
+          "phone": "={{ $('Parse WhatsApp Message').item.json.clientPhoneNormalized }}",
+          "source": "whatsapp"
+        }
+      },
+      "id": "db81a888-0123-4567-89ab-cdef01234567",
+      "name": "Create Client",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1500,
+        500
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase connection"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "clientId",
+              "value": "={{ $json[0].id }}"
+            },
+            {
+              "name": "clientName",
+              "value": "={{ $json[0].full_name || $json[0].name }}"
+            }
+          ]
+        }
+      },
+      "id": "aa18280f-9012-4aef-b203-c19b20ab20bb",
+      "name": "Set Client Created",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [
+        1700,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "table": "conversations",
+        "filters": {
+          "conditions": [
+            {
+              "key": "client_id",
+              "operator": "eq",
+              "value": "={{ $json.clientId }}"
+            },
+            {
+              "key": "status",
+              "operator": "neq",
+              "value": "closed"
+            }
+          ]
+        }
+      },
+      "id": "cb18290f-9012-4aef-b203-c19b20ab20cc",
+      "name": "Query Supabase: Conversation",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1900,
+        420
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase connection"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.length > 0 }}",
+              "operation": "equal",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "cb18290f-9012-4aef-b203-c19b20ab20dd",
+      "name": "Conversation Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        2100,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "table": "conversations",
+        "fields": {
+          "agency_id": "={{ $('Query Supabase: Agency').item.json.id }}",
+          "client_id": "={{ $json.clientId }}",
+          "platform": "whatsapp",
+          "status": "active",
+          "lead_score": 0
+        }
+      },
+      "id": "db81a777-0123-4567-89ab-cdef01234567",
+      "name": "Create Conversation",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2300,
+        500
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase connection"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "conversationId",
+              "value": "={{ $json.id || $json[0]?.id || $('Query Supabase: Conversation').item.json[0]?.id }}"
+            },
+            {
+              "name": "clientId",
+              "value": "={{ $('Set Client Existing').item.json.clientId || $('Set Client Created').item.json.clientId }}"
+            }
+          ]
+        }
+      },
+      "id": "aa18280f-9012-4aef-b203-c19b20ab20ee",
+      "name": "Set Conversation ID",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [
+        2500,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "table": "messages",
+        "fields": {
+          "conversation_id": "={{ $json.conversationId }}",
+          "content": "={{ $('Parse WhatsApp Message').item.json.messageText }}",
+          "sender_type": "client",
+          "platform": "whatsapp"
+        }
+      },
+      "id": "db81a666-0123-4567-89ab-cdef01234567",
+      "name": "Save Inbound Message",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2700,
+        420
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase connection"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "table": "car_rental_fleet",
+        "filters": {
+          "conditions": [
+            {
+              "key": "agency_id",
+              "operator": "eq",
+              "value": "={{ $('Query Supabase: Agency').item.json.id }}"
+            },
+            {
+              "key": "status",
+              "operator": "eq",
+              "value": "available"
+            }
+          ]
+        }
+      },
+      "id": "cb18290f-9012-4aef-b203-c19b20ab20ff",
+      "name": "Fetch Available Cars",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2920,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase connection"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const cars = items;\nif (!cars || cars.length === 0) {\n  return { fleetText: \"No cars are currently available in our fleet.\" };\n}\n\nlet text = \"AVAILABLE CARS FOR RENTAL:\\n\";\ncars.forEach((car, index) => {\n  // Adapts seamlessly to actual database column 'daily_rate' and fallbacks to 'price_per_day'\n  const brand = car.json.brand || \"Unknown\";\n  const model = car.json.model || \"Car\";\n  const year = car.json.year || \"\";\n  const price = car.json.daily_rate || car.json.price_per_day || \"Contact us\";\n  const transmission = car.json.transmission || \"Automatic\";\n  const fuel = car.json.fuel_type || \"Petrol\";\n  \n  text += `${index + 1}. ${brand} ${model} ${year ? '(' + year + ')' : ''} - ${price} DZD/day [${transmission}, ${fuel}]\\n`;\n});\n\nreturn { fleetText: text };"
+      },
+      "id": "2bc8eeea-2401-4475-8123-018f97a1d555",
+      "name": "Format Fleet Text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3120,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "table": "messages",
+        "limit": 6,
+        "filters": {
+          "conditions": [
+            {
+              "key": "conversation_id",
+              "operator": "eq",
+              "value": "={{ $('Save Inbound Message').item.json[0].conversation_id }}"
+            }
+          ]
+        },
+        "additionalFields": {
+          "sortBy": "created_at",
+          "sortOrder": "desc"
+        }
+      },
+      "id": "cb18290f-9012-4aef-b203-c19b20ab20aa",
+      "name": "Fetch Chat History",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2920,
+        540
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase connection"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Reverse order to put messages in chronological sequence (oldest to newest)\nconst messages = [...items].reverse();\nif (messages.length === 0) {\n  return { historyText: \"No previous messages in this conversation.\" };\n}\n\nlet text = \"\";\nmessages.forEach(msg => {\n  const sender = msg.json.sender_type === 'client' ? 'Client' : 'Assistant';\n  const content = msg.json.content || \"\";\n  text += `${sender}: ${content}\\n`;\n});\n\nreturn { historyText: text };"
+      },
+      "id": "2bc8eeea-2401-4475-8123-018f97a1d777",
+      "name": "Format History Text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3120,
+        540
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "multiplex",
+        "options": {}
+      },
+      "id": "c0c73339-ff74-4b53-90d5-bf6774e1d1f0",
+      "name": "Merge Context",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2,
+      "position": [
+        3350,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-goog-api-key",
+              "value": "YOUR_GEMINI_API_KEY_HERE"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [\n    {\n      \"parts\": [\n        {\n          \"text\": \"You are \" + ($('Query Supabase: Agency').item.json.chatbot_config?.personality?.bot_name || 'Ephedia Car Assistant') + \", the friendly and highly professional customer support representative for \" + $('Query Supabase: Agency').item.json.company_name + \" (a premier car rental SaaS platform based in Algeria).\\n\\nYOUR RULES AND INSTRUCTIONS:\\n1. Greeting: \" + ($('Query Supabase: Agency').item.json.chatbot_config?.personality?.bot_greeting || 'Hello and welcome!') + \"\\n2. Languages: Speak in Algerian Darja (Arabic dialect), French, or standard Arabic/English. Respond matching the language used by the user in their message. Ensure the tone is warm, professional, and locally engaging.\\n3. Prices: Strictly quote rental prices in Algerian Dinars (DZD) using a clean local format, e.g., '5,000 DZD/day'.\\n4. Length: Keep your responses highly concise, polite, and spaced out with simple emojis. Ideal for standard WhatsApp screen sizes. Never output excessively long text paragraphs.\\n5. Actions: Guide them to select one of the available cars, offer to book, and ask them for rental dates or details politely.\\n\\nCONTEXT INFO (AVAILABLE FLEET INVENTORY):\\n\" + $json.fleetText + \"\\n\\nCONVERSATION HISTORY:\\n\" + $('Format History Text').item.json.historyText + \"\\n\\nNEW USER MESSAGE:\\nClient: \" + $('Parse WhatsApp Message').item.json.messageText + \"\\n\\nAssistant Reply:\"\n        }\n      ]\n    }\n  ],\n  \"generationConfig\": {\n    \"temperature\": 0.7,\n    \"maxOutputTokens\": 500\n  }\n}"
+      },
+      "id": "e0b73339-ff74-4b53-90d5-bf6774e1d444",
+      "name": "Call Gemini API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        3540,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = item.json;\nlet reply = \"\";\ntry {\n  reply = response.candidates[0].content.parts[0].text;\n} catch (e) {\n  reply = \"Désolé, nous rencontrons un petit incident technique. Veuillez nous excuser et réessayer dans un instant, ou contactez un conseiller.\";\n}\nreturn {\n  replyText: reply.trim()\n};"
+      },
+      "id": "2bc8eeea-2401-4475-8123-018f97a1d999",
+      "name": "Parse Gemini Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3740,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=\"https://graph.facebook.com/v20.0/\" + $('Parse WhatsApp Message').item.json.phoneId + \"/messages\"",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_META_WHATSAPP_TOKEN_HERE"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"recipient_type\": \"individual\",\n  \"to\": \"={{ $('Parse WhatsApp Message').item.json.clientPhoneRaw }}\",\n  \"type\": \"text\",\n  \"text\": {\n    \"body\": \"={{ $json.replyText }}\"\n  }\n}"
+      },
+      "id": "e0b73339-ff74-4b53-90d5-bf6774e1d555",
+      "name": "Send WhatsApp Reply",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        3960,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "table": "messages",
+        "fields": {
+          "conversation_id": "={{ $('Save Inbound Message').item.json[0].conversation_id }}",
+          "content": "={{ $json.replyText }}",
+          "sender_type": "agent",
+          "platform": "whatsapp"
+        }
+      },
+      "id": "db81a555-0123-4567-89ab-cdef01234567",
+      "name": "Save Bot Reply",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3960,
+        500
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIALS_ID",
+          "name": "Supabase connection"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "WhatsApp Webhook": {
+      "main": [
+        [
+          {
+            "node": "Route GET/POST",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route GET/POST": {
+      "main": [
+        [
+          {
+            "node": "Verify Handshake Token",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is New Message?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Handshake Token": {
+      "main": [
+        [
+          {
+            "node": "Respond GET Challenge",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 403 Forbidden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is New Message?": {
+      "main": [
+        [
+          {
+            "node": "Parse WhatsApp Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse WhatsApp Message": {
+      "main": [
+        [
+          {
+            "node": "Query Supabase: Agency",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Supabase: Agency": {
+      "main": [
+        [
+          {
+            "node": "Query Supabase: Client",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Supabase: Client": {
+      "main": [
+        [
+          {
+            "node": "Client Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Client Exists?": {
+      "main": [
+        [
+          {
+            "node": "Set Client Existing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Client",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Client": {
+      "main": [
+        [
+          {
+            "node": "Set Client Created",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Client Existing": {
+      "main": [
+        [
+          {
+            "node": "Query Supabase: Conversation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Client Created": {
+      "main": [
+        [
+          {
+            "node": "Query Supabase: Conversation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Supabase: Conversation": {
+      "main": [
+        [
+          {
+            "node": "Conversation Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conversation Exists?": {
+      "main": [
+        [
+          {
+            "node": "Set Conversation ID",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Conversation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Conversation": {
+      "main": [
+        [
+          {
+            "node": "Set Conversation ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Conversation ID": {
+      "main": [
+        [
+          {
+            "node": "Save Inbound Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Inbound Message": {
+      "main": [
+        [
+          {
+            "node": "Fetch Available Cars",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Chat History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Available Cars": {
+      "main": [
+        [
+          {
+            "node": "Format Fleet Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Chat History": {
+      "main": [
+        [
+          {
+            "node": "Format History Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Fleet Text": {
+      "main": [
+        [
+          {
+            "node": "Merge Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format History Text": {
+      "main": [
+        [
+          {
+            "node": "Merge Context",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Context": {
+      "main": [
+        [
+          {
+            "node": "Call Gemini API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Gemini API": {
+      "main": [
+        [
+          {
+            "node": "Parse Gemini Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Gemini Reply": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Reply",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Save Bot Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "1",
+  "meta": {
+    "instanceId": "e12f6892e345bc7981ab230efc420aa998bc19d3"
+  }
+}

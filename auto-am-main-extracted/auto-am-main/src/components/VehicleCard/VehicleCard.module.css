@@ -1,0 +1,347 @@
+/* ===== Sleek Dark Vehicle Card — Amine Auto ===== */
+
+.card {
+  display: block;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  background: var(--color-surface);
+  cursor: pointer;
+  position: relative;
+  border: 1px solid var(--color-border);
+}
+
+.card:hover {
+  transform: translateY(-8px);
+  border-color: rgba(212, 175, 55, 0.15);
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.4),
+    0 0 30px rgba(212, 175, 55, 0.06);
+}
+
+/* ---- Image ---- */
+.imageWrap {
+  position: relative;
+  aspect-ratio: 3 / 2;
+  overflow: hidden;
+}
+
+.featured .imageWrap {
+  aspect-ratio: auto;
+  height: 100%;
+  min-height: 280px;
+  flex: 1;
+}
+
+.image {
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card:hover .image {
+  transform: scale(1.06);
+}
+
+.soldImage {
+  filter: grayscale(80%) brightness(50%);
+}
+
+.soldOutStamp {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-15deg);
+  background: rgba(0, 0, 0, 0.85);
+  border: 3px solid var(--color-primary);
+  color: var(--color-primary);
+  font-family: var(--font-display);
+  font-weight: 700;
+  padding: 10px 28px;
+  text-transform: uppercase;
+  letter-spacing: 4px;
+  z-index: 10;
+  font-size: 1.4rem;
+  box-shadow: 0 0 30px var(--color-primary-glow);
+  pointer-events: none;
+}
+
+/* ---- Glare / Shine overlay ---- */
+.imageWrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 20%,
+    rgba(212, 175, 55, 0.05) 40%,
+    rgba(212, 175, 55, 0.1) 50%,
+    rgba(212, 175, 55, 0.05) 60%,
+    transparent 80%
+  );
+  transform: translateX(-120%);
+  transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 2;
+  pointer-events: none;
+}
+
+.card:hover .imageWrap::after {
+  transform: translateX(120%);
+}
+
+/* ---- Bottom gradient overlay ---- */
+.imageWrap::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: linear-gradient(to top, var(--color-surface) 0%, transparent 100%);
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.card:hover .imageWrap::before {
+  opacity: 0.7;
+}
+
+/* ---- Favorite button ---- */
+.favorite {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  width: 36px;
+  height: 36px;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 3;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.favorite:hover {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-dark);
+  transform: scale(1.15);
+  box-shadow: 0 0 20px var(--color-primary-glow);
+}
+
+.favorite:active {
+  transform: scale(0.95);
+}
+
+/* ---- Availability Badge with Glow ---- */
+.availabilityBadge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  z-index: 3;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.badgeDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.badgeDisponible {
+  background: rgba(0, 40, 20, 0.8);
+  color: var(--color-disponible);
+  border: 1px solid rgba(0, 255, 136, 0.3);
+  box-shadow: 0 0 15px var(--color-disponible-glow);
+}
+
+.badgeDisponible .badgeDot {
+  background: var(--color-disponible);
+  box-shadow: 0 0 6px var(--color-disponible);
+  animation: dotPulse 2s ease-in-out infinite;
+}
+
+.badgeSurCommande {
+  background: rgba(40, 20, 0, 0.8);
+  color: var(--color-sur-commande);
+  border: 1px solid rgba(255, 107, 53, 0.3);
+  box-shadow: 0 0 15px var(--color-sur-commande-glow);
+}
+
+.badgeSurCommande .badgeDot {
+  background: var(--color-sur-commande);
+  box-shadow: 0 0 6px var(--color-sur-commande);
+  animation: dotPulse 2s ease-in-out infinite;
+}
+
+@keyframes dotPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.4); }
+}
+
+/* ---- Image count badge ---- */
+.imgCount {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  z-index: 3;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ---- Featured ribbon ---- */
+.ribbon {
+  position: absolute;
+  top: 16px;
+  left: -30px;
+  width: 120px;
+  padding: 5px 0;
+  background: linear-gradient(135deg, var(--color-primary), #0099cc);
+  color: var(--color-dark);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transform: rotate(-45deg);
+  z-index: 3;
+  box-shadow: 0 3px 12px var(--color-primary-glow);
+}
+
+/* ---- Info panel ---- */
+.info {
+  padding: 16px 20px 18px;
+  background: var(--color-surface);
+  position: relative;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 6px;
+  line-height: 1.4;
+  transition: color var(--transition-fast);
+}
+
+.card:hover .title {
+  color: var(--color-primary);
+}
+
+.price {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 12px;
+  letter-spacing: -0.3px;
+}
+
+/* ---- Meta Footer Row ---- */
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+
+.yearBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  background: var(--color-primary);
+  color: var(--color-dark);
+  border-radius: 4px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.metaItem {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  font-weight: 400;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.metaItem::before {
+  content: '·';
+  color: rgba(255, 255, 255, 0.15);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.metaItem:first-of-type::before {
+  display: none;
+}
+
+/* ---- Featured card adjustments ---- */
+.featured {
+  display: flex;
+  flex-direction: column;
+}
+
+.featured .info {
+  padding: 20px 24px 22px;
+}
+
+.featured .title {
+  font-size: 1.05rem;
+}
+
+.featured .price {
+  font-size: 1.35rem;
+}
+
+@media (max-width: 1024px) {
+  .featured .imageWrap {
+    aspect-ratio: 16 / 9;
+    height: auto;
+    min-height: auto;
+    flex: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .featured .imageWrap {
+    aspect-ratio: 3 / 2;
+    height: auto;
+    min-height: auto;
+    flex: none;
+  }
+}
