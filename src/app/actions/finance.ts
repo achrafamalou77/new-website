@@ -140,11 +140,13 @@ export async function getTransactions(limit: number = 100) {
   const { data, error } = await transactionsTable
     .select(`
       id, agency_id, account_id, transfer_to_account_id, type, category, amount, currency, exchange_rate, description, reference_number, related_booking_id, related_invoice_id, related_employee_id, related_supplier_id, payment_method, payment_proof_url, transaction_date, recorded_by, is_recurring, recurring_frequency, notes, created_at, updated_at,
-      financial_accounts (
+      financial_accounts:financial_accounts!transactions_account_id_fkey (
         name
       ),
-      profiles!transactions_recorded_by_fkey (
-        full_name
+      employees!transactions_recorded_by_fkey (
+        profiles (
+          full_name
+        )
       )
     `)
     .eq('agency_id', session.profile.agency_id)
@@ -160,7 +162,7 @@ export async function getTransactions(limit: number = 100) {
   return (data || []).map((t: any) => ({
     ...t,
     account_name: t.financial_accounts?.name,
-    recorded_by_name: t.profiles?.full_name || 'System'
+    recorded_by_name: t.employees?.profiles?.full_name || 'System'
   }))
 }
 

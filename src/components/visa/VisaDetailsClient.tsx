@@ -52,7 +52,6 @@ export function VisaDetailsClient({ initialData }: VisaDetailsClientProps) {
   const [payRef, setPayRef] = useState('')
   const [payNotes, setPayNotes] = useState('')
 
-  // Simulated WhatsApp Notification template dispatch states
   const [waLoading, setWaLoading] = useState<string | null>(null)
 
   // Handlers
@@ -94,7 +93,7 @@ export function VisaDetailsClient({ initialData }: VisaDetailsClientProps) {
       payment_date: new Date().toISOString().split('T')[0],
       reference_number: payRef || undefined,
       notes: payNotes || undefined,
-      receipt_url: payMethod === 'CCP' ? '/mock-ccp.png' : undefined // Simulated CCP slip
+      receipt_url: undefined
     })
 
     if (result.success) {
@@ -135,7 +134,7 @@ export function VisaDetailsClient({ initialData }: VisaDetailsClientProps) {
     setWaLoading(type)
     const result = await sendVisaWhatsAppReminder(application.id, type)
     if (result.success) {
-      alert(`WhatsApp Simulated Notice: Message dispatched! Log registered in activity.`)
+      alert(result.message || 'Reminder draft saved. No WhatsApp message was sent.')
       router.refresh()
     }
     setWaLoading(null)

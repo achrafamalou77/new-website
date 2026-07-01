@@ -16,17 +16,41 @@ const clientValidationSchema = z.object({
   source: z.enum(['whatsapp', 'facebook', 'instagram', 'walk_in', 'referral', 'phone']).default('walk_in'),
   referred_by_id: z.string().optional().nullable().default(null),
   notes: z.string().optional().nullable().default(''),
+  classification: z.enum(['retail', 'b2b', 'corporate', 'wholesale']).optional().default('retail'),
+  company_legal_name: z.string().optional().nullable().default(''),
+  company_nif: z.string().optional().nullable().default(''),
+  company_rc: z.string().optional().nullable().default(''),
+  company_address: z.string().optional().nullable().default(''),
+  contact_person: z.string().optional().nullable().default(''),
+  volume_discount_tier: z.number().optional().nullable().default(0),
+  id_card_url: z.string().optional().nullable().default(''),
+  passport_url: z.string().optional().nullable().default(''),
+  license_url: z.string().optional().nullable().default(''),
 })
+
+async function getUserAgencyContext(supabase: Awaited<ReturnType<typeof createClient>>) {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { user: null, profile: null, error: 'Unauthorized' }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role, agency_id')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile || !profile.agency_id) {
+    return { user, profile: null, error: 'Agency profile not found' }
+  }
+
+  return { user, profile, error: null }
+}
 
 export async function createClientAction(formData: any) {
   const supabase = await createClient()
 
-  // Verify auth user
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { success: false, error: 'Unauthorized' }
-  
-  const { data: profile } = await (supabase.from('profiles').select('role, agency_id').eq('id', user.id).single())
-  if (!profile || !profile.agency_id) return { success: false, error: 'Agency profile not found' }
+  const { profile, error: contextError } = await getUserAgencyContext(supabase)
+  if (contextError || !profile) return { success: false, error: contextError || 'Agency profile not found' }
+  const agencyId = profile.agency_id as string
 
   // Validate form data
   const validation = clientValidationSchema.safeParse(formData)
@@ -35,8 +59,8 @@ export async function createClientAction(formData: any) {
   }
 
   const validatedData = validation.data
-  const { error } = await (supabase).from('clients').insert({
-    agency_id: profile.agency_id,
+  const { data: newClient, error } = await (supabase).from('clients').insert({
+    agency_id: agencyId,
     full_name: validatedData.full_name,
     phone: validatedData.phone || null,
     email: validatedData.email || null,
@@ -48,22 +72,32 @@ export async function createClientAction(formData: any) {
     source: validatedData.source,
     referred_by_id: validatedData.referred_by_id || null,
     notes: validatedData.notes || null,
-  } as any)
+    classification: validatedData.classification,
+    company_legal_name: validatedData.company_legal_name || null,
+    company_nif: validatedData.company_nif || null,
+    company_rc: validatedData.company_rc || null,
+    company_address: validatedData.company_address || null,
+    contact_person: validatedData.contact_person || null,
+    volume_discount_tier: validatedData.volume_discount_tier || 0,
+    id_card_url: validatedData.id_card_url || null,
+    passport_url: validatedData.passport_url || null,
+    license_url: validatedData.license_url || null,
+  } as any).select('id').single()
 
   if (error) {
     return { success: false, error: error.message }
   }
 
   revalidatePath('/dashboard/clients')
-  return { success: true }
+  return { success: true, clientId: newClient?.id }
 }
 
 export async function updateClientAction(clientId: string, formData: any) {
   const supabase = await createClient()
 
-  // Verify auth user
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { success: false, error: 'Unauthorized' }
+  const { profile, error: contextError } = await getUserAgencyContext(supabase)
+  if (contextError || !profile) return { success: false, error: contextError || 'Agency profile not found' }
+  const agencyId = profile.agency_id as string
 
   // Validate form data
   const validation = clientValidationSchema.safeParse(formData)
@@ -72,7 +106,7 @@ export async function updateClientAction(clientId: string, formData: any) {
   }
 
   const validatedData = validation.data
-  const { error } = await (supabase).from('clients').update({
+  const { data: updatedClient, error } = await (supabase).from('clients').update({
     full_name: validatedData.full_name,
     phone: validatedData.phone || null,
     email: validatedData.email || null,
@@ -84,10 +118,28 @@ export async function updateClientAction(clientId: string, formData: any) {
     source: validatedData.source,
     referred_by_id: validatedData.referred_by_id || null,
     notes: validatedData.notes || null,
-  } as any).eq('id', clientId)
+    classification: validatedData.classification,
+    company_legal_name: validatedData.company_legal_name || null,
+    company_nif: validatedData.company_nif || null,
+    company_rc: validatedData.company_rc || null,
+    company_address: validatedData.company_address || null,
+    contact_person: validatedData.contact_person || null,
+    volume_discount_tier: validatedData.volume_discount_tier || 0,
+    id_card_url: validatedData.id_card_url || null,
+    passport_url: validatedData.passport_url || null,
+    license_url: validatedData.license_url || null,
+  } as any)
+    .eq('id', clientId)
+    .eq('agency_id', agencyId)
+    .select('id')
+    .maybeSingle()
 
   if (error) {
     return { success: false, error: error.message }
+  }
+
+  if (!updatedClient) {
+    return { success: false, error: 'Client not found in this agency' }
   }
 
   revalidatePath('/dashboard/clients')
@@ -98,19 +150,28 @@ export async function updateClientAction(clientId: string, formData: any) {
 export async function deleteClientAction(clientId: string) {
   const supabase = await createClient()
 
-  // Verify auth user
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { success: false, error: 'Unauthorized' }
-  
-  const { data: profile } = await (supabase.from('profiles').select('role').eq('id', user.id).single())
+  const { profile, error: contextError } = await getUserAgencyContext(supabase)
+  if (contextError || !profile) return { success: false, error: contextError || 'Agency profile not found' }
+  const agencyId = profile.agency_id as string
+
   if (profile?.role !== 'superadmin') {
     return { success: false, error: 'Only superadmins can delete clients' }
   }
 
-  const { error } = await (supabase).from('clients').delete().eq('id', clientId)
+  const { data: deletedClient, error } = await (supabase)
+    .from('clients')
+    .delete()
+    .eq('id', clientId)
+    .eq('agency_id', agencyId)
+    .select('id')
+    .maybeSingle()
 
   if (error) {
     return { success: false, error: error.message }
+  }
+
+  if (!deletedClient) {
+    return { success: false, error: 'Client not found in this agency' }
   }
 
   revalidatePath('/dashboard/clients')

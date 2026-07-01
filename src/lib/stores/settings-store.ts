@@ -2,12 +2,26 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { WebsiteConfig, ChatbotConfig, BusinessHours, SocialMedia } from '@/types/settings';
 
+type AgencyInfo = {
+  company_name: string;
+  subdomain: string;
+  phone: string;
+  whatsapp_phone: string;
+  email: string;
+  address: string;
+  logo_url: string;
+  currency: string;
+  payment_info: Record<string, string>;
+  bank_integrations: Record<string, boolean>;
+  website_settings?: Record<string, any>;
+}
+
 interface SettingsState {
   websiteConfig: WebsiteConfig | null;
   chatbotConfig: ChatbotConfig | null;
   businessHours: BusinessHours | null;
   socialMedia: SocialMedia | null;
-  agencyInfo: { company_name: string; subdomain: string; phone: string; email: string; address: string } | null;
+  agencyInfo: AgencyInfo | null;
   businessTypeSlug: string | null;
   isLoaded: boolean;
   
@@ -24,8 +38,14 @@ interface SettingsState {
     company_name?: string;
     subdomain?: string;
     phone?: string;
+    whatsapp_phone?: string;
     email?: string;
     address?: string;
+    logo_url?: string;
+    currency?: string;
+    payment_info?: Record<string, string>;
+    bank_integrations?: Record<string, boolean>;
+    website_settings?: Record<string, any>;
     business_type_slug?: string;
   }) => void;
   clearSettings: () => void;
@@ -58,8 +78,14 @@ export const useSettingsStore = create<SettingsState>()(
           company_name: data.company_name || state.agencyInfo?.company_name || '',
           subdomain: data.subdomain || state.agencyInfo?.subdomain || '',
           phone: data.phone || state.agencyInfo?.phone || '',
+          whatsapp_phone: data.whatsapp_phone || state.agencyInfo?.whatsapp_phone || data.phone || '',
           email: data.email || state.agencyInfo?.email || '',
           address: data.address || state.agencyInfo?.address || '',
+          logo_url: data.logo_url || state.agencyInfo?.logo_url || '',
+          currency: data.currency || state.agencyInfo?.currency || 'DZD',
+          payment_info: data.payment_info || state.agencyInfo?.payment_info || {},
+          bank_integrations: data.bank_integrations || state.agencyInfo?.bank_integrations || {},
+          website_settings: data.website_settings || state.agencyInfo?.website_settings || {},
         },
         isLoaded: true
       })),

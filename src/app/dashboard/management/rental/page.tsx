@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { useLanguage } from '@/lib/contexts/LanguageContext'
 
 // import real database actions
 import {
@@ -36,8 +37,10 @@ const CAR_COLORS = [
   { bg: 'bg-rose-500',   light: 'bg-rose-50',     text: 'text-rose-700',    border: 'border-rose-200',    dot: 'bg-rose-500' },
 ]
 
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-const DAYS_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const MONTHS_EN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+const MONTHS_KEYS = ['rental.jan', 'rental.feb', 'rental.mar', 'rental.apr', 'rental.may', 'rental.jun', 'rental.jul', 'rental.aug', 'rental.sep', 'rental.oct', 'rental.nov', 'rental.dec']
+const DAYS_KEYS = ['rental.mon', 'rental.tue', 'rental.wed', 'rental.thu', 'rental.fri', 'rental.sat', 'rental.sun']
+const DAYS_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 // Helper to extract JSONB specs column safely
 const getCarSpecs = (car: any) => {
@@ -73,6 +76,9 @@ function getFirstDayOfWeek(year: number, month: number) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function CarRentalPage() {
+  const { t } = useLanguage()
+  const MONTHS = MONTHS_KEYS.map((k, i) => t(k, MONTHS_EN[i]))
+  const DAYS_SHORT = DAYS_KEYS.map((k, i) => t(k, DAYS_EN[i]))
   const today = useMemo(() => new Date(), [])
 
   // DB States
@@ -140,6 +146,7 @@ export default function CarRentalPage() {
   const [carFuelType, setCarFuelType] = useState<'petrol' | 'diesel' | 'hybrid' | 'electric'>('petrol')
   const [carSecurityDeposit, setCarSecurityDeposit] = useState(40000)
   const [carConditionNotes, setCarConditionNotes] = useState('')
+  const [carType, setCarType] = useState<'rental' | 'sell' | 'sur_command'>('rental')
 
   // Refresh & Load Data
   const loadData = async () => {
@@ -511,6 +518,7 @@ export default function CarRentalPage() {
         year: Number(carYear),
         color: carColor,
         daily_rate: Number(carDailyRate),
+        car_type: carType,
         status: editingCar ? editingCar.status : 'available',
         specs: {
           registration_number: carRegNum,
@@ -546,6 +554,7 @@ export default function CarRentalPage() {
       setCarFuelType('petrol')
       setCarSecurityDeposit(40000)
       setCarConditionNotes('')
+      setCarType('rental')
       loadData()
     } catch (err: any) {
       alert('Error saving car: ' + err.message)
@@ -577,6 +586,7 @@ export default function CarRentalPage() {
     setCarYear(Number(car.year))
     setCarColor(car.color || 'Blanc')
     setCarDailyRate(Number(car.daily_rate))
+    setCarType(car.car_type || 'rental')
     
     const specs = getCarSpecs(car)
     setCarRegNum(specs.registration_number)
@@ -613,7 +623,7 @@ export default function CarRentalPage() {
   const firstDow = useMemo(() => getFirstDayOfWeek(calYear, calMonth), [calYear, calMonth])
 
   return (
-    <div className="flex-1 overflow-hidden flex flex-col gap-4 h-full relative">
+    <div className="flex-1 overflow-hidden flex flex-col gap-4 h-full relative text-left rtl:text-right">
 
       {/* Loading Overlay */}
       {isLoading && (
@@ -640,9 +650,9 @@ export default function CarRentalPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-white/70 backdrop-blur-md border border-slate-200/80 rounded-2xl p-4 shadow-xs shrink-0">
         <div className="flex bg-slate-100 p-1 rounded-xl gap-0.5 border overflow-x-auto scrollbar-none">
           {[
-            { id: 'calendar', label: 'Interactive Calendar', icon: Calendar },
-            { id: 'fleet',    label: 'Fleet & Service', icon: Car },
-            { id: 'bookings', label: 'Rental Ledger', icon: ClipboardCheck },
+            { id: 'calendar', label: t('rental.tab_calendar', 'Interactive Calendar'), icon: Calendar },
+            { id: 'fleet',    label: t('rental.tab_fleet', 'Fleet & Service'), icon: Car },
+            { id: 'bookings', label: t('rental.tab_ledger', 'Rental Ledger'), icon: ClipboardCheck },
           ].map(tab => {
             const Icon = tab.icon
             return (
@@ -657,11 +667,11 @@ export default function CarRentalPage() {
         <div className="flex items-center gap-2 w-full sm:w-auto">
           {viewTab === 'fleet' ? (
             <Button onClick={() => { setEditingCar(null); setIsNewCarModalOpen(true) }} className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black shadow-sm cursor-pointer gap-1.5 h-9 shrink-0 ml-auto sm:ml-0">
-              <Plus className="h-4 w-4" /> Add Rental Vehicle
+              <Plus className="h-4 w-4" /> {t('rental.add_vehicle', 'Add Rental Vehicle')}
             </Button>
           ) : (
             <Button onClick={() => setIsNewBookingOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black shadow-sm cursor-pointer gap-1.5 h-9 shrink-0 ml-auto sm:ml-0">
-              <Plus className="h-4 w-4" /> New Booking
+              <Plus className="h-4 w-4" /> {t('rental.new_booking', 'New Booking')}
             </Button>
           )}
         </div>
@@ -682,34 +692,34 @@ export default function CarRentalPage() {
                   <div>
                     <h2 className="text-base font-black tracking-tight">{MONTHS[calMonth]} {calYear}</h2>
                     <p className="text-[10px] text-slate-400 mt-0.5">
-                      {monthStats.completedCount} completed · {monthStats.activeCount} active · {monthStats.bookedCount} upcoming
+                      {monthStats.completedCount} {t('rental.completed', 'completed')} · {monthStats.activeCount} {t('rental.status_active', 'active')} · {monthStats.bookedCount} {t('rental.upcoming', 'upcoming')}
                     </p>
                   </div>
                   <button onClick={nextMonth} className="h-8 w-8 rounded-lg hover:bg-white/10 flex items-center justify-center cursor-pointer transition"><ChevronRight className="h-4 w-4" /></button>
-                  <button onClick={goToToday} className="ml-2 text-[10px] font-black bg-white/10 hover:bg-white/20 border border-white/20 px-3 py-1.5 rounded-lg cursor-pointer transition">Today</button>
+                  <button onClick={goToToday} className="ml-2 text-[10px] font-black bg-white/10 hover:bg-white/20 border border-white/20 px-3 py-1.5 rounded-lg cursor-pointer transition">{t('rental.today', 'Today')}</button>
                 </div>
                 
                 {/* Switch for dynamic loading history */}
                 <div className="flex items-center gap-2 bg-slate-800/80 border border-slate-700/85 px-3 py-2 rounded-xl">
-                  <span className="text-[9px] font-black text-slate-300">Rolling 3-Months</span>
+                  <span className="text-[9px] font-black text-slate-300">{t('rental.rolling3m', 'Rolling 3-Months')}</span>
                   <Switch checked={historyLimitThreeMonths} onCheckedChange={setHistoryLimitThreeMonths} />
                 </div>
 
                 {/* Month stats */}
                 <div className="flex items-center gap-4 text-[11px] font-bold">
                   <div className="text-right">
-                    <span className="text-slate-400 block text-[9px]">Revenue Generated</span>
+                    <span className="text-slate-400 block text-[9px]">{t('rental.revenue', 'Revenue Generated')}</span>
                     <span className="text-emerald-400">{monthStats.revenue.toLocaleString('fr-DZ')} DZD</span>
                   </div>
                   <div className="text-right">
-                    <span className="text-slate-400 block text-[9px]">Days Active</span>
-                    <span className="text-blue-400">{monthStats.rentedDays} days</span>
+                    <span className="text-slate-400 block text-[9px]">{t('rental.days_active', 'Days Active')}</span>
+                    <span className="text-blue-400">{monthStats.rentedDays} {t('rental.days', 'days')}</span>
                   </div>
                   {/* Legend */}
                   <div className="flex items-center gap-3 text-[9px] font-bold border-l border-white/10 pl-4">
-                    <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-blue-400 ring-2 ring-blue-300/30" /> Active</span>
-                    <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-amber-400 ring-2 ring-amber-300/30" /> Booked</span>
-                    <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-slate-500 ring-2 ring-slate-400/30" /> Done</span>
+                    <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-blue-400 ring-2 ring-blue-300/30" /> {t('rental.status_active', 'Active')}</span>
+                    <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-amber-400 ring-2 ring-amber-300/30" /> {t('rental.status_booked', 'Booked')}</span>
+                    <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-slate-500 ring-2 ring-slate-400/30" /> {t('rental.status_done', 'Done')}</span>
                   </div>
                 </div>
               </div>
@@ -891,7 +901,7 @@ export default function CarRentalPage() {
                 return (
                   <div key={b.id} className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
                     <div className={`h-1 ${color.bg} w-full`} />
-                    <div className="p-4 space-y-3 text-left">
+                    <div className="p-4 space-y-3 text-left rtl:text-right">
                       <div className="flex items-start justify-between">
                         <div>
                           <p className="font-black text-slate-800 text-sm">{b.client?.full_name || b.metadata?.client_name || 'Walk-in Client'}</p>
@@ -942,7 +952,7 @@ export default function CarRentalPage() {
       {/* ══════════════════ FLEET VIEW ══════════════════ */}
       {viewTab === 'fleet' && (
         <div className="flex-1 bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs overflow-y-auto scrollbar-thin">
-          <div className="border-b pb-4 mb-4 text-left">
+          <div className="border-b pb-4 mb-4 text-left rtl:text-right">
             <h3 className="text-xs font-black text-slate-800 tracking-tight flex items-center gap-1.5 uppercase"><Car className="h-4 w-4 text-blue-600" /> Fleet Maintenance & Telemetry Schedules</h3>
           </div>
           {fleet.length === 0 ? (
@@ -963,7 +973,7 @@ export default function CarRentalPage() {
                 const color = CAR_COLORS[i % CAR_COLORS.length] || CAR_COLORS[0]
                 
                 return (
-                  <div key={car.id} className="border border-slate-200/80 rounded-2xl p-5 space-y-4 bg-slate-50/50 relative hover:shadow-sm transition text-left">
+                  <div key={car.id} className="border border-slate-200/80 rounded-2xl p-5 space-y-4 bg-slate-50/50 relative hover:shadow-sm transition text-left rtl:text-right">
                     <div className={`h-0.5 ${color.bg} absolute top-0 left-0 right-0 rounded-t-2xl`} />
                     <div className="flex justify-between items-start">
                       <div>
@@ -1020,7 +1030,7 @@ export default function CarRentalPage() {
       {/* ══════════════════ BOOKINGS LEDGER ══════════════════ */}
       {viewTab === 'bookings' && (
         <div className="flex-1 bg-white border border-slate-200/80 rounded-2xl shadow-xs overflow-hidden flex flex-col min-h-0">
-          <div className="px-5 pt-5 pb-4 border-b shrink-0 text-left">
+          <div className="px-5 pt-5 pb-4 border-b shrink-0 text-left rtl:text-right">
             <h3 className="text-xs font-black text-slate-800 flex items-center gap-1.5 uppercase"><ClipboardCheck className="h-4 w-4 text-blue-600" /> Complete Rental bookings Ledger</h3>
           </div>
           <div className="overflow-y-auto scrollbar-thin flex-1 p-5">
@@ -1044,7 +1054,7 @@ export default function CarRentalPage() {
                   const label = b.status === 'active' ? 'Active' : b.status === 'confirmed' ? 'Confirmed' : 'Completed'
 
                   return (
-                    <div key={b.id} className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 bg-white border border-slate-200 rounded-2xl hover:shadow-xs transition text-left">
+                    <div key={b.id} className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 bg-white border border-slate-200 rounded-2xl hover:shadow-xs transition text-left rtl:text-right">
                       <div className={`h-10 w-1.5 rounded-full ${color.bg} shrink-0 hidden sm:block`} />
                       <div className="flex-1 min-w-0 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 text-xs">
                         <div>
@@ -1105,8 +1115,8 @@ export default function CarRentalPage() {
             onClick={() => setIsDayPanelOpen(false)} 
             className="absolute inset-0 cursor-pointer" 
           />
-          <div className="bg-white w-full max-w-md h-full shadow-2xl flex flex-col relative z-10 animate-slideInRight border-l border-slate-200/80">
-            <div className="bg-slate-900 px-6 py-5 text-white flex items-center justify-between shrink-0 text-left">
+          <div className="bg-white w-full max-w-md h-full shadow-2xl flex flex-col relative z-10 animate-slideInRight border-l border-slate-200/80 rtl:border-l-0 rtl:border-r rtl:animate-slideInLeft">
+            <div className="bg-slate-900 px-6 py-5 text-white flex items-center justify-between shrink-0 text-left rtl:text-right">
               <div>
                 <h3 className="text-sm font-black">Daily Schedule</h3>
                 <p className="text-[10px] text-slate-400 mt-0.5">{new Date(selectedDay).toLocaleDateString('fr-DZ', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}</p>
@@ -1114,7 +1124,7 @@ export default function CarRentalPage() {
               <button onClick={() => setIsDayPanelOpen(false)} className="text-slate-400 hover:text-white cursor-pointer"><X className="h-4.5 w-4.5" /></button>
             </div>
 
-            <div className="px-6 py-3 border-b border-slate-100 bg-slate-50 shrink-0 text-left">
+            <div className="px-6 py-3 border-b border-slate-100 bg-slate-50 shrink-0 text-left rtl:text-right">
               <p className="text-[9px] font-black text-slate-400 uppercase mb-2 tracking-wider">Fleet Status This Day</p>
               <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
                 {fleet.length === 0 ? (
@@ -1148,7 +1158,7 @@ export default function CarRentalPage() {
                 const isReturnDay = b.return_date.split('T')[0] === selectedDay
 
                 return (
-                  <div key={b.id} className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs text-left">
+                  <div key={b.id} className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs text-left rtl:text-right">
                     <div className={`h-1.5 ${color.bg}`} />
                     <div className="p-4 space-y-3">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -1213,7 +1223,7 @@ export default function CarRentalPage() {
       {/* ═══════════════ PICK-UP WORKFLOW MODAL ═══════════════ */}
       {isPickupWorkflowOpen && activeBooking && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-[60] p-4">
-          <div className="bg-white rounded-3xl shadow-2xl border w-full max-w-md overflow-hidden text-left flex flex-col max-h-[90vh]">
+          <div className="bg-white rounded-3xl shadow-2xl border w-full max-w-md overflow-hidden text-left rtl:text-right flex flex-col max-h-[90vh]">
             <div className="bg-blue-900 px-6 py-5 text-white flex items-center justify-between shrink-0">
               <div>
                 <h3 className="text-sm font-black flex items-center gap-1.5"><Key className="h-4 w-4 text-blue-300" /> Execute Pick-up</h3>
@@ -1255,7 +1265,7 @@ export default function CarRentalPage() {
       {/* ═══════════════ RETURN WORKFLOW MODAL ═══════════════ */}
       {isReturnWorkflowOpen && activeBooking && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-[60] p-4">
-          <div className="bg-white rounded-3xl shadow-2xl border w-full max-w-xl overflow-hidden text-left flex flex-col max-h-[90vh]">
+          <div className="bg-white rounded-3xl shadow-2xl border w-full max-w-xl overflow-hidden text-left rtl:text-right flex flex-col max-h-[90vh]">
             <div className="bg-emerald-950 px-6 py-5 text-white flex items-center justify-between shrink-0">
               <div>
                 <h3 className="text-sm font-black flex items-center gap-1.5"><ClipboardCheck className="h-4 w-4 text-emerald-400" /> Inspection & Return Settlement</h3>
@@ -1329,7 +1339,7 @@ export default function CarRentalPage() {
       {/* ═══════════════ NEW BOOKING MODAL ═══════════════ */}
       {isNewBookingOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-[60] p-4">
-          <div className="bg-white rounded-3xl shadow-2xl border w-full max-w-md overflow-hidden text-left">
+          <div className="bg-white rounded-3xl shadow-2xl border w-full max-w-md overflow-hidden text-left rtl:text-right">
             <div className="bg-slate-900 px-6 py-5 text-white flex items-center justify-between">
               <h3 className="text-sm font-black flex items-center gap-1.5"><Plus className="h-4 w-4" /> Book New Rental Contract</h3>
               <button onClick={() => setIsNewBookingOpen(false)} className="text-slate-400 hover:text-white cursor-pointer"><X className="h-4.5 w-4.5" /></button>
@@ -1390,51 +1400,118 @@ export default function CarRentalPage() {
 
       {/* ═══════════════ NEW / EDIT RENTAL CAR MODAL ═══════════════ */}
       {isNewCarModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-[60] p-4">
-          <div className="bg-white rounded-3xl shadow-2xl border w-full max-w-lg overflow-hidden text-left flex flex-col max-h-[90vh]">
-            <div className="bg-slate-900 px-6 py-5 text-white flex items-center justify-between shrink-0">
-              <h3 className="text-sm font-black flex items-center gap-1.5"><Car className="h-4 w-4 text-blue-400" /> {editingCar ? 'Edit Fleet Vehicle' : 'Add Fleet Vehicle'}</h3>
-              <button onClick={() => setIsNewCarModalOpen(false)} className="text-slate-400 hover:text-white cursor-pointer"><X className="h-4.5 w-4.5" /></button>
+        <div className="fixed inset-0 bg-slate-955/70 backdrop-blur-xs flex items-center justify-center z-[60] p-4 animate-fadeIn" onClick={() => setIsNewCarModalOpen(false)}>
+          <div className="bg-white rounded-[32px] shadow-2xl border border-slate-100 w-full max-w-lg overflow-hidden text-left rtl:text-right flex flex-col max-h-[90vh] animate-scaleIn" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 px-6 py-5 text-white flex items-center justify-between shrink-0 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/10 blur-2xl rounded-full pointer-events-none" />
+              <div className="flex items-center gap-3 relative z-10">
+                <div className="h-8.5 w-8.5 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center shrink-0">
+                  <Car className="h-4.5 w-4.5 text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black tracking-tight">{editingCar ? 'Edit Fleet Vehicle' : 'Add Fleet Vehicle'}</h3>
+                  <p className="text-[9px] text-slate-400 font-extrabold tracking-wider uppercase mt-0.5">Fleet Specifications</p>
+                </div>
+              </div>
+              <button onClick={() => setIsNewCarModalOpen(false)} className="h-8.5 w-8.5 rounded-xl hover:bg-white/10 flex items-center justify-center cursor-pointer text-slate-400 hover:text-white transition relative z-10">
+                <X className="h-4.5 w-4.5" />
+              </button>
             </div>
-            <form onSubmit={handleSaveCar} className="p-6 space-y-4 text-xs text-slate-700 overflow-y-auto scrollbar-thin">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5"><Label className="font-bold text-[10px] text-slate-400 uppercase">Brand *</Label><Input required value={carBrand} onChange={e => setCarBrand(e.target.value)} placeholder="Renault" className="rounded-xl border-slate-200" /></div>
-                <div className="space-y-1.5"><Label className="font-bold text-[10px] text-slate-400 uppercase">Model *</Label><Input required value={carModel} onChange={e => setCarModel(e.target.value)} placeholder="Clio 5" className="rounded-xl border-slate-200" /></div>
-                <div className="space-y-1.5"><Label className="font-bold text-[10px] text-slate-400 uppercase">Year *</Label><Input type="number" required value={carYear} onChange={e => setCarYear(Number(e.target.value))} className="rounded-xl border-slate-200" /></div>
-                <div className="space-y-1.5"><Label className="font-bold text-[10px] text-slate-400 uppercase">Color *</Label><Input required value={carColor} onChange={e => setCarColor(e.target.value)} placeholder="Gris Platine" className="rounded-xl border-slate-200" /></div>
-                <div className="space-y-1.5"><Label className="font-bold text-[10px] text-slate-400 uppercase">Daily rate (DZD) *</Label><Input type="number" required value={carDailyRate} onChange={e => setCarDailyRate(Number(e.target.value))} className="rounded-xl border-slate-200" /></div>
-                <div className="space-y-1.5"><Label className="font-bold text-[10px] text-slate-400 uppercase">Plate Number *</Label><Input required value={carRegNum} onChange={e => setCarRegNum(e.target.value)} placeholder="12493-122-16" className="rounded-xl border-slate-200 font-bold" /></div>
-                <div className="space-y-1.5"><Label className="font-bold text-[10px] text-slate-400 uppercase">Current Mileage (KM)</Label><Input type="number" value={carMileage} onChange={e => setCarMileage(Number(e.target.value))} className="rounded-xl border-slate-200" /></div>
-                <div className="space-y-1.5"><Label className="font-bold text-[10px] text-slate-400 uppercase">Security Deposit (DZD)</Label><Input type="number" value={carSecurityDeposit} onChange={e => setCarSecurityDeposit(Number(e.target.value))} className="rounded-xl border-slate-200 font-bold" /></div>
+
+            {/* Scrollable Form */}
+            <form onSubmit={handleSaveCar} className="p-6 space-y-5 text-xs text-slate-700 overflow-y-auto scrollbar-thin">
+              {/* SECTION 1: CATEGORY */}
+              <div className="space-y-1.5 bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
+                <Label className="font-black text-[9px] text-slate-400 uppercase tracking-widest block mb-1">Vehicle Purpose & Category *</Label>
+                <select 
+                  value={carType} 
+                  onChange={e => setCarType(e.target.value as any)} 
+                  className="w-full rounded-xl border border-slate-200 p-2.5 text-xs bg-white text-slate-700 font-bold transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 cursor-pointer"
+                >
+                  <option value="rental">Location (Rental Fleet)</option>
+                  <option value="sell">À Vendre (Sales Inventory)</option>
+                  <option value="sur_command">Sur Commande (On Order)</option>
+                </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="font-bold text-[10px] text-slate-400 uppercase">Transmission</Label>
-                  <select value={carTransmission} onChange={e => setCarTransmission(e.target.value as any)} className="w-full rounded-xl border border-slate-200 p-2.5 text-xs bg-white text-slate-700">
-                    <option value="manual">Manual</option>
-                    <option value="automatic">Automatic</option>
-                  </select>
+              {/* SECTION 2: SPECS */}
+              <div className="space-y-3.5">
+                <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-1.5">📋 Vehicle Specifications</h4>
+                <div className="grid grid-cols-2 gap-3.5">
+                  <div className="space-y-1">
+                    <Label className="font-extrabold text-[9px] text-slate-400 uppercase tracking-wider">Brand *</Label>
+                    <Input required value={carBrand} onChange={e => setCarBrand(e.target.value)} placeholder="Renault" className="rounded-xl border-slate-200 font-bold text-xs h-10 focus:border-blue-550 focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="font-extrabold text-[9px] text-slate-400 uppercase tracking-wider">Model *</Label>
+                    <Input required value={carModel} onChange={e => setCarModel(e.target.value)} placeholder="Clio 5" className="rounded-xl border-slate-200 font-bold text-xs h-10 focus:border-blue-550 focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="font-extrabold text-[9px] text-slate-400 uppercase tracking-wider">Year *</Label>
+                    <Input type="number" required value={carYear} onChange={e => setCarYear(Number(e.target.value))} className="rounded-xl border-slate-200 font-bold text-xs h-10 focus:border-blue-550 focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="font-extrabold text-[9px] text-slate-400 uppercase tracking-wider">Color *</Label>
+                    <Input required value={carColor} onChange={e => setCarColor(e.target.value)} placeholder="Blanc" className="rounded-xl border-slate-200 font-bold text-xs h-10 focus:border-blue-550 focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                  <Label className="font-bold text-[10px] text-slate-400 uppercase">Fuel Type</Label>
-                  <select value={carFuelType} onChange={e => setCarFuelType(e.target.value as any)} className="w-full rounded-xl border border-slate-200 p-2.5 text-xs bg-white text-slate-700">
-                    <option value="petrol">Petrol (Sans Plomb)</option>
-                    <option value="diesel">Diesel (Gasoil)</option>
-                    <option value="hybrid">Hybrid</option>
-                    <option value="electric">Electric</option>
-                  </select>
+
+                <div className="grid grid-cols-2 gap-3.5">
+                  <div className="space-y-1">
+                    <Label className="font-extrabold text-[9px] text-slate-400 uppercase tracking-wider">Transmission</Label>
+                    <select value={carTransmission} onChange={e => setCarTransmission(e.target.value as any)} className="w-full rounded-xl border border-slate-200 p-2.5 text-xs bg-white text-slate-700 font-bold focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all cursor-pointer h-10">
+                      <option value="manual">Manual</option>
+                      <option value="automatic">Automatic</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="font-extrabold text-[9px] text-slate-400 uppercase tracking-wider">Fuel Type</Label>
+                    <select value={carFuelType} onChange={e => setCarFuelType(e.target.value as any)} className="w-full rounded-xl border border-slate-200 p-2.5 text-xs bg-white text-slate-700 font-bold focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all cursor-pointer h-10">
+                      <option value="petrol">Petrol (Sans Plomb)</option>
+                      <option value="diesel">Diesel (Gasoil)</option>
+                      <option value="hybrid">Hybrid</option>
+                      <option value="electric">Electric</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
+              {/* SECTION 3: TARIFS & METRICS */}
+              <div className="space-y-3.5">
+                <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-1.5">💰 Pricing & Telemetry</h4>
+                <div className="grid grid-cols-2 gap-3.5">
+                  <div className="space-y-1">
+                    <Label className="font-extrabold text-[9px] text-slate-400 uppercase tracking-wider">Daily Rate (DZD) *</Label>
+                    <Input type="number" required value={carDailyRate} onChange={e => setCarDailyRate(Number(e.target.value))} className="rounded-xl border-slate-200 font-bold text-xs h-10 text-indigo-650 focus:border-blue-550 focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="font-extrabold text-[9px] text-slate-400 uppercase tracking-wider">Plate Number *</Label>
+                    <Input required value={carRegNum} onChange={e => setCarRegNum(e.target.value)} placeholder="12493-122-16" className="rounded-xl border-slate-200 font-mono font-black text-xs h-10 uppercase focus:border-blue-550 focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="font-extrabold text-[9px] text-slate-400 uppercase tracking-wider">Current Mileage (KM)</Label>
+                    <Input type="number" value={carMileage} onChange={e => setCarMileage(Number(e.target.value))} className="rounded-xl border-slate-200 font-bold text-xs h-10 focus:border-blue-550 focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="font-extrabold text-[9px] text-slate-400 uppercase tracking-wider">Security Deposit (DZD)</Label>
+                    <Input type="number" value={carSecurityDeposit} onChange={e => setCarSecurityDeposit(Number(e.target.value))} className="rounded-xl border-slate-200 font-bold text-xs h-10 focus:border-blue-550 focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 4: CONDITION REMARKS */}
               <div className="space-y-1.5">
-                <Label className="font-bold text-[10px] text-slate-400 uppercase">General Condition Remarks</Label>
-                <Textarea value={carConditionNotes} onChange={e => setCarConditionNotes(e.target.value)} placeholder="Any specific maintenance remarks..." className="rounded-xl border-slate-200 text-xs min-h-[60px]" />
+                <Label className="font-black text-[9px] text-slate-400 uppercase tracking-widest block mb-0.5">General Condition Remarks</Label>
+                <Textarea value={carConditionNotes} onChange={e => setCarConditionNotes(e.target.value)} placeholder="Any specific maintenance remarks..." className="rounded-xl border-slate-200 text-xs min-h-[70px] p-3 focus:border-blue-550 focus:ring-4 focus:ring-blue-500/10 transition-all" />
               </div>
 
-              <Button type="submit" className="w-full bg-slate-900 hover:bg-slate-800 text-white rounded-xl py-3 font-black text-xs cursor-pointer">
-                {editingCar ? 'Update Fleet Specifications' : 'Save & Add to Fleet'}
-              </Button>
+              {/* Action Button */}
+              <div className="pt-2">
+                <Button type="submit" className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-indigo-750 hover:from-blue-700 hover:to-indigo-850 text-white rounded-2xl py-3.5 font-black text-xs cursor-pointer shadow-lg shadow-indigo-500/15 hover:shadow-indigo-500/25 transition-all duration-200 active:scale-98">
+                  {editingCar ? 'Update Specifications' : 'Save & Add to Fleet'}
+                </Button>
+              </div>
             </form>
           </div>
         </div>

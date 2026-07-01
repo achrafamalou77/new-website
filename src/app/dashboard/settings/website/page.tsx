@@ -1,9 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { WebsiteSettingsClient } from '@/components/dashboard/WebsiteSettingsClient'
+import { isEcommerceBusinessType } from '@/lib/business-types'
 
 export const metadata = {
-  title: 'Paramètres Site Web | Dashboard',
+  title: 'Builder Site Web | Dashboard',
 }
 
 export default async function WebsiteSettingsPage() {
@@ -12,6 +13,7 @@ export default async function WebsiteSettingsPage() {
 
   let businessTypeSlug = 'travel'
   let activeTrips: any[] = []
+  let visaTypes: any[] = []
 
   if (user) {
     const { data: profileData } = await supabase
@@ -31,21 +33,41 @@ export default async function WebsiteSettingsPage() {
 
       businessTypeSlug = (agencyData as any)?.business_type_slug || 'travel'
 
-      // Car showroom → redirect directly to the full Visual Builder
+      // Car showroom → redirect to full Visual Builder
       if (businessTypeSlug === 'car_showroom') {
         redirect('/dashboard/settings/website/builder')
       }
 
-      // Travel agency → load trips data
-      const { data: tripsData } = await supabase
-        .from('trips')
-        .select('*')
-        .eq('agency_id', profile.agency_id)
-        .eq('is_active', true)
-        .order('created_at', { ascending: false })
-      activeTrips = tripsData || []
+      // Online Store → dedicated Ecommerce Storefront Builder
+      if (isEcommerceBusinessType(businessTypeSlug)) {
+        redirect('/dashboard/store/storefront')
+      }
+
+      // Load trips and visas in parallel (travel only)
+      const [tripsRes, visaRes] = await Promise.all([
+        supabase
+          .from('trips')
+          .select('id, title, destination, price, duration_days, image_urls, is_active, description')
+          .eq('agency_id', profile.agency_id)
+          .eq('is_active', true)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('visa_types')
+          .select('id, name, country, price, processing_days, requirements, is_active')
+          .eq('agency_id', profile.agency_id)
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+      ])
+
+      activeTrips = tripsRes.data || []
+      visaTypes = visaRes.data || []
     }
   }
 
-  return <WebsiteSettingsClient activeTrips={activeTrips} />
+  return (
+    <WebsiteSettingsClient
+      activeTrips={activeTrips}
+      visaTypes={visaTypes}
+    />
+  )
 }

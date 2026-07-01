@@ -5,13 +5,14 @@ import {
   Plus, Search, Shield, CalendarDays, Contact, Mail, Briefcase, DollarSign, 
   MapPin, Clock, Award, PhoneCall, FileText, CheckCircle2, AlertTriangle, 
   ChevronRight, ArrowRight, BookOpen, User, Users, Trash2, Loader2, Pin, Eye, Download, Check,
-  ChevronDown, ChevronUp, RefreshCw, Send, AlertCircle, ArrowUpRight, Flame
+  ChevronDown, ChevronUp, RefreshCw, Send, AlertCircle, ArrowUpRight, Flame, Lock
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { useLanguage } from '@/lib/contexts/LanguageContext'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { 
   updateEmployee, 
@@ -28,7 +29,8 @@ import {
   createAnnouncement, 
   markAnnouncementAsRead 
 } from '@/app/actions/employees'
-import { inviteEmployee, removeEmployee } from '@/app/actions/team'
+import { inviteEmployee, removeEmployee, createOfflineEmployeeAction } from '@/app/actions/team'
+import { hasPermission, isOwnerRole, ROLE_LABELS } from '@/lib/permissions'
 
 interface TeamClientProps {
   initialEmployees: any[];
@@ -40,6 +42,7 @@ interface TeamClientProps {
   initialAnnouncements: any[];
   currentUserRole: string;
   currentUserId: string;
+  businessTypeSlug?: string;
 }
 
 const ALGERIAN_WILAYAS = [
@@ -60,10 +63,16 @@ export function TeamClient({
   initialTasks,
   initialAnnouncements,
   currentUserRole,
-  currentUserId
+  currentUserId,
+  businessTypeSlug = 'travel_agency'
 }: TeamClientProps) {
+  const { t, language } = useLanguage()
   const [activeTab, setActiveTab] = useState<'directory' | 'org_chart' | 'attendance' | 'leaves' | 'payroll' | 'kanban' | 'announcements'>('directory')
   
+  const departments = businessTypeSlug === 'car_showroom'
+    ? ['Sales', 'Management', 'Finance', 'Marketing', 'Maintenance', 'Logistics']
+    : ['Sales', 'Operations', 'Finance', 'Marketing', 'Guides']
+
   // State variables for dynamic directories
   const [employees, setEmployees] = useState(initialEmployees)
   const [roles, setRoles] = useState(initialRoles)
@@ -96,6 +105,9 @@ export function TeamClient({
   const [isInviteOpen, setIsInviteOpen] = useState(false)
   const [inviteLoading, setInviteLoading] = useState(false)
   const [inviteError, setInviteError] = useState('')
+  const [inviteTab, setInviteTab] = useState<'platform' | 'offline'>('platform')
+  const [offlineLoading, setOfflineLoading] = useState(false)
+  const [offlineError, setOfflineError] = useState('')
 
   // View Details Overlay
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null)
@@ -149,7 +161,9 @@ export function TeamClient({
   // Remove member loading
   const [removingId, setRemovingId] = useState<string | null>(null)
 
-  const isSuperadminOrManager = currentUserRole === 'superadmin' || currentUserRole === 'manager'
+  const canManageTeam = hasPermission(currentUserRole, 'team:manage')
+  const canManageHr = hasPermission(currentUserRole, 'hr:manage')
+  const isOwner = isOwnerRole(currentUserRole)
 
   // Calculations for quick HR Stats
   const activeCount = employees.filter(e => e.status === 'active').length
@@ -218,12 +232,20 @@ export function TeamClient({
       const progress = Math.round(((i + 1) / selectedEmpIds.length) * 100)
       
       // 1. Calculate closed commission
-      logs.push(`[${emp.full_name}] Analyse des réservations closes du mois en cours...`)
+      logs.push(
+        businessTypeSlug === 'car_showroom'
+          ? `[${emp.full_name}] Analyse des ventes de voitures closes du mois en cours...`
+          : `[${emp.full_name}] Analyse des réservations closes du mois en cours...`
+      )
       setBulkPayrollLogs([...logs])
       await new Promise(r => setTimeout(r, 600))
 
       const commCalcs = await calculateClosedBookingsCommission(empId, payrollMonth, payrollYear)
-      logs.push(`[${emp.full_name}] Commissions calculées : ${commCalcs.total_commission.toLocaleString()} DZD (pour ${commCalcs.closed_count} réservations)`)
+      logs.push(
+        businessTypeSlug === 'car_showroom'
+          ? `[${emp.full_name}] Commissions calculées : ${commCalcs.total_commission.toLocaleString()} DZD (pour ${commCalcs.closed_count} ventes)`
+          : `[${emp.full_name}] Commissions calculées : ${commCalcs.total_commission.toLocaleString()} DZD (pour ${commCalcs.closed_count} réservations)`
+      )
       setBulkPayrollLogs([...logs])
       await new Promise(r => setTimeout(r, 500))
 
@@ -289,7 +311,49 @@ export function TeamClient({
     } else {
       setInviteError(result.error || 'Failed to invite user')
     }
-    setInviteLoading(true)
+    setInviteLoading(false)
+  }
+
+  const handleCreateOffline = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setOfflineError('')
+    setOfflineLoading(true)
+
+    const formData = new FormData(e.currentTarget)
+    const profileRole = formData.get('role') as string
+    const jobTitle = (formData.get('job_title') as string) || profileRole
+
+    // Validate role against allowed DB constraint values
+    const ALLOWED_PROFILE_ROLES = ['employee', 'support', 'sales', 'manager']
+    if (!ALLOWED_PROFILE_ROLES.includes(profileRole)) {
+      setOfflineError('Invalid role selected. Please choose Employee, Support, Sales, or Manager.')
+      setOfflineLoading(false)
+      return
+    }
+
+    const payload = {
+      full_name: formData.get('full_name') as string,
+      email: (formData.get('email') as string) || undefined,
+      phone: (formData.get('phone') as string) || undefined,
+      role: profileRole,          // goes to profiles.role (must match DB constraint)
+      job_title: jobTitle,        // display title stored in employees table
+      department: formData.get('department') as string,
+      base_salary: Number(formData.get('base_salary')) || 40000,
+      employment_type: formData.get('employment_type') as string,
+      ccp_account: (formData.get('ccp_account') as string) || undefined,
+      bank_account: (formData.get('bank_account') as string) || undefined,
+    }
+
+    const result = await createOfflineEmployeeAction(payload)
+
+    if (result.success) {
+      setIsInviteOpen(false)
+      alert('Offline staff record created successfully!')
+      window.location.reload()
+    } else {
+      setOfflineError(result.error || 'Failed to create offline staff member')
+    }
+    setOfflineLoading(false)
   }
 
   const handleRemove = async (id: string) => {
@@ -494,7 +558,7 @@ export function TeamClient({
         
         {/* Node Card wrapper with HTML5 drag-and-drop properties */}
         <div 
-          draggable={isSuperadminOrManager}
+          draggable={canManageTeam}
           onDragStart={(e) => {
             e.dataTransfer.setData('text/plain', emp.id)
             e.currentTarget.classList.add('opacity-45', 'scale-95')
@@ -583,11 +647,11 @@ export function TeamClient({
   const rootEmployees = employees.filter(e => !e.manager_id)
 
   return (
-    <div className="p-6 space-y-6 font-geist text-left bg-[#f8fafc] min-h-[calc(100vh-64px)] overflow-y-auto page-enter pb-16">
+    <div className="p-6 space-y-6 font-geist text-left bg-[#f4f5f7] min-h-[calc(100vh-64px)] overflow-y-auto page-enter pb-16">
       
       {/* Visual KPI Highlights Banner */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs flex items-center gap-4">
+        <div className="bg-white border border-[#e8eaed] rounded-2xl p-5 shadow-[0_1px_4px_rgba(0,0,0,0.06)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-200 flex items-center gap-4">
           <div className="h-12 w-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-black">
             <Users className="h-6 w-6" />
           </div>
@@ -631,19 +695,25 @@ export function TeamClient({
       </div>
 
       {/* Main Header & Sub Navigation Controls */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white border border-slate-200/80 rounded-2xl p-6 shadow-xs">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white border border-[#e8eaed] rounded-2xl p-5 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-slate-800">HR Hub & Employee Platform</h1>
-          <p className="text-xs text-slate-500 font-medium mt-1">Manage personnel records, custom agency roles, attendance tracking, leave balances, commission payroll, Kanban board tasks, and read announcements.</p>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-800">
+            {language === 'ar' ? 'منصة إدارة الموارد البشرية والموظفين' : language === 'fr' ? 'Hub RH & Gestion du Personnel' : 'HR Hub & Employee Platform'}
+          </h1>
+          <p className="text-xs text-slate-500 font-medium mt-1">
+            {language === 'ar' ? 'إدارة سجلات الموظفين، الأدوار الجمركية، تتبع الحضور، الإجازات، الرواتب والعمولات، لوحة المهام، والإعلانات.' : language === 'fr' ? 'Gérez les fiches du personnel, les rôles personnalisés, le suivi des présences, les congés, les commissions, les tâches et les annonces.' : 'Manage personnel records, custom agency roles, attendance tracking, leave balances, commission payroll, Kanban board tasks, and read announcements.'}
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {isSuperadminOrManager && (
+          {canManageTeam && (
             <>
+              {isOwner && (
               <Button onClick={() => setIsRoleModalOpen(true)} variant="outline" className="border-slate-200 text-slate-700 rounded-xl text-xs font-semibold px-4 transition hover:bg-slate-50">
-                Custom Roles
+                {language === 'ar' ? 'أدوار مخصصة' : language === 'fr' ? 'Rôles Personnalisés' : 'Custom Roles'}
               </Button>
+              )}
               <Button onClick={() => setIsInviteOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs transition text-xs font-semibold px-4">
-                <Plus className="mr-1.5 h-4 w-4" /> Invite Member
+                <Plus className="mr-1.5 h-4 w-4" /> {t('team.invite', 'Invite Member')}
               </Button>
             </>
           )}
@@ -652,17 +722,25 @@ export function TeamClient({
 
       {/* Tab Selectors Row */}
       <div className="flex flex-wrap border-b border-slate-200 gap-1 select-none">
-        {(['directory', 'org_chart', 'attendance', 'leaves', 'payroll', 'kanban', 'announcements'] as const).map(tab => (
+        {([
+          { id: 'directory', label: language === 'ar' ? 'دليل الموظفين' : language === 'fr' ? 'Annuaire' : 'Directory' },
+          { id: 'org_chart', label: language === 'ar' ? 'الهيكل التنظيمي' : language === 'fr' ? 'Organigramme' : 'Org Chart' },
+          { id: 'attendance', label: language === 'ar' ? 'سجل الحضور' : language === 'fr' ? 'Présences & Retards' : 'Attendance' },
+          { id: 'leaves', label: language === 'ar' ? 'طلب الإجازات' : language === 'fr' ? 'Demandes de Congés' : 'Leaves' },
+          { id: 'payroll', label: language === 'ar' ? 'الرواتب والعمولات' : language === 'fr' ? 'Calcul de Paie' : 'Payroll' },
+          { id: 'kanban', label: language === 'ar' ? 'لوحة المهام' : language === 'fr' ? 'Tableau Kanban' : 'Kanban' },
+          { id: 'announcements', label: language === 'ar' ? 'الإعلانات والتعميمات' : language === 'fr' ? 'Annonces & Notes' : 'Announcements' }
+        ] as const).map(tab => (
           <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2.5 text-xs font-semibold border-b-2 capitalize transition-all duration-150 ${
-              activeTab === tab 
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as any)}
+            className={`px-4 py-2.5 text-xs font-semibold border-b-2 transition-all duration-150 ${
+              activeTab === tab.id 
                 ? 'border-blue-600 text-blue-600' 
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            {tab.replace('_', ' ')}
+            {tab.label}
           </button>
         ))}
       </div>
@@ -691,11 +769,9 @@ export function TeamClient({
                   className="block h-9 text-xs font-semibold rounded-xl bg-slate-50 border border-slate-200 text-slate-700 px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
                   <option value="All">All Departments</option>
-                  <option value="Sales">Sales</option>
-                  <option value="Operations">Operations</option>
-                  <option value="Finance">Finance</option>
-                  <option value="Marketing">Marketing</option>
-                  <option value="Guides">Guides</option>
+                  {departments.map(dept => (
+                    <option key={dept} value={dept}>{dept}</option>
+                  ))}
                 </select>
               </div>
 
@@ -730,7 +806,7 @@ export function TeamClient({
                     setSelectedEmployee(emp)
                     setDetailTab('personal')
                   }}
-                  className="bg-white rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md hover:scale-[1.01] transition-all duration-200 p-6 flex flex-col justify-between cursor-pointer"
+                  className="bg-white rounded-2xl border border-[#e8eaed] shadow-[0_1px_4px_rgba(0,0,0,0.06)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-200 p-5 flex flex-col justify-between cursor-pointer"
                 >
                   <div>
                     {/* Top Row: Avatar & status Badge */}
@@ -758,9 +834,14 @@ export function TeamClient({
 
                     {/* Employee Profile Metadata */}
                     <div className="mt-4 text-left">
-                      <h3 className="font-semibold text-sm text-slate-800 flex items-center gap-1.5">
+                      <h3 className="font-semibold text-sm text-slate-800 flex flex-wrap items-center gap-1.5">
                         {emp.full_name}
                         {isMe && <span className="text-[9px] font-bold bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full border border-blue-100/50">You</span>}
+                        {emp.has_login_access ? (
+                          <span className="text-[9px] font-black bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full border border-blue-200/50 flex items-center gap-0.5" title="Access credentials active"><CheckCircle2 className="h-2.5 w-2.5" /> Platform User</span>
+                        ) : (
+                          <span className="text-[9px] font-black bg-slate-50 text-slate-500 px-2 py-0.5 rounded-full border border-slate-200 flex items-center gap-0.5" title="No platform dashboard access"><Lock className="h-2.5 w-2.5" /> Offline Staff</span>
+                        )}
                       </h3>
                       <p className="text-[11px] font-semibold text-slate-400 mt-1 flex items-center gap-1.5">
                         <Briefcase className="h-3.5 w-3.5 text-slate-300" /> {emp.role || emp.department || 'Collaborator'} ({emp.department || 'N/A'})
@@ -776,10 +857,10 @@ export function TeamClient({
 
                   <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
                     <span className="text-[9px] text-slate-400 font-semibold flex items-center gap-1">
-                      <CalendarDays className="h-3.5 w-3.5 text-slate-300" /> Joined {new Date(emp.joined_at).toLocaleDateString()}
+                      <CalendarDays className="h-3.5 w-3.5 text-slate-300" /> Joined {new Date(emp.joined_at).toLocaleDateString('en-GB')}
                     </span>
 
-                    {isSuperadminOrManager && !isMe && (
+                    {isOwner && !isMe && (
                       <Button 
                         variant="ghost" 
                         size="sm"
@@ -811,7 +892,7 @@ export function TeamClient({
       {activeTab === 'org_chart' && (
         <div className="space-y-6">
           {/* Promote Drop Zone */}
-          {isSuperadminOrManager && (
+          {canManageTeam && (
             <div 
               onDragOver={(e) => e.preventDefault()}
               onDragEnter={(e) => e.currentTarget.classList.add('bg-blue-50/40', 'border-blue-300')}
@@ -852,7 +933,7 @@ export function TeamClient({
       {activeTab === 'attendance' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Record Attendance Box */}
-          {isSuperadminOrManager && (
+          {canManageHr && (
             <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs h-fit space-y-4">
               <h2 className="text-sm font-semibold text-slate-800">Record / Update Attendance</h2>
               
@@ -1114,7 +1195,7 @@ export function TeamClient({
                     <th className="py-2.5 px-3 font-semibold text-slate-500">Duration</th>
                     <th className="py-2.5 px-3 font-semibold text-slate-500">Reason / Details</th>
                     <th className="py-2.5 px-3 font-semibold text-slate-500">Status</th>
-                    {isSuperadminOrManager && <th className="py-2.5 px-3 font-semibold text-slate-500 text-right">Actions</th>}
+                    {canManageHr && <th className="py-2.5 px-3 font-semibold text-slate-500 text-right">Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -1132,7 +1213,7 @@ export function TeamClient({
                           </Badge>
                         </td>
                         <td className="py-3 px-3 text-slate-500">
-                          <span className="font-bold text-slate-700">{requestedDays} Days</span> ({new Date(request.start_date).toLocaleDateString()} - {new Date(request.end_date).toLocaleDateString()})
+                          <span className="font-bold text-slate-700">{requestedDays} Days</span> ({new Date(request.start_date).toLocaleDateString('en-GB')} - {new Date(request.end_date).toLocaleDateString('en-GB')})
                         </td>
                         <td className="py-3 px-3 text-slate-500 max-w-[200px] truncate" title={request.reason}>{request.reason || 'N/A'}</td>
                         <td className="py-3 px-3">
@@ -1146,7 +1227,7 @@ export function TeamClient({
                             {request.status}
                           </Badge>
                         </td>
-                        {isSuperadminOrManager && (
+                        {canManageHr && (
                           <td className="py-3 px-3 text-right space-x-1">
                             {request.status === 'pending' && (
                               <>
@@ -1189,7 +1270,7 @@ export function TeamClient({
       {activeTab === 'payroll' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Payroll Generator Form */}
-          {isSuperadminOrManager && (
+          {canManageHr && (
             <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs h-fit space-y-4">
               <h2 className="text-sm font-semibold text-slate-800">Process Individual Commission</h2>
               
@@ -1242,7 +1323,7 @@ export function TeamClient({
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold py-2 transition"
                 >
                   {isCalculatingPayroll ? <Loader2 className="h-4 w-4 animate-spin shrink-0 mr-1" /> : null}
-                  Fetch closed bookings & Calculate
+                  {businessTypeSlug === 'car_showroom' ? 'Fetch closed sales & Calculate' : 'Fetch closed bookings & Calculate'}
                 </Button>
               </div>
 
@@ -1252,8 +1333,12 @@ export function TeamClient({
 
                   <div className="p-3 bg-blue-50/50 border border-blue-100 rounded-xl space-y-2 mb-4">
                     <div className="flex justify-between text-xs">
-                      <span className="text-slate-500">Closed Bookings Count:</span>
-                      <span className="text-slate-800 font-bold">{payrollCalcs.closed_count} bookings</span>
+                      <span className="text-slate-500">
+                        {businessTypeSlug === 'car_showroom' ? 'Closed Car Sales Count:' : 'Closed Bookings Count:'}
+                      </span>
+                      <span className="text-slate-800 font-bold">
+                        {payrollCalcs.closed_count} {businessTypeSlug === 'car_showroom' ? 'sales' : 'bookings'}
+                      </span>
                     </div>
                     <div className="flex justify-between text-xs">
                       <span className="text-slate-500">Sales Volume Closed:</span>
@@ -1321,7 +1406,7 @@ export function TeamClient({
               </div>
 
               {/* Bulk Payroll Action Trigger */}
-              {selectedEmpIds.length > 0 && isSuperadminOrManager && (
+              {selectedEmpIds.length > 0 && canManageHr && (
                 <Button 
                   onClick={handleProcessBulkPayroll}
                   className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold py-1.5 px-4 shrink-0 transition"
@@ -1335,7 +1420,7 @@ export function TeamClient({
               <table className="w-full text-xs text-left border-collapse">
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50/80">
-                    {isSuperadminOrManager && (
+                    {canManageHr && (
                       <th className="py-2.5 px-3 w-8">
                         <input 
                           type="checkbox"
@@ -1363,7 +1448,7 @@ export function TeamClient({
 
                     return (
                       <tr key={emp.id} className={`border-b border-slate-100 hover:bg-slate-50/50 ${isSelected ? 'bg-blue-50/15' : ''}`}>
-                        {isSuperadminOrManager && (
+                        {canManageHr && (
                           <td className="py-3 px-3">
                             <input 
                               type="checkbox"
@@ -1586,7 +1671,7 @@ export function TeamClient({
       {activeTab === 'announcements' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Post Announcements panel */}
-          {isSuperadminOrManager && (
+          {canManageTeam && (
             <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs h-fit">
               <h2 className="text-sm font-semibold text-slate-800 mb-4">Publish Agency Announcement</h2>
               <form onSubmit={handleCreateAnnouncement} className="space-y-4">
@@ -1744,45 +1829,172 @@ export function TeamClient({
       <Dialog open={isInviteOpen} onOpenChange={setIsInviteOpen}>
         <DialogContent className="sm:max-w-md rounded-2xl overflow-hidden font-geist">
           <DialogHeader className="text-left">
-            <DialogTitle className="text-lg font-bold text-slate-850">Invite Team Member</DialogTitle>
-            <DialogDescription className="text-slate-400 text-xs mt-1">Send a registration link to add employees to your agency dashboard.</DialogDescription>
+            <DialogTitle className="text-lg font-bold text-slate-850">Add Team Member</DialogTitle>
+            <DialogDescription className="text-slate-400 text-xs mt-1">Configure platform logins or register offline employees for payroll.</DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleInvite} className="space-y-4 py-4 text-left">
-            {inviteError && <div className="p-3 bg-red-50 text-red-700 text-xs rounded-xl border border-red-100">{inviteError}</div>}
-            
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-600">Full Name</Label>
-              <Input className="rounded-xl bg-slate-100 border-0 text-sm focus:bg-white transition" id="full_name" name="full_name" required placeholder="E.g., John Doe" />
-            </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-600">Email Address</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <Input className="rounded-xl bg-slate-100 border-0 text-sm focus:bg-white pl-9 transition" id="email" name="email" type="email" required placeholder="john@example.com" />
+          {/* Combined Dialog Tabs Selector */}
+          <div className="flex border-b border-slate-100 mb-4 select-none">
+            <button
+              onClick={() => setInviteTab('platform')}
+              type="button"
+              className={`flex-1 py-2 text-xs font-bold border-b-2 transition ${
+                inviteTab === 'platform' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-450'
+              }`}
+            >
+              🔑 Platform User (Online)
+            </button>
+            <button
+              onClick={() => setInviteTab('offline')}
+              type="button"
+              className={`flex-1 py-2 text-xs font-bold border-b-2 transition ${
+                inviteTab === 'offline' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-450'
+              }`}
+            >
+              📊 Staff Member (Offline)
+            </button>
+          </div>
+
+          {inviteTab === 'platform' ? (
+            <form onSubmit={handleInvite} className="space-y-4 text-left">
+              {inviteError && <div className="p-3 bg-red-50 text-red-700 text-xs rounded-xl border border-red-100">{inviteError}</div>}
+              
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-600">Full Name</Label>
+                <Input className="rounded-xl bg-slate-100 border-0 text-sm focus:bg-white transition" id="full_name" name="full_name" required placeholder="E.g., John Doe" />
               </div>
-            </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-600">Access Role</Label>
-              <select 
-                id="role"
-                name="role" 
-                defaultValue="employee"
-                className="flex h-10 w-full items-center justify-between rounded-xl border-0 bg-slate-100 px-3 py-2 text-sm text-slate-750 focus:outline-none"
-              >
-                <option value="employee">Employee (Transcripts & Live Chats only)</option>
-                <option value="superadmin">Admin (Full Control Panel & Settings)</option>
-              </select>
-            </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-600">Email Address</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input className="rounded-xl bg-slate-100 border-0 text-sm focus:bg-white pl-9 transition" id="email" name="email" type="email" required placeholder="john@example.com" />
+                </div>
+              </div>
 
-            <div className="pt-6 border-t border-slate-100 flex justify-end gap-3">
-              <Button type="button" variant="outline" className="rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 text-xs" onClick={() => setIsInviteOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={inviteLoading} className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-sm text-xs font-semibold px-4 transition">
-                {inviteLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Send Invite'}
-              </Button>
-            </div>
-          </form>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-600">Access Role</Label>
+                <select 
+                  id="role"
+                  name="role" 
+                  defaultValue="employee"
+                  className="flex h-10 w-full items-center justify-between rounded-xl border-0 bg-slate-100 px-3 py-2 text-sm text-slate-700 focus:outline-none cursor-pointer"
+                >
+                  <option value="superadmin">{ROLE_LABELS.superadmin} - full control, billing, settings, AI</option>
+                  <option value="manager">{ROLE_LABELS.manager} - operations, team, HR, finance, ads</option>
+                  <option value="sales">{ROLE_LABELS.sales} - clients, leads, catalog, bookings, invoices</option>
+                  <option value="support">{ROLE_LABELS.support} - inbox, clients, leads, bookings</option>
+                  <option value="employee">{ROLE_LABELS.employee} - inbox only</option>
+                </select>
+                <p className="text-[10px] text-slate-400">This controls what they can see in the dashboard.</p>
+              </div>
+
+              <div className="pt-6 border-t border-slate-100 flex justify-end gap-3">
+                <Button type="button" variant="outline" className="rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 text-xs" onClick={() => setIsInviteOpen(false)}>Cancel</Button>
+                <Button type="submit" disabled={inviteLoading} className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-sm text-xs font-semibold px-4 transition">
+                  {inviteLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Send Invite'}
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <form onSubmit={handleCreateOffline} className="space-y-4 text-left">
+              {offlineError && <div className="p-3 bg-red-50 text-red-700 text-xs rounded-xl border border-red-100">{offlineError}</div>}
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-600">Full Name</Label>
+                  <Input className="rounded-xl bg-slate-100 border-0 text-sm focus:bg-white transition" id="full_name" name="full_name" required placeholder="Amine Belkadi" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-600">Job Title</Label>
+                  <Input className="rounded-xl bg-slate-100 border-0 text-sm focus:bg-white transition" id="job_title" name="job_title" placeholder="Security, Driver, Agent..." />
+                  <p className="text-[10px] text-slate-400">Display name only — does not affect permissions.</p>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-600">Access Role</Label>
+                <select
+                  id="role"
+                  name="role"
+                  defaultValue="employee"
+                  className="flex h-10 w-full items-center justify-between rounded-xl border-0 bg-slate-100 px-3 py-2 text-sm text-slate-700 focus:outline-none cursor-pointer"
+                >
+                  <option value="employee">{ROLE_LABELS.employee} - offline staff, no login</option>
+                  <option value="support">{ROLE_LABELS.support} - offline support record, no login</option>
+                  <option value="sales">{ROLE_LABELS.sales} - offline sales record, no login</option>
+                  {isOwner && <option value="manager">{ROLE_LABELS.manager} - offline manager record, no login</option>}
+                </select>
+                <p className="text-[10px] text-slate-400">Offline staff have <strong>no login access</strong> by default.</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-600">Email (Optional)</Label>
+                  <Input className="rounded-xl bg-slate-100 border-0 text-sm focus:bg-white transition" id="email" name="email" type="email" placeholder="amine@agency.com" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-600">Phone (Optional)</Label>
+                  <Input className="rounded-xl bg-slate-100 border-0 text-sm focus:bg-white transition" id="phone" name="phone" placeholder="0550 12 34 56" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-600">Department</Label>
+                  <select 
+                    id="department"
+                    name="department" 
+                    defaultValue={departments[0]}
+                    className="flex h-10 w-full items-center justify-between rounded-xl border-0 bg-slate-100 px-3 py-2 text-sm text-slate-750 focus:outline-none cursor-pointer"
+                  >
+                    {departments.map(dept => (
+                      <option key={dept} value={dept}>{dept}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-600">Employment Type</Label>
+                  <select 
+                    id="employment_type"
+                    name="employment_type" 
+                    defaultValue="full_time"
+                    className="flex h-10 w-full items-center justify-between rounded-xl border-0 bg-slate-100 px-3 py-2 text-sm text-slate-750 focus:outline-none cursor-pointer"
+                  >
+                    <option value="full_time">Full Time</option>
+                    <option value="part_time">Part Time</option>
+                    <option value="contract">Contract</option>
+                    <option value="intern">Internship</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5 col-span-2">
+                  <Label className="text-xs font-semibold text-slate-600">Base Monthly Salary (DZD)</Label>
+                  <Input className="rounded-xl bg-slate-100 border-0 text-sm focus:bg-white transition" id="base_salary" name="base_salary" type="number" required defaultValue="50000" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-600">CCP Account (Optional)</Label>
+                  <Input className="rounded-xl bg-slate-100 border-0 text-sm focus:bg-white transition" id="ccp_account" name="ccp_account" placeholder="12345678 Cle 90" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-600">Bank RIB (Optional)</Label>
+                  <Input className="rounded-xl bg-slate-100 border-0 text-sm focus:bg-white transition" id="bank_account" name="bank_account" placeholder="20-digit account RIB" />
+                </div>
+              </div>
+
+              <div className="pt-6 border-t border-slate-100 flex justify-end gap-3">
+                <Button type="button" variant="outline" className="rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 text-xs" onClick={() => setIsInviteOpen(false)}>Cancel</Button>
+                <Button type="submit" disabled={offlineLoading} className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-sm text-xs font-semibold px-4 transition">
+                  {offlineLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Register Staff'}
+                </Button>
+              </div>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -1790,15 +2002,21 @@ export function TeamClient({
       <Dialog open={isRoleModalOpen} onOpenChange={setIsRoleModalOpen}>
         <DialogContent className="sm:max-w-md rounded-2xl overflow-hidden font-geist">
           <DialogHeader className="text-left">
-            <DialogTitle className="text-lg font-bold text-slate-850">Create Custom Agency Role</DialogTitle>
-            <DialogDescription className="text-slate-400 text-xs mt-1">Configure granular dashboard permissions for guides, sales, or assistants.</DialogDescription>
+            <DialogTitle className="text-lg font-bold text-slate-850">
+              {businessTypeSlug === 'car_showroom' ? 'Create Custom Showroom Role' : 'Create Custom Agency Role'}
+            </DialogTitle>
+            <DialogDescription className="text-slate-400 text-xs mt-1">
+              {businessTypeSlug === 'car_showroom' 
+                ? 'Configure granular dashboard permissions for showroom staff, sales, or mechanics.'
+                : 'Configure granular dashboard permissions for guides, sales, or assistants.'}
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreateRole} className="space-y-4 py-4 text-left">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-slate-600">Role Name</Label>
               <Input 
                 required 
-                placeholder="E.g., Chief Coordinator, Junior Guide..."
+                placeholder={businessTypeSlug === 'car_showroom' ? 'E.g., Senior Mechanic, Sales Agent...' : 'E.g., Chief Coordinator, Junior Guide...'}
                 value={customRoleName}
                 onChange={e => setCustomRoleName(e.target.value)}
                 className="rounded-xl bg-slate-100 border-0 text-sm focus:bg-white transition"
@@ -1808,7 +2026,15 @@ export function TeamClient({
             <div className="space-y-2 select-none">
               <Label className="text-xs font-semibold text-slate-600">Assign Permissions Matrix</Label>
               <div className="space-y-1.5 max-h-[160px] overflow-y-auto p-1 border rounded-lg bg-slate-50/50">
-                {[
+                {(businessTypeSlug === 'car_showroom' ? [
+                  { key: 'view_dashboard', label: 'View Dashboard KPIs & widgets' },
+                  { key: 'manage_inbox', label: 'Manage AI Chatbot & live transcript chats' },
+                  { key: 'manage_clients', label: 'Create & delete clients index' },
+                  { key: 'manage_cars', label: 'Configure showroom car inventory' },
+                  { key: 'manage_sales', label: 'View / Modify car sales orders' },
+                  { key: 'manage_invoices', label: 'Create invoices & share PDF links' },
+                  { key: 'manage_payroll', label: 'Calculate salary slips & commissions' }
+                ] : [
                   { key: 'view_dashboard', label: 'View Dashboard KPIs & widgets' },
                   { key: 'manage_inbox', label: 'Manage AI Chatbot & live transcript chats' },
                   { key: 'manage_clients', label: 'Create & delete clients index' },
@@ -1816,7 +2042,7 @@ export function TeamClient({
                   { key: 'manage_bookings', label: 'View / Modify reservation manifests' },
                   { key: 'manage_invoices', label: 'Create invoices & share PDF links' },
                   { key: 'manage_payroll', label: 'Calculate salary slips & commissions' }
-                ].map(p => (
+                ]).map(p => (
                   <label key={p.key} className="flex items-center gap-2 text-xs text-slate-600 p-1 hover:bg-white rounded-md cursor-pointer">
                     <input 
                       type="checkbox"
@@ -2084,14 +2310,12 @@ export function TeamClient({
                         <Label className="text-xs font-semibold text-slate-600">Department</Label>
                         <select 
                           name="department" 
-                          defaultValue={selectedEmployee.department || 'Sales'}
+                          defaultValue={selectedEmployee.department || departments[0]}
                           className="flex h-10 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-700 focus:outline-none"
                         >
-                          <option value="Sales">Sales</option>
-                          <option value="Operations">Operations</option>
-                          <option value="Finance">Finance</option>
-                          <option value="Marketing">Marketing</option>
-                          <option value="Guides">Guides</option>
+                          {departments.map(dept => (
+                            <option key={dept} value={dept}>{dept}</option>
+                          ))}
                         </select>
                       </div>
 
@@ -2102,8 +2326,8 @@ export function TeamClient({
                           defaultValue={selectedEmployee.role || 'employee'}
                           className="flex h-10 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-700 focus:outline-none"
                         >
-                          <option value="superadmin">Superadmin (All)</option>
-                          <option value="employee">Employee</option>
+                  <option value="superadmin">Superadmin (All)</option>
+                  <option value="employee">Employee</option>
                           {roles.map(r => (
                             <option key={r.id} value={r.name}>{r.name}</option>
                           ))}
@@ -2347,7 +2571,7 @@ export function TeamClient({
                   )}
 
                   {/* Footer Save Row */}
-                  {isSuperadminOrManager && detailTab !== 'performance' && (
+                  {canManageTeam && detailTab !== 'performance' && (
                     <div className="pt-6 border-t border-slate-100 flex justify-end gap-3 shrink-0">
                       <Button type="button" variant="outline" className="rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 text-xs" onClick={() => setSelectedEmployee(null)}>
                         Close Details
@@ -2420,7 +2644,11 @@ export function TeamClient({
                         <td className="p-3 text-right">-</td>
                       </tr>
                       <tr className="border-b border-slate-100">
-                        <td className="p-3 font-semibold text-slate-800">Sales Commission (Closed Bookings auto-calc)</td>
+                        <td className="p-3 font-semibold text-slate-800">
+                          {businessTypeSlug === 'car_showroom' 
+                            ? 'Sales Commission (Closed Car Sales auto-calc)' 
+                            : 'Sales Commission (Closed Bookings auto-calc)'}
+                        </td>
                         <td className="p-3 text-right font-bold text-blue-600">+{selectedSlip.commission.toLocaleString()} DA</td>
                         <td className="p-3 text-right">-</td>
                       </tr>

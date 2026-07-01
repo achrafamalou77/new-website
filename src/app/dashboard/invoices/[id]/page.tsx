@@ -1,8 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
 import { InvoiceDetailsClient } from '@/components/dashboard/InvoiceDetailsClient'
-import { notFound } from 'next/navigation'
-
-export const dynamic = 'force-dynamic'
 
 export default async function InvoiceDetailPage({
   params
@@ -27,19 +24,18 @@ export default async function InvoiceDetailPage({
         .eq('id', id)
         .single()
       
-      if (!invoiceData) {
-        return notFound()
-      }
-      invoice = invoiceData
+      if (invoiceData) {
+        invoice = invoiceData
 
-      // Fetch invoice payments
-      const { data: paymentsData } = await supabase
-        .from('invoice_payments')
-        .select('*')
-        .eq('invoice_id', id)
-        .order('created_at', { ascending: false })
-      
-      payments = paymentsData || []
+        // Fetch invoice payments only if invoice found
+        const { data: paymentsData } = await supabase
+          .from('invoice_payments')
+          .select('*')
+          .eq('invoice_id', id)
+          .order('created_at', { ascending: false })
+        
+        payments = paymentsData || []
+      }
 
     } catch (e) {
       console.error('Failed to fetch invoice details from Supabase:', e)

@@ -1,8 +1,21 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requirePlatformOwner } from '@/lib/server/platform-owner'
 
 export async function getAdminDashboardStats() {
+  const owner = await requirePlatformOwner()
+  if (!owner.success) {
+    return {
+      totalAgencies: 0,
+      activeAgencies: 0,
+      totalConversations: 0,
+      totalBookings: 0,
+      mrr: 0,
+      recentSignups: [],
+    }
+  }
+
   const adminClient = createAdminClient()
 
   // 1. Total Agencies

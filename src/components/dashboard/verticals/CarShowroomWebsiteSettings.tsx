@@ -2,6 +2,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { updateWebsiteConfig } from '@/app/actions/agency'
 import { useSettingsStore } from '@/lib/stores/settings-store'
@@ -22,7 +23,15 @@ import {
   HelpCircle, Video, Code, Landmark, Car, Layers
 } from 'lucide-react'
 import { templatesList } from '@/lib/templates-data'
-import PublicSite from '@/components/website/PublicSite'
+
+const PublicSite = dynamic(() => import('@/components/website/PublicSite'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex min-h-[520px] items-center justify-center rounded-3xl border border-slate-200 bg-white text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+      Loading preview...
+    </div>
+  ),
+})
 
 export function CarShowroomWebsiteSettings({ salesCars = [], rentalCars = [] }: { salesCars?: any[], rentalCars?: any[] }) {
   const { agencyInfo, websiteConfig, setWebsiteConfig, businessTypeSlug } = useSettingsStore()
@@ -458,7 +467,7 @@ export function CarShowroomWebsiteSettings({ salesCars = [], rentalCars = [] }: 
             )}
             
             <a
-              href={`http://${agencyInfo?.subdomain || 'ephedia'}.localhost:3000`}
+              href={`http://${agencyInfo?.subdomain || 'ephedia'}.lvh.me:3000`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center justify-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-xl text-xs font-bold text-white gap-2 shadow-sm transition"

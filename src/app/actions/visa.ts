@@ -753,6 +753,24 @@ export async function recordVisaPayment(data: {
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'Unauthorized' }
+
+    const { data: profile } = await (supabase)
+      .from('profiles')
+      .select('agency_id')
+      .eq('id', user.id)
+      .single()
+
+    if (!profile?.agency_id) return { success: false, error: 'Agency profile not found' }
+
+    const { data: application } = await (supabase)
+      .from('visa_applications')
+      .select('id, total_fee')
+      .eq('id', data.application_id)
+      .eq('agency_id', profile.agency_id)
+      .single()
+
+    if (!application) return { success: false, error: 'Visa application not found in this agency' }
 
     const { data: payment, error } = await (supabase)
       .from('visa_payments')
@@ -770,6 +788,25 @@ export async function recordVisaPayment(data: {
       .single()
 
     if (error) throw error
+
+    const { data: paymentsList } = await (supabase)
+      .from('visa_payments')
+      .select('amount')
+      .eq('application_id', data.application_id)
+
+    const totalPaid = (paymentsList || []).reduce((sum: number, paymentRow: any) => sum + Number(paymentRow.amount || 0), 0)
+    const totalFee = Number((application as any).total_fee || 0)
+    const paymentStatus = totalPaid <= 0 ? 'unpaid' : totalPaid >= totalFee ? 'paid' : 'partial'
+
+    await (supabase)
+      .from('visa_applications')
+      .update({
+        amount_paid: totalPaid,
+        payment_status: paymentStatus,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', data.application_id)
+      .eq('agency_id', profile.agency_id)
 
     // Create payment timeline event
     await (supabase).from('visa_timeline_events').insert({
@@ -799,15 +836,30 @@ export async function updateVisaApplicationChecklist(id: string, docs: DocumentS
 
   try {
     const supabase = await createClient()
-    const { error } = await (supabase)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'Unauthorized' }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('agency_id')
+      .eq('id', user.id)
+      .single()
+
+    if (!profile?.agency_id) return { success: false, error: 'Agency not found' }
+
+    const { data, error } = await (supabase)
       .from('visa_applications')
       .update({
         documents_status: docs as any,
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
+      .eq('agency_id', profile.agency_id)
+      .select('id')
+      .maybeSingle()
 
     if (error) throw error
+    if (!data) return { success: false, error: 'Visa application not found for this agency' }
     revalidatePath(`/dashboard/visa/${id}`)
     return { success: true }
   } catch (error: any) {
@@ -816,20 +868,19 @@ export async function updateVisaApplicationChecklist(id: string, docs: DocumentS
 }
 
 export async function sendVisaWhatsAppReminder(id: string, type: 'document_request' | 'appointment' | 'approval', docName?: string) {
-  // Simulates sending dynamic template through WhatsApp API
-  // logs notification trigger in the timeline
-  let title = 'WhatsApp Reminder Dispatched'
+  // Save an internal reminder draft only. Real WhatsApp delivery must go through Meta.
+  let title = 'WhatsApp reminder draft created'
   let text = ''
   
   if (type === 'document_request') {
-    title = 'WhatsApp Doc Request Sent'
-    text = `Simulated template: "Dear Client, please upload your missing document: *${docName || 'Required Papers'}* for your pending visa application."`
+    title = 'WhatsApp document request draft created'
+    text = `Draft only - no WhatsApp message was sent. Suggested text: "Dear Client, please provide your missing document: *${docName || 'Required Papers'}* for your pending visa application."`
   } else if (type === 'appointment') {
-    title = 'WhatsApp Appointment Notification'
-    text = `Simulated template: "Assalamu alaykum, this is a reminder for your upcoming visa biometrics appointment scheduled for your travel."`
+    title = 'WhatsApp appointment draft created'
+    text = 'Draft only - no WhatsApp message was sent. Suggested text: "Assalamu alaykum, this is a reminder for your upcoming visa biometrics appointment."'
   } else if (type === 'approval') {
-    title = 'WhatsApp Visa Approved Notification'
-    text = `Simulated template: "Great news! Your visa application has been approved. Please visit our office to collect your passport."`
+    title = 'WhatsApp approval draft created'
+    text = 'Draft only - no WhatsApp message was sent. Suggested text: "Great news! Your visa application has been approved. Please visit our office to collect your passport."'
   }
 
   if (!hasDb()) {
@@ -839,10 +890,10 @@ export async function sendVisaWhatsAppReminder(id: string, type: 'document_reque
       event_type: 'whatsapp_reminder',
       title,
       description: text,
-      is_internal: false,
+      is_internal: true,
       created_at: new Date().toISOString()
     })
-    return { success: true, message: 'WhatsApp message simulated successfully' }
+    return { success: true, sent: false, message: 'Reminder draft saved. No WhatsApp message was sent.' }
   }
 
   try {
@@ -852,10 +903,10 @@ export async function sendVisaWhatsAppReminder(id: string, type: 'document_reque
       event_type: 'whatsapp_reminder',
       title,
       description: text,
-      is_internal: false
+      is_internal: true
     })
     revalidatePath(`/dashboard/visa/${id}`)
-    return { success: true, message: 'WhatsApp message simulated successfully' }
+    return { success: true, sent: false, message: 'Reminder draft saved. No WhatsApp message was sent.' }
   } catch (error: any) {
     return { success: false, error: error.message }
   }

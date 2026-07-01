@@ -447,10 +447,10 @@ Merci pour votre confiance ! 🌟`
   }
 
   return (
-    <div className="p-6 space-y-6 font-geist text-left bg-[#f8fafc] h-[calc(100vh-64px)] overflow-y-auto page-enter">
+    <div className="p-6 space-y-6 font-geist text-left bg-[#f4f5f7] h-[calc(100vh-64px)] overflow-y-auto page-enter">
       
       {/* Top Title Banner */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white border border-slate-200 rounded-3xl p-6 shadow-sm relative overflow-hidden">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white border border-[#e8eaed] rounded-2xl p-5 shadow-[0_1px_4px_rgba(0,0,0,0.06)] relative overflow-hidden">
         <div className="absolute right-0 top-0 h-full w-1/3 bg-gradient-to-r from-transparent to-indigo-50/20 pointer-events-none rounded-r-3xl" />
         <div className="space-y-1 z-10">
           <div className="flex items-center gap-2">
@@ -464,7 +464,7 @@ Merci pour votre confiance ! 🌟`
 
       {/* Modern High-End Metrics (Finexa-inspired) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm space-y-3 hover:border-slate-300 duration-200 transition">
+        <div className="bg-white rounded-2xl p-5 border border-[#e8eaed] shadow-[0_1px_4px_rgba(0,0,0,0.06)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-200 space-y-3">
           <div className="flex justify-between items-center">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Réservations</span>
             <span className="p-2 bg-indigo-50 text-indigo-600 rounded-2xl">
@@ -477,7 +477,7 @@ Merci pour votre confiance ! 🌟`
           </div>
         </div>
 
-        <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm space-y-3 hover:border-slate-300 duration-200 transition">
+        <div className="bg-white rounded-2xl p-5 border border-[#e8eaed] shadow-[0_1px_4px_rgba(0,0,0,0.06)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-200 space-y-3">
           <div className="flex justify-between items-center">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Volume Encaissé</span>
             <span className="p-2 bg-emerald-50 text-emerald-600 rounded-2xl">
@@ -490,7 +490,7 @@ Merci pour votre confiance ! 🌟`
           </div>
         </div>
 
-        <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm space-y-3 hover:border-slate-300 duration-200 transition">
+        <div className="bg-white rounded-2xl p-5 border border-[#e8eaed] shadow-[0_1px_4px_rgba(0,0,0,0.06)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-200 space-y-3">
           <div className="flex justify-between items-center">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-semibold">Reste à Recouvrer</span>
             <span className="p-2 bg-amber-50 text-amber-600 rounded-2xl">
@@ -503,7 +503,7 @@ Merci pour votre confiance ! 🌟`
           </div>
         </div>
 
-        <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm space-y-3 hover:border-slate-300 duration-200 transition">
+        <div className="bg-white rounded-2xl p-5 border border-[#e8eaed] shadow-[0_1px_4px_rgba(0,0,0,0.06)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-200 space-y-3">
           <div className="flex justify-between items-center">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Voyageurs Actifs</span>
             <span className="p-2 bg-indigo-550 bg-indigo-650 bg-indigo-50 text-indigo-650 rounded-2xl">
@@ -518,7 +518,7 @@ Merci pour votre confiance ! 🌟`
       </div>
 
       {/* Advanced Filter Control Center */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm space-y-4">
+      <div className="bg-white border border-[#e8eaed] rounded-2xl p-5 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-4">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <div className="flex items-center gap-2 text-slate-700 font-bold text-xs">
             <Filter className="h-4 w-4 text-indigo-600" />
@@ -626,7 +626,7 @@ Merci pour votre confiance ! 🌟`
 
       {/* Bookings catalog database grid */}
       {filteredBookings.length === 0 ? (
-        <div className="text-center py-20 bg-white border border-slate-200 rounded-3xl shadow-sm space-y-4">
+        <div className="text-center py-20 bg-white border border-[#e8eaed] rounded-2xl shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-4">
           <div className="h-12 w-12 bg-slate-50 text-slate-400 rounded-full flex items-center justify-center mx-auto">
             <AlertCircle className="h-6 w-6" />
           </div>
@@ -636,10 +636,10 @@ Merci pour votre confiance ! 🌟`
           </div>
         </div>
       ) : (
-        <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+        <div className="bg-white rounded-2xl border border-[#e8eaed] overflow-hidden shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
           <div className="overflow-x-auto">
             <Table>
-              <TableHeader className="bg-slate-50/50 text-slate-450 border-b border-slate-100">
+              <TableHeader className="bg-[#f9fafb] text-slate-450 border-b border-[#f0f1f3]">
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="font-bold text-[10px] py-4 px-6 text-slate-400 uppercase tracking-widest text-left">Client Voyageur</TableHead>
                   <TableHead className="font-bold text-[10px] py-4 px-6 text-slate-400 uppercase tracking-widest text-left">Circuit</TableHead>

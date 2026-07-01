@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { SettingsProvider } from '@/components/dashboard/SettingsProvider'
 import { getDefaultWebsiteConfig, getDefaultChatbotConfig } from '@/lib/settings-defaults'
+import { templatesList } from '@/lib/templates-data'
+import { hasPermission } from '@/lib/permissions'
 
 export default async function SettingsLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -13,7 +15,7 @@ export default async function SettingsLayout({ children }: { children: React.Rea
   const { data: profileData } = await supabase.from('profiles').select('agency_id, role').eq('id', user.id).single()
   const profile = profileData as any
   
-  if (profile?.role === 'employee') {
+  if (!profile || !hasPermission(profile.role, 'settings:manage')) {
     redirect('/dashboard/inbox')
   }
 
@@ -49,7 +51,6 @@ export default async function SettingsLayout({ children }: { children: React.Rea
 
   if (!website_config) {
     if (businessTypeSlug === 'car_showroom') {
-      const { templatesList } = require('@/lib/templates-data')
       const defaultShowroomTemplate = templatesList.find((t: any) => t.id === 'a5a5a5a5-b5b5-c5c5-d5d5-e5e5e5e5e5e5')
       website_config = defaultShowroomTemplate ? {
         active_template_id: defaultShowroomTemplate.id,
@@ -80,9 +81,15 @@ export default async function SettingsLayout({ children }: { children: React.Rea
     social_media: agencyData.social_media || null,
     company_name: agencyData.company_name || '',
     subdomain: agencyData.subdomain || '',
-    phone: agencyData.website_settings?.phone || '', 
-    email: agencyData.website_settings?.email || '',
-    address: agencyData.website_settings?.address || '',
+    phone: agencyData.website_settings?.phone || agencyData.phone || '',
+    whatsapp_phone: agencyData.website_settings?.whatsapp_phone || agencyData.website_settings?.phone || agencyData.phone || '',
+    email: agencyData.website_settings?.email || agencyData.email || '',
+    address: agencyData.website_settings?.address || agencyData.address || '',
+    logo_url: agencyData.website_settings?.logo_url || '',
+    currency: agencyData.website_settings?.currency || 'DZD',
+    payment_info: agencyData.website_settings?.payment_info || {},
+    bank_integrations: agencyData.website_settings?.bank_integrations || {},
+    website_settings: agencyData.website_settings || {},
     business_type_slug: businessTypeSlug
   }
 

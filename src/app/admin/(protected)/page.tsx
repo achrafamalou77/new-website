@@ -83,7 +83,7 @@ export default async function AdminDashboard() {
                     <Link href={`/admin/agencies/${agency.id}`} className="font-semibold text-blue-600 hover:underline">
                       {agency.company_name}
                     </Link>
-                    <div className="text-sm text-slate-500">{agency.subdomain}.localhost:3000</div>
+                    <div className="text-sm text-slate-500">{agency.subdomain}.lvh.me:3000</div>
                   </div>
                   <div className="flex items-center gap-4">
                     <Badge variant="outline" className="capitalize">

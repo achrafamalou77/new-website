@@ -18,6 +18,7 @@ import {
   SlidersHorizontal, RefreshCw, Film, X, Layers
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { hasPermission } from '@/lib/permissions'
 import Image from 'next/image'
 import { z } from 'zod'
 
@@ -179,13 +180,29 @@ const PREMADE_TEMPLATES = [
   }
 ]
 
+// Safely parse room type or meal plan options (handling serialized JSON arrays or raw fallback strings)
+const parseOptions = (fieldVal: any, fallbackName: string) => {
+  if (!fieldVal) return [{ name: fallbackName, price: 0 }]
+  if (typeof fieldVal === 'string' && fieldVal.trim().startsWith('[')) {
+    try {
+      const parsed = JSON.parse(fieldVal)
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed
+    } catch (e) {
+      console.error('Error parsing field option:', e)
+    }
+  }
+  return [{ name: fieldVal, price: 0 }]
+}
+
 export function TripsClient({ initialTrips, userRole }: { initialTrips: any[], userRole: string }) {
   const [trips, setTrips] = useState<any[]>(initialTrips)
+  const canManageTrips = hasPermission(userRole, 'catalog:manage')
+  const initialMaxPrice = Math.max(500000, ...initialTrips.map((trip: any) => Number(trip.price || 0)))
   
   // Advanced Filter States
   const [search, setSearch] = useState('')
   const [destinationFilter, setDestinationFilter] = useState('all')
-  const [maxPrice, setMaxPrice] = useState<number>(350000)
+  const [maxPrice, setMaxPrice] = useState<number>(initialMaxPrice)
   const [minDuration, setMinDuration] = useState<number>(1)
   const [maxDuration, setMaxDuration] = useState<number>(20)
   const [selectedTransports, setSelectedTransports] = useState<string[]>([])
@@ -248,6 +265,8 @@ export function TripsClient({ initialTrips, userRole }: { initialTrips: any[], u
     hotel_name: '',
     room_type: 'Double',
     meal_plan: 'Demi-pension',
+    room_types: [] as Array<{ name: string; price: number }>,
+    meal_plans: [] as Array<{ name: string; price: number }>,
     num_nights: '',
     hotel_location: '',
 
@@ -316,6 +335,15 @@ export function TripsClient({ initialTrips, userRole }: { initialTrips: any[], u
     )
   }
 
+  const normalizeTransportType = (transportType?: string | null) => {
+    const value = (transportType || 'Avion').toLowerCase()
+    if (value.includes('sans')) return 'Sans Transport'
+    if (value.includes('priv')) return 'Voiture Privée'
+    if (value.includes('bus') || value.includes('car')) return 'Bus (Car)'
+    if (value.includes('vol') || value.includes('flight') || value.includes('avion') || value.includes('air')) return 'Avion'
+    return transportType || 'Avion'
+  }
+
   // Clones/Duplicates a Trip instantly
   const handleDuplicateTrip = (trip: any) => {
     const codeRand = Math.random().toString(36).substring(2, 6).toUpperCase()
@@ -374,6 +402,8 @@ export function TripsClient({ initialTrips, userRole }: { initialTrips: any[], u
       hotel_name: template.hotel_name || '',
       room_type: template.room_type || 'Double',
       meal_plan: template.meal_plan || 'Demi-pension',
+      room_types: parseOptions(template.room_type, 'Double'),
+      meal_plans: parseOptions(template.meal_plan, 'Demi-pension'),
       num_nights: template.num_nights || '',
       hotel_location: template.hotel_location || '',
 
@@ -448,7 +478,7 @@ export function TripsClient({ initialTrips, userRole }: { initialTrips: any[], u
       const matchesDuration = Number(t.duration_days) >= minDuration && Number(t.duration_days) <= maxDuration
 
       // Multi-select transport types
-      const matchesTransport = selectedTransports.length === 0 || selectedTransports.includes(t.transport_type || 'Avion')
+      const matchesTransport = selectedTransports.length === 0 || selectedTransports.includes(normalizeTransportType(t.transport_type))
 
       // Status
       const matchesStatus = statusFilter === 'all' || 
@@ -469,7 +499,19 @@ export function TripsClient({ initialTrips, userRole }: { initialTrips: any[], u
       baggage_allowance: '23kg', flight_class: 'Economy', flight_number: '', round_trip: true,
       bus_company: '', departure_city: 'Algiers', route_stops: '', seat_type: 'Standard', departure_time: '08:00',
       vehicle_type: 'Van (7 seats)', driver_included: true, fuel_included: true,
-      accommodation_type: 'Hôtel 4 étoiles', hotel_name: '', room_type: 'Double', meal_plan: 'Demi-pension', num_nights: '', hotel_location: '',
+      accommodation_type: 'Hôtel 4 étoiles', hotel_name: '', room_type: 'Double', meal_plan: 'Demi-pension',
+      room_types: [
+        { name: 'Chambre Double', price: 0 },
+        { name: 'Chambre Simple', price: 25000 },
+        { name: 'Chambre Triple', price: -10000 }
+      ],
+      meal_plans: [
+        { name: 'Demi-pension', price: 0 },
+        { name: 'Petit-déjeuner', price: -5000 },
+        { name: 'Pension complète', price: 15000 },
+        { name: 'All Inclusive', price: 30000 }
+      ],
+      num_nights: '', hotel_location: '',
       itinerary: [], included_items: 'Transport, Hébergement, Guide', excluded_items: 'Frais de visa, Dépenses personnelles',
       guide_included: true, guide_language: 'Arabic', group_size_min: '10', group_size_max: '30',
       child_policy_age_limit: '12', child_policy_discount: '30', child_policy_infant: 'Free', single_supplement: '25000',
@@ -540,6 +582,8 @@ export function TripsClient({ initialTrips, userRole }: { initialTrips: any[], u
       hotel_name: trip.hotel_name || '',
       room_type: trip.room_type || 'Double',
       meal_plan: trip.meal_plan || 'Demi-pension',
+      room_types: parseOptions(trip.room_type, 'Double'),
+      meal_plans: parseOptions(trip.meal_plan, 'Demi-pension'),
       num_nights: trip.num_nights ? trip.num_nights.toString() : '',
       hotel_location: trip.hotel_location || '',
 
@@ -679,8 +723,8 @@ export function TripsClient({ initialTrips, userRole }: { initialTrips: any[], u
 
         accommodation_type: formData.accommodation_type,
         hotel_name: formData.hotel_name,
-        room_type: formData.room_type,
-        meal_plan: formData.meal_plan,
+        room_type: JSON.stringify(formData.room_types),
+        meal_plan: JSON.stringify(formData.meal_plans),
         num_nights: Number(formData.num_nights) || (Number(formData.duration_days) > 1 ? Number(formData.duration_days) - 1 : 0),
         hotel_location: formData.hotel_location,
 
@@ -824,7 +868,18 @@ export function TripsClient({ initialTrips, userRole }: { initialTrips: any[], u
   // Render Meal Plan Chip Helper
   const renderMealPlan = (mealPlan: string) => {
     if (!mealPlan) return null
-    const isAllInc = mealPlan.toLowerCase().includes('all')
+    let display = mealPlan
+    if (mealPlan.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(mealPlan)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          display = parsed.map(m => m.name).join(', ')
+        }
+      } catch (e) {
+        console.error(e)
+      }
+    }
+    const isAllInc = display.toLowerCase().includes('all')
     return (
       <span className={cn(
         "px-2.5 py-0.5 rounded-full text-[9px] font-extrabold border tracking-wider",
@@ -832,16 +887,16 @@ export function TripsClient({ initialTrips, userRole }: { initialTrips: any[], u
           ? "bg-emerald-50 text-emerald-700 border-emerald-200" 
           : "bg-indigo-50 text-indigo-700 border-indigo-150"
       )}>
-        🍽️ {mealPlan}
+        🍽️ {display}
       </span>
     )
   }
 
   return (
-    <div className="p-6 space-y-6 font-sans text-left bg-[#f8fafc] h-[calc(100vh-64px)] overflow-y-auto page-enter select-none">
+    <div className="p-6 space-y-6 font-sans text-left bg-[#f4f5f7] h-[calc(100vh-64px)] overflow-y-auto page-enter select-none">
       
       {/* Top Banner Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white border border-[#e8eaed] rounded-2xl p-5 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-slate-800">Gestion des Voyages (Catalogues)</h1>
           <p className="text-xs text-slate-400 font-semibold mt-1">Publiez, organisez et concevez des packages de voyage premium pour le marché algérien.</p>
@@ -879,7 +934,7 @@ export function TripsClient({ initialTrips, userRole }: { initialTrips: any[], u
             )}
           </div>
 
-          {userRole === 'superadmin' && (
+          {canManageTrips && (
             <Button onClick={openAddModal} className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm transition text-xs font-semibold px-4 h-10 flex-1 md:flex-none">
               <Plus className="mr-2 h-4 w-4" /> Créer un Voyage Package
             </Button>
@@ -888,7 +943,7 @@ export function TripsClient({ initialTrips, userRole }: { initialTrips: any[], u
       </div>
 
       {/* SEARCH AND ADVANCED PARAMS FILTERS BOX */}
-      <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
+      <div className="bg-white border border-[#e8eaed] rounded-2xl p-5 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-4">
         <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
           <SlidersHorizontal className="h-4.5 w-4.5 text-indigo-500" />
           <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Console de Recherche & Filtres</h3>
@@ -1023,7 +1078,7 @@ export function TripsClient({ initialTrips, userRole }: { initialTrips: any[], u
       {filteredTrips.length === 0 ? (
         
         /* EMPTY STATE WITH PLAYABLE VIDEO TUTORIAL BLOCK */
-        <div className="text-center py-16 bg-white border border-slate-200 rounded-3xl shadow-sm max-w-xl mx-auto space-y-6">
+        <div className="text-center py-16 bg-white border border-[#e8eaed] rounded-2xl shadow-[0_1px_4px_rgba(0,0,0,0.06)] max-w-xl mx-auto space-y-6">
           <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
             <Compass className="h-8 w-8 animate-spin-slow" />
           </div>
@@ -1073,7 +1128,7 @@ export function TripsClient({ initialTrips, userRole }: { initialTrips: any[], u
             }} variant="outline" className="rounded-xl border-slate-200 text-xs font-semibold text-slate-655 text-slate-600">
               Réinitialiser Filtres
             </Button>
-            {userRole === 'superadmin' && (
+            {canManageTrips && (
               <Button onClick={openAddModal} className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold">
                 Créer votre premier voyage
               </Button>
@@ -1090,7 +1145,7 @@ export function TripsClient({ initialTrips, userRole }: { initialTrips: any[], u
             return (
               <div 
                 key={trip.id} 
-                className="bg-white rounded-3xl overflow-hidden border border-slate-200/60 shadow-sm hover:shadow-xl hover:-translate-y-2 duration-300 transition-all cursor-pointer flex flex-col group relative hover:border-indigo-150 border-transparent"
+                className="bg-white rounded-2xl overflow-hidden border border-[#e8eaed] shadow-[0_1px_4px_rgba(0,0,0,0.06)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.1)] hover:-translate-y-1.5 duration-300 transition-all cursor-pointer flex flex-col group relative"
               >
                 {/* Trip Image Aspect-[4/3] with Zoom Effect */}
                 <div className="relative aspect-[4/3] overflow-hidden bg-slate-100 shrink-0">
@@ -1173,7 +1228,7 @@ export function TripsClient({ initialTrips, userRole }: { initialTrips: any[], u
                         <span className="font-black text-base text-indigo-600 tracking-tight">{Number(trip.price).toLocaleString()} DZD</span>
                       </div>
                       
-                      {userRole === 'superadmin' && (
+                      {canManageTrips && (
                         <div className="flex gap-1.5">
                           {/* Duplicate/Clone trigger */}
                           <Button 
@@ -1274,10 +1329,10 @@ export function TripsClient({ initialTrips, userRole }: { initialTrips: any[], u
 
       {/* 8-STEP WIZARD CREATION DIALOG MODAL */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-[850px] max-h-[92vh] overflow-y-auto rounded-3xl overflow-hidden font-sans border-0 shadow-2xl p-0">
+        <DialogContent className="sm:max-w-[850px] w-full h-[90vh] max-h-[780px] flex flex-col rounded-3xl overflow-hidden font-sans border-0 shadow-2xl p-0 bg-white">
           
           {/* Header Progress Indicators */}
-          <div className="bg-slate-900 p-6 text-white text-left relative">
+          <div className="bg-slate-900 p-6 text-white text-left relative shrink-0">
             <DialogHeader className="text-left mb-6">
               <DialogTitle className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-amber-400" />
@@ -1327,7 +1382,7 @@ export function TripsClient({ initialTrips, userRole }: { initialTrips: any[], u
           </div>
 
           {/* Wizard Form Area */}
-          <div className="p-8 text-left bg-white min-h-[400px]">
+          <div className="flex-1 overflow-y-auto p-8 text-left bg-white min-h-0">
             {error && (
               <div className="mb-6 p-4 bg-red-50 text-red-700 text-xs rounded-2xl border border-red-100 flex items-center gap-2">
                 <AlertCircle className="h-4 w-4 text-red-500" />
@@ -1701,80 +1756,186 @@ export function TripsClient({ initialTrips, userRole }: { initialTrips: any[], u
             {activeStep === 3 && (
               <div className="space-y-6">
                 <div className="border-b border-slate-100 pb-3">
-                  <h3 className="font-bold text-slate-800 text-base flex items-center gap-1.5">
+                  <h3 className="font-bold text-slate-800 text-base flex items-center gap-1.5 font-sans tracking-tight">
                     <Hotel className="h-5 w-5 text-indigo-500" /> Étape 3: Hébergement & Restauration
                   </h3>
-                  <p className="text-slate-400 text-xs">Précisez le niveau d'hôtel et le type de pension.</p>
+                  <p className="text-slate-400 text-xs">Configurez les hôtels, les types de chambres et les meal plans avec suppléments.</p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold text-slate-600">Catégorie d'hébergement</Label>
-                    <select 
-                      className="w-full rounded-xl bg-slate-50 border border-slate-200 p-3 text-sm h-11" 
-                      value={formData.accommodation_type} 
-                      onChange={e => setFormData({...formData, accommodation_type: e.target.value})}
-                    >
-                      <option value="Sans hébergement">Sans hébergement (no hotel)</option>
-                      <option value="Hôtel 2 étoiles">Hôtel 2 étoiles (⭐⭐)</option>
-                      <option value="Hôtel 3 étoiles">Hôtel 3 étoiles (⭐⭐⭐)</option>
-                      <option value="Hôtel 4 étoiles">Hôtel 4 étoiles (⭐⭐⭐⭐)</option>
-                      <option value="Hôtel 5 étoiles">Hôtel 5 étoiles (⭐⭐⭐⭐⭐)</option>
-                      <option value="Appartement / Résidence">Appartement / Résidence</option>
-                      <option value="Camping / Bivouac">Camping / Bivouac</option>
-                    </select>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Left Column: Hotel Info */}
+                  <div className="space-y-4 bg-slate-50/50 p-5 rounded-2xl border border-slate-150 text-left">
+                    <h4 className="font-bold text-xs text-slate-700 uppercase tracking-wider">Hébergement & Hôtel</h4>
+                    
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-slate-600">Catégorie d'hébergement</Label>
+                      <select 
+                        className="w-full rounded-xl bg-white border border-slate-200 p-2.5 text-sm h-11 font-medium" 
+                        value={formData.accommodation_type} 
+                        onChange={e => setFormData({...formData, accommodation_type: e.target.value})}
+                      >
+                        <option value="Sans hébergement">Sans hébergement (no hotel)</option>
+                        <option value="Hôtel 2 étoiles">Hôtel 2 étoiles (⭐⭐)</option>
+                        <option value="Hôtel 3 étoiles">Hôtel 3 étoiles (⭐⭐⭐)</option>
+                        <option value="Hôtel 4 étoiles">Hôtel 4 étoiles (⭐⭐⭐⭐)</option>
+                        <option value="Hôtel 5 étoiles">Hôtel 5 étoiles (⭐⭐⭐⭐⭐)</option>
+                        <option value="Appartement / Résidence">Appartement / Résidence</option>
+                        <option value="Camping / Bivouac">Camping / Bivouac</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-slate-600">Nom de l'Hôtel</Label>
+                      <Input 
+                        className="rounded-xl bg-white border-slate-200 text-sm h-11" 
+                        value={formData.hotel_name} 
+                        onChange={e => setFormData({...formData, hotel_name: e.target.value})} 
+                        placeholder="ex: Hotel Golden Tulip / Makkah Hotel" 
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-slate-600">Localisation de l'hôtel</Label>
+                      <Input 
+                        className="rounded-xl bg-white border-slate-200 text-sm h-11" 
+                        value={formData.hotel_location} 
+                        onChange={e => setFormData({...formData, hotel_location: e.target.value})} 
+                        placeholder="ex: Yasmine Hammamet / Taksim Square" 
+                      />
+                    </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold text-slate-600">Nom de l'Hôtel</Label>
-                    <Input 
-                      className="rounded-xl bg-slate-50 border-slate-200 text-sm h-11" 
-                      value={formData.hotel_name} 
-                      onChange={e => setFormData({...formData, hotel_name: e.target.value})} 
-                      placeholder="ex: Hotel Golden Tulip / Makkah Hotel" 
-                    />
-                  </div>
-                </div>
+                  {/* Right Column: Dynamic Room Types Builder & Meal Plan Builder */}
+                  <div className="space-y-6 text-left">
+                    {/* Room Types Builder */}
+                    <div className="bg-slate-50/50 p-5 rounded-2xl border border-slate-150 space-y-4">
+                      <div className="flex justify-between items-center">
+                        <h4 className="font-bold text-xs text-slate-700 uppercase tracking-wider flex items-center gap-1">
+                          <Hotel className="h-4 w-4 text-indigo-500" /> Options de Chambres
+                        </h4>
+                        <Button 
+                          type="button" 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => {
+                            const newRooms = [...formData.room_types, { name: '', price: 0 }]
+                            setFormData({ ...formData, room_types: newRooms })
+                          }}
+                          className="h-8 text-xs font-bold text-indigo-600 hover:bg-indigo-50 rounded-lg flex items-center gap-1"
+                        >
+                          <Plus className="h-3.5 w-3.5" /> Ajouter
+                        </Button>
+                      </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold text-slate-600">Type de chambre</Label>
-                    <select 
-                      className="w-full rounded-xl bg-slate-50 border border-slate-200 p-3 text-sm h-11" 
-                      value={formData.room_type} 
-                      onChange={e => setFormData({...formData, room_type: e.target.value})}
-                    >
-                      <option value="Single">Simple (Single)</option>
-                      <option value="Double">Double (2 personnes)</option>
-                      <option value="Triple">Triple (3 personnes)</option>
-                      <option value="Quadruple">Quadruple (4 personnes)</option>
-                      <option value="Family">Familiale (Suites)</option>
-                    </select>
-                  </div>
+                      <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1">
+                        {formData.room_types.length === 0 ? (
+                          <p className="text-[11px] text-slate-400 italic">Aucune chambre ajoutée. Le client ne pourra pas choisir.</p>
+                        ) : (
+                          formData.room_types.map((room, rIdx) => (
+                            <div key={rIdx} className="flex gap-2 items-center">
+                              <Input 
+                                placeholder="Double, Single, Suite..." 
+                                className="bg-white text-xs h-9 rounded-lg flex-1 font-medium"
+                                value={room.name}
+                                onChange={e => {
+                                  const list = [...formData.room_types]
+                                  list[rIdx].name = e.target.value
+                                  setFormData({ ...formData, room_types: list })
+                                }}
+                              />
+                              <Input 
+                                type="number" 
+                                placeholder="Offset (DZD)" 
+                                className="bg-white text-xs h-9 rounded-lg w-28 text-center font-bold"
+                                value={room.price}
+                                onChange={e => {
+                                  const list = [...formData.room_types]
+                                  list[rIdx].price = Number(e.target.value) || 0
+                                  setFormData({ ...formData, room_types: list })
+                                }}
+                              />
+                              <Button 
+                                type="button" 
+                                variant="ghost" 
+                                size="icon"
+                                onClick={() => {
+                                  const list = formData.room_types.filter((_, idx) => idx !== rIdx)
+                                  setFormData({ ...formData, room_types: list })
+                                }}
+                                className="h-9 w-9 text-red-500 hover:text-red-655 hover:text-red-600 hover:bg-red-50 rounded-lg shrink-0"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold text-slate-600">Type de Restauration (Meal Plan)</Label>
-                    <select 
-                      className="w-full rounded-xl bg-slate-50 border border-slate-200 p-3 text-sm h-11" 
-                      value={formData.meal_plan} 
-                      onChange={e => setFormData({...formData, meal_plan: e.target.value})}
-                    >
-                      <option value="Sans pension">Sans pension (Sans repas)</option>
-                      <option value="Petit déjeuner">Petit déjeuner inclus</option>
-                      <option value="Demi-pension">Demi-pension (Breakfast + Dinner)</option>
-                      <option value="Pension complète">Pension complète (3 repas)</option>
-                      <option value="All-inclusive">All-inclusive (Tout compris)</option>
-                    </select>
-                  </div>
+                    {/* Meal Plan Builder */}
+                    <div className="bg-slate-50/50 p-5 rounded-2xl border border-slate-150 space-y-4">
+                      <div className="flex justify-between items-center">
+                        <h4 className="font-bold text-xs text-slate-700 uppercase tracking-wider flex items-center gap-1">
+                          <Utensils className="h-4 w-4 text-emerald-500" /> Restauration (Meal Plans)
+                        </h4>
+                        <Button 
+                          type="button" 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => {
+                            const newMeals = [...formData.meal_plans, { name: '', price: 0 }]
+                            setFormData({ ...formData, meal_plans: newMeals })
+                          }}
+                          className="h-8 text-xs font-bold text-emerald-700 hover:bg-emerald-50 rounded-lg flex items-center gap-1"
+                        >
+                          <Plus className="h-3.5 w-3.5" /> Ajouter
+                        </Button>
+                      </div>
 
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold text-slate-600">Localisation de l'hôtel</Label>
-                    <Input 
-                      className="rounded-xl bg-slate-50 border-slate-200 text-sm h-11" 
-                      value={formData.hotel_location} 
-                      onChange={e => setFormData({...formData, hotel_location: e.target.value})} 
-                      placeholder="ex: Yasmine Hammamet / Taksim Square" 
-                    />
+                      <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1">
+                        {formData.meal_plans.length === 0 ? (
+                          <p className="text-[11px] text-slate-400 italic">Aucune option de repas ajoutée.</p>
+                        ) : (
+                          formData.meal_plans.map((meal, mIdx) => (
+                            <div key={mIdx} className="flex gap-2 items-center">
+                              <Input 
+                                placeholder="Demi-pension, All-incl..." 
+                                className="bg-white text-xs h-9 rounded-lg flex-1 font-medium"
+                                value={meal.name}
+                                onChange={e => {
+                                  const list = [...formData.meal_plans]
+                                  list[mIdx].name = e.target.value
+                                  setFormData({ ...formData, meal_plans: list })
+                                }}
+                              />
+                              <Input 
+                                type="number" 
+                                placeholder="Offset (DZD)" 
+                                className="bg-white text-xs h-9 rounded-lg w-28 text-center font-bold"
+                                value={meal.price}
+                                onChange={e => {
+                                  const list = [...formData.meal_plans]
+                                  list[mIdx].price = Number(e.target.value) || 0
+                                  setFormData({ ...formData, meal_plans: list })
+                                }}
+                              />
+                              <Button 
+                                type="button" 
+                                variant="ghost" 
+                                size="icon"
+                                onClick={() => {
+                                  const list = formData.meal_plans.filter((_, idx) => idx !== mIdx)
+                                  setFormData({ ...formData, meal_plans: list })
+                                }}
+                                className="h-9 w-9 text-red-500 hover:text-red-655 hover:text-red-600 hover:bg-red-50 rounded-lg shrink-0"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2057,61 +2218,61 @@ export function TripsClient({ initialTrips, userRole }: { initialTrips: any[], u
                 </div>
               </div>
             )}
+          </div>
 
-            {/* Stepper Footer Controls */}
-            <div className="mt-8 pt-6 border-t border-slate-100 flex justify-between gap-3 flex-wrap">
-              <div className="flex gap-2">
+          {/* Stepper Footer Controls */}
+          <div className="shrink-0 bg-slate-50 border-t border-slate-150 p-6 flex justify-between gap-3 flex-wrap">
+            <div className="flex gap-2">
+              <Button 
+                type="button" 
+                variant="outline" 
+                className="rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold" 
+                onClick={() => setIsModalOpen(false)}
+              >
+                Fermer
+              </Button>
+              <Button 
+                type="button" 
+                variant="secondary"
+                className="rounded-xl text-xs hover:bg-slate-100 font-semibold"
+                onClick={(e) => handleSaveDraftOrSubmit(e, true)}
+                disabled={loading}
+              >
+                Enregistrer en Brouillon
+              </Button>
+            </div>
+
+            <div className="flex gap-2">
+              {activeStep > 1 && (
                 <Button 
                   type="button" 
                   variant="outline" 
-                  className="rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 text-xs" 
-                  onClick={() => setIsModalOpen(false)}
+                  className="rounded-xl border-slate-200 text-slate-655 text-slate-600 text-xs font-semibold" 
+                  onClick={prevStep}
                 >
-                  Fermer
+                  <ChevronLeft className="mr-1 h-4 w-4" /> Précédent
                 </Button>
+              )}
+              
+              {activeStep < 8 ? (
                 <Button 
                   type="button" 
-                  variant="secondary"
-                  className="rounded-xl text-xs hover:bg-slate-100"
-                  onClick={(e) => handleSaveDraftOrSubmit(e, true)}
-                  disabled={loading}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold" 
+                  onClick={nextStep}
                 >
-                  Enregistrer en Brouillon
+                  Suivant <ChevronRight className="ml-1 h-4 w-4" />
                 </Button>
-              </div>
-
-              <div className="flex gap-2">
-                {activeStep > 1 && (
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    className="rounded-xl border-slate-200 text-slate-600 text-xs" 
-                    onClick={prevStep}
-                  >
-                    <ChevronLeft className="mr-1 h-4 w-4" /> Précédent
-                  </Button>
-                )}
-                
-                {activeStep < 8 ? (
-                  <Button 
-                    type="button" 
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold" 
-                    onClick={nextStep}
-                  >
-                    Suivant <ChevronRight className="ml-1 h-4 w-4" />
-                  </Button>
-                ) : (
-                  <Button 
-                    type="button" 
-                    disabled={loading} 
-                    onClick={handleSaveDraftOrSubmit}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm text-xs font-semibold px-4 transition"
-                  >
-                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {editingTrip ? 'Enregistrer les Modifications' : 'Publier le Package Officiel'}
-                  </Button>
-                )}
-              </div>
+              ) : (
+                <Button 
+                  type="button" 
+                  disabled={loading} 
+                  onClick={handleSaveDraftOrSubmit}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm text-xs font-semibold px-4 transition animate-pulse"
+                >
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {editingTrip ? 'Enregistrer les Modifications' : 'Publier le Package Officiel'}
+                </Button>
+              )}
             </div>
           </div>
         </DialogContent>

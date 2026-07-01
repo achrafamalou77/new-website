@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import type { TablesInsert, TablesUpdate } from '@/lib/supabase/types'
 import { revalidatePath } from 'next/cache'
 
 // Helper to verify auth and retrieve agency_id
@@ -161,6 +162,76 @@ export async function getContainersAction() {
   return { success: true, containers }
 }
 
+// ─── Migrate Car to Rental Fleet (Helper) ───────────────────────────────────
+async function migrateToRentalFleet(supabase: any, payload: any, agencyId: string, userId: string) {
+  const specs = payload.specs || {}
+  const dailyRate = Number(payload.rental_daily_rate) || Number(payload.price * 0.0025) || 7500
+
+  const rentalPayload: any = {
+    agency_id: agencyId,
+    brand: payload.brand,
+    model: payload.model,
+    year: Number(payload.year) || 2024,
+    color: payload.color || null,
+    daily_rate: dailyRate,
+    weekly_rate: Number(payload.rental_weekly_rate) || (dailyRate * 6),
+    monthly_rate: Number(payload.rental_monthly_rate) || (dailyRate * 22),
+    status: (['available', 'rented', 'maintenance', 'reserved'].includes(payload.status) ? payload.status : 'available'),
+    specs: {
+      ...specs,
+      registration_number: specs.registration_number || specs.plate_number || '',
+      mileage: Number(specs.mileage) || 1000,
+      transmission: specs.transmission || 'manual',
+      fuel_type: specs.fuel_type || 'petrol',
+      security_deposit: Number(specs.security_deposit) || 40000,
+    },
+    images: payload.images || []
+  }
+
+  if (payload.id) {
+    rentalPayload.id = payload.id
+  }
+
+  // 1. Insert/upsert into rental fleet
+  const { data: upserted, error: upsertErr } = await supabase
+    .from('car_rental_fleet')
+    .upsert(rentalPayload)
+    .select('id')
+    .single()
+
+  if (upsertErr) return { success: false, error: 'Transition to rental fleet failed: ' + upsertErr.message }
+
+  // 2. Delete from sales inventory if it has an id
+  if (payload.id) {
+    const { error: delErr } = await supabase
+      .from('car_sales_inventory')
+      .delete()
+      .eq('id', payload.id)
+      .eq('agency_id', agencyId)
+
+    if (delErr) {
+      console.error('Delete from sales inventory failed during transition:', delErr.message)
+    }
+  }
+
+  // 3. Log history event
+  const carId = upserted?.id || payload.id
+  if (carId) {
+    await supabase.from('vehicle_history' as any).insert([{
+      car_id: carId,
+      agency_id: agencyId,
+      event_type: 'status_change',
+      title: `Vehicle moved to Rental fleet`,
+      description: `Converted vehicle type to Location (Rental)`,
+      performed_by: userId
+    }])
+  }
+
+  revalidatePath('/dashboard/management/sales')
+  revalidatePath('/dashboard/management/rental')
+  return { success: true }
+}
+
 // ─── Save Car (Create or Update) ─────────────────────────────────────────────
 export async function saveCarAction(carData: any) {
   const supabase = await createClient()
@@ -169,6 +240,16 @@ export async function saveCarAction(carData: any) {
 
   // Map client form state to direct DB columns and pack remainder inside specs
   const payload = mapClientCarToDbSchema(carData, agencyId)
+
+  // Transition check: if car category is set to rental, migrate it to rental fleet table
+  if (payload.car_type === 'rental') {
+    return await migrateToRentalFleet(supabase, payload, agencyId, user.id)
+  }
+
+  // Safety cleanup: ensure it doesn't exist in rental fleet table if it is a sales vehicle
+  if (payload.id) {
+    await supabase.from('car_rental_fleet').delete().eq('id', payload.id).eq('agency_id', agencyId)
+  }
 
   const isUpdate = !!payload.id
   let oldStatus: string | null = null
@@ -229,6 +310,7 @@ export async function saveCarAction(carData: any) {
   }
 
   revalidatePath('/dashboard/management/sales')
+  revalidatePath('/dashboard/management/rental')
   return { success: true }
 }
 
@@ -465,14 +547,15 @@ export async function bulkImportCarsAction(carsData: any[]) {
 
   const payload = carsData.map(car => mapClientCarToDbSchema(car, agencyId))
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('car_sales_inventory')
     .insert(payload as any)
+    .select('id')
 
   if (error) return { success: false, error: error.message }
 
   revalidatePath('/dashboard/management/sales')
-  return { success: true, imported: payload.length }
+  return { success: true, imported: data?.length || payload.length, ids: (data || []).map((row: any) => row.id) }
 }
 
 // ─── Get Rental Fleet ────────────────────────────────────────────────────────
@@ -491,35 +574,150 @@ export async function getRentalFleetAction() {
   return { success: true, fleet: fleet || [] }
 }
 
+// ─── Migrate Car to Sales Inventory (Helper) ───────────────────────────────
+async function migrateToSalesInventory(supabase: any, carData: any, agencyId: string, userId: string) {
+  const specs = carData.specs || {}
+  const images = Array.isArray(carData.images) ? carData.images : []
+
+  // Map values from flat rental fleet details to the sales inventory schema
+  const dailyRate = Number(carData.daily_rate) || 7500
+  const displayPrice = Number(carData.price) || Number(carData.selling_price) || (dailyRate * 400) || 1200000
+  const costPrice = Number(carData.cost_price) || Number(carData.purchase_price) || null
+  const margin = costPrice ? (displayPrice - costPrice) : null
+
+  const salesType = carData.car_type === 'sur_command' ? 'sur_commande' : 'stock'
+
+  const salesPayload: any = {
+    agency_id: agencyId,
+    brand: carData.brand,
+    model: carData.model,
+    year: Number(carData.year) || 2024,
+    version: carData.version || specs.version || null,
+    color: carData.color || specs.color_exterior || null,
+    price: displayPrice,
+    cost_price: costPrice,
+    margin: margin,
+    status: (['available', 'reserved', 'sold', 'pending_import', 'in_transit'].includes(carData.status) ? carData.status : 'available'),
+    type: salesType,
+    car_type: carData.car_type || 'sell',
+    specs: specs,
+    images: images,
+    description: carData.description || specs.condition_notes || null
+  }
+
+  if (carData.id) {
+    salesPayload.id = carData.id
+  }
+
+  // 1. Insert/upsert into sales inventory
+  const { data: upserted, error: upsertErr } = await supabase
+    .from('car_sales_inventory')
+    .upsert(salesPayload)
+    .select('id')
+    .single()
+
+  if (upsertErr) return { success: false, error: 'Transition to sales inventory failed: ' + upsertErr.message }
+
+  // 2. Delete from rental fleet if it has an id
+  if (carData.id) {
+    const { error: delErr } = await supabase
+      .from('car_rental_fleet')
+      .delete()
+      .eq('id', carData.id)
+      .eq('agency_id', agencyId)
+
+    if (delErr) {
+      console.error('Delete from rental fleet failed during transition:', delErr.message)
+    }
+  }
+
+  // 3. Log history event
+  const carId = upserted?.id || carData.id
+  if (carId) {
+    await supabase.from('vehicle_history' as any).insert([{
+      car_id: carId,
+      agency_id: agencyId,
+      event_type: 'status_change',
+      title: `Vehicle moved to Sales inventory`,
+      description: `Converted vehicle type to Ventes (Sales)`,
+      performed_by: userId
+    }])
+  }
+
+  revalidatePath('/dashboard/management/sales')
+  revalidatePath('/dashboard/management/rental')
+  return { success: true }
+}
+
 // ─── Save Rental Car ─────────────────────────────────────────────────────────
 export async function saveRentalCarAction(carData: any) {
   const supabase = await createClient()
-  const { agencyId, error: authErr } = await getAuthenticatedAgency()
-  if (authErr || !agencyId) return { success: false, error: authErr || 'Unauthorized' }
+  const { user, agencyId, error: authErr } = await getAuthenticatedAgency()
+  if (authErr || !user || !agencyId) return { success: false, error: authErr || 'Unauthorized' }
 
-  const payload = {
-    ...carData,
-    agency_id: agencyId
+  // Transition check: if car category is set to sell or sur_command, migrate to sales inventory table
+  if (carData.car_type === 'sell' || carData.car_type === 'sur_command') {
+    return await migrateToSalesInventory(supabase, carData, agencyId, user.id)
   }
 
-  const isUpdate = !!payload.id
+  // Extract only valid car_rental_fleet columns — pack everything else into specs
+  // to prevent unknown column errors from Postgres
+  const RENTAL_FLEET_COLUMNS = new Set([
+    'id', 'agency_id', 'brand', 'model', 'year', 'color',
+    'daily_rate', 'weekly_rate', 'monthly_rate', 'status', 'specs', 'images',
+    'created_at', 'updated_at'
+  ])
+
+  type RentalFleetInsert = TablesInsert<'car_rental_fleet'>
+  type RentalFleetUpdate = TablesUpdate<'car_rental_fleet'>
+
+  const extraSpecs: Record<string, any> = {}
+  const directPayload: Partial<RentalFleetInsert> & { agency_id: string; id?: string; specs?: Record<string, any> } = { agency_id: agencyId }
+
+  for (const [key, val] of Object.entries(carData)) {
+    if (key === 'agency_id') continue
+    if (RENTAL_FLEET_COLUMNS.has(key)) {
+      ;(directPayload as Record<string, any>)[key] = val
+    } else if (key !== 'car_type') {
+      // Pack unknown fields into specs (but not car_type, handled by transition check above)
+      extraSpecs[key] = val
+    }
+  }
+
+  // Merge extra fields into specs
+  if (Object.keys(extraSpecs).length > 0) {
+    const currentSpecs = directPayload.specs && typeof directPayload.specs === 'object' && !Array.isArray(directPayload.specs)
+      ? directPayload.specs
+      : {}
+    directPayload.specs = { ...currentSpecs, ...extraSpecs }
+  }
+
+  // Safety cleanup: ensure it doesn't exist in sales inventory table if it is a rental vehicle
+  if (directPayload.id) {
+    await supabase.from('car_sales_inventory').delete().eq('id', directPayload.id).eq('agency_id', agencyId)
+  }
+
+  const isUpdate = !!directPayload.id
 
   if (isUpdate) {
+    const updatePayload = directPayload as RentalFleetUpdate
     const { error } = await supabase
       .from('car_rental_fleet')
-      .update(payload)
-      .eq('id', payload.id)
+      .update(updatePayload)
+      .eq('id', directPayload.id as string)
       .eq('agency_id', agencyId)
 
     if (error) return { success: false, error: error.message }
   } else {
+    const insertPayload = directPayload as RentalFleetInsert
     const { error } = await supabase
       .from('car_rental_fleet')
-      .insert([payload])
+      .insert([insertPayload])
 
     if (error) return { success: false, error: error.message }
   }
 
+  revalidatePath('/dashboard/management/sales')
   revalidatePath('/dashboard/management/rental')
   return { success: true }
 }

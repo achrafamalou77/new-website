@@ -1,6 +1,16 @@
 // next.config.mjs
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  allowedDevOrigins: ['lvh.me', '*.lvh.me'],
+  experimental: {
+    optimizePackageImports: [
+      'lucide-react',
+      'recharts',
+      'date-fns',
+      'framer-motion',
+      '@base-ui/react',
+    ],
+  },
   images: {
     remotePatterns: [
       {
@@ -12,8 +22,15 @@ const nextConfig = {
         hostname: '**',
       },
     ],
+    qualities: [75, 80],
   },
-  // Enable React Strict Mode and other defaults
-  reactStrictMode: true,
+  // Keep this mirror aligned with next.config.ts for tools that still read JS config.
+  reactStrictMode: false,
+  logging: {
+    fetches: {
+      fullUrl: false,
+    },
+  },
+  poweredByHeader: false,
 };
 export default nextConfig;

@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function getBuilderConfig() {
   const supabase = await createClient()
@@ -151,4 +152,39 @@ export async function getRevisionData(revisionId: string) {
     .single()
   if (error) throw error
   return (data).builder_data
+}
+
+export async function uploadBuilderImage(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'Non autorisé' }
+
+  const { data: profile } = await (supabase
+    .from('profiles'))
+    .select('agency_id')
+    .eq('id', user.id)
+    .single()
+  
+  if (!profile || !profile.agency_id) return { success: false, error: 'Agence introuvable' }
+
+  const file = formData.get('file')
+  if (!(file instanceof File)) return { success: false, error: 'Aucun fichier fourni' }
+  if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
+    return { success: false, error: 'Seules les images JPG, PNG, WebP et GIF sont autorisées' }
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    return { success: false, error: 'L\'image doit faire moins de 10 Mo' }
+  }
+
+  const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+  const path = `${profile.agency_id}/${crypto.randomUUID()}.${extension}`
+  
+  const admin: any = createAdminClient()
+  const { error } = await admin.storage
+    .from('ecommerce-assets')
+    .upload(path, file, { contentType: file.type, cacheControl: '31536000' })
+  if (error) return { success: false, error: error.message }
+  
+  const { data } = admin.storage.from('ecommerce-assets').getPublicUrl(path)
+  return { success: true, url: data.publicUrl }
 }

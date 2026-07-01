@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useSettingsStore } from '@/lib/stores/settings-store'
 
 export function SettingsProvider({ 
@@ -11,13 +11,16 @@ export function SettingsProvider({
   initialData: any 
 }) {
   const setAllSettings = useSettingsStore(state => state.setAllSettings)
+  const initialDataStr = JSON.stringify(initialData)
+  const lastInitialDataStrRef = useRef('')
 
-  // Initialize store with fresh server data on mount
+  // Initialize store with fresh server data on mount or when data actually changes
   useEffect(() => {
-    if (initialData) {
+    if (initialData && initialDataStr !== lastInitialDataStrRef.current) {
+      lastInitialDataStrRef.current = initialDataStr
       setAllSettings(initialData)
     }
-  }, [initialData, setAllSettings])
+  }, [initialDataStr, setAllSettings])
 
   return <>{children}</>
 }

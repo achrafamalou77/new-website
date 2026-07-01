@@ -17,6 +17,7 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { createClient } from '@/lib/supabase/client'
 import { addDays, format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isWithinInterval, parseISO, differenceInDays } from 'date-fns'
+import { useLanguage } from '@/lib/contexts/LanguageContext'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface CarSalesItem {
@@ -119,13 +120,13 @@ const PLACEHOLDER_IMG = 'https://images.unsplash.com/photo-1549399542-7e3f8b79c3
 const fmt = (n: number | null | undefined) =>
   n != null && !isNaN(n) && n > 0 ? n.toLocaleString('fr-DZ') : null
 
-const statusConfig: Record<string, { label: string; dot: string; bg: string; text: string }> = {
-  available:     { label: 'Available',    dot: 'bg-emerald-500', bg: 'bg-emerald-50  border-emerald-200', text: 'text-emerald-700' },
-  reserved:      { label: 'Reserved',     dot: 'bg-amber-400',   bg: 'bg-amber-50   border-amber-200',   text: 'text-amber-700' },
-  sold:          { label: 'Sold',         dot: 'bg-red-500',     bg: 'bg-red-50     border-red-200',     text: 'text-red-700' },
-  in_preparation:{ label: 'Preparation', dot: 'bg-blue-400',    bg: 'bg-blue-50    border-blue-200',    text: 'text-blue-700' },
-  in_transit:    { label: 'In Transit',   dot: 'bg-purple-500',  bg: 'bg-purple-50  border-purple-200',  text: 'text-purple-700' },
-  maintenance:   { label: 'Maintenance',  dot: 'bg-orange-500',  bg: 'bg-orange-50  border-orange-200',  text: 'text-orange-700' },
+const statusConfig: Record<string, { label: string; labelKey: string; dot: string; bg: string; text: string }> = {
+  available:     { label: 'Available',    labelKey: 'sales.status_available', dot: 'bg-emerald-500', bg: 'bg-emerald-50  border-emerald-200', text: 'text-emerald-700' },
+  reserved:      { label: 'Reserved',     labelKey: 'sales.status_reserved',  dot: 'bg-amber-400',   bg: 'bg-amber-50   border-amber-200',   text: 'text-amber-700' },
+  sold:          { label: 'Sold',         labelKey: 'sales.status_sold',      dot: 'bg-red-500',     bg: 'bg-red-50     border-red-200',     text: 'text-red-700' },
+  in_preparation:{ label: 'Preparation', labelKey: 'sales.status_prep',      dot: 'bg-blue-400',    bg: 'bg-blue-50    border-blue-200',    text: 'text-blue-700' },
+  in_transit:    { label: 'In Transit',   labelKey: 'sales.status_transit',   dot: 'bg-purple-500',  bg: 'bg-purple-50  border-purple-200',  text: 'text-purple-700' },
+  maintenance:   { label: 'Maintenance',  labelKey: 'sales.status_maintenance',dot: 'bg-orange-500',  bg: 'bg-orange-50  border-orange-200',  text: 'text-orange-700' },
 }
 
 const historyIcons: Record<string, string> = {
@@ -149,7 +150,7 @@ const DEFAULT_FORM = {
   cover_image_url: PLACEHOLDER_IMG, images: [] as string[], video_url: '', video_360_url: '',
   warranty_months: 12, warranty_km: 100000, warranty_type: 'dealer' as any, warranty_details: '',
   showroom_location: 'Cheraga Showroom, Algiers', parking_spot: '',
-  quantity: 1, rental_daily_rate: 0, tracking_number: '', container_id: '', status: 'available' as any,
+  quantity: 1, rental_daily_rate: 0, rental_weekly_rate: 0, rental_monthly_rate: 0, security_deposit: 0, tracking_number: '', container_id: '', status: 'available' as any,
   show_on_website: true,
 }
 
@@ -324,8 +325,10 @@ function printWindowSticker(car: CarSalesItem) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function CarSalesPage() {
+  const { t } = useLanguage()
   const [cars, setCars] = useState<CarSalesItem[]>([])
   const [containers, setContainers] = useState<any[]>([])
+  const [clients, setClients] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [savingCar, setSavingCar] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -395,9 +398,15 @@ export default function CarSalesPage() {
   const loadData = useCallback(async () => {
     setLoading(true)
     const { getInventoryAction, getContainersAction } = await import('@/app/actions/inventory-management')
-    const [invRes, contRes] = await Promise.all([getInventoryAction(), getContainersAction()])
+    const { getAgencyClients } = await import('@/app/actions/import-orders')
+    const [invRes, contRes, clientsRes] = await Promise.all([
+      getInventoryAction(),
+      getContainersAction(),
+      getAgencyClients()
+    ])
     if (invRes.success && invRes.cars) setCars(invRes.cars as any as CarSalesItem[])
     if (contRes.success && contRes.containers) setContainers(contRes.containers)
+    if (clientsRes.success && clientsRes.data) setClients(clientsRes.data)
     setLoading(false)
   }, [])
 
@@ -409,6 +418,46 @@ export default function CarSalesPage() {
     document.body.style.overflow = open ? 'hidden' : ''
     return () => { document.body.style.overflow = '' }
   }, [isAddCarOpen, activeCarDetail, deleteConfirmId, statusChangeCarId, isBulkImportOpen])
+
+  // ─── Escape Key & History Back Navigation ────────────────────────────────────
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (activeCarDetail) {
+          setActiveCarDetail(null)
+          setIs360Active(false)
+          setSimulatedAngle(0)
+        }
+        if (isAddCarOpen) setIsAddCarOpen(false)
+        if (deleteConfirmId) setDeleteConfirmId(null)
+        if (statusChangeCarId) setStatusChangeCarId(null)
+        if (isBulkImportOpen) setIsBulkImportOpen(false)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [activeCarDetail, isAddCarOpen, deleteConfirmId, statusChangeCarId, isBulkImportOpen])
+
+  useEffect(() => {
+    if (activeCarDetail) {
+      // Add a dummy entry to history to intercept back button
+      window.history.pushState({ drawerOpen: true }, '')
+      
+      const handlePopState = () => {
+        setActiveCarDetail(null)
+        setIs360Active(false)
+        setSimulatedAngle(0)
+      }
+      
+      window.addEventListener('popstate', handlePopState)
+      return () => {
+        window.removeEventListener('popstate', handlePopState)
+        if (window.history.state?.drawerOpen) {
+          window.history.back()
+        }
+      }
+    }
+  }, [activeCarDetail])
 
   // ─── Auto stock number ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -624,7 +673,11 @@ export default function CarSalesPage() {
       car_type: car.car_type || 'sell', owner_type: (car.owner_type as any) || 'agency',
       commission_percentage: car.commission_percentage ?? 3, commission_flat_fee: car.commission_flat_fee ?? 0,
       owner_target_payout: car.owner_target_payout ?? 0, owner_client_id: car.owner_client_id || '',
-      quantity: car.quantity ?? 1, rental_daily_rate: car.rental_daily_rate ?? 0,
+      quantity: car.quantity ?? 1, 
+      rental_daily_rate: car.rental_daily_rate ?? (car as any).rental_daily_rate ?? 0,
+      rental_weekly_rate: (car as any).rental_weekly_rate ?? (car as any).specs?.rental_weekly_rate ?? 0,
+      rental_monthly_rate: (car as any).rental_monthly_rate ?? (car as any).specs?.rental_monthly_rate ?? 0,
+      security_deposit: (car as any).security_deposit ?? (car as any).specs?.security_deposit ?? 0,
       container_id: car.container_id || '', tracking_number: car.tracking_number || '',
       features: Array.isArray(car.features) ? car.features : [],
       images: Array.isArray(car.images) ? car.images : [],
@@ -721,18 +774,18 @@ export default function CarSalesPage() {
               onClick={() => setIsStatsOpen(p => !p)}
               className="w-full flex items-center justify-between px-5 py-3 text-xs font-black text-slate-600 uppercase tracking-wider cursor-pointer hover:bg-slate-50/50"
             >
-              <span className="flex items-center gap-2"><BarChart3 className="h-4 w-4 text-red-500" /> Inventory Analytics</span>
+          <span className="flex items-center gap-2"><BarChart3 className="h-4 w-4 text-red-500" /> {t('sales.inventory_analytics', 'Inventory Analytics')}</span>
               {isStatsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </button>
             {isStatsOpen && (
               <div className="px-5 pb-5 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 border-t border-slate-100">
                 {[
-                  { label: 'Total Units', value: stats.totalUnits.toString(), sub: 'in inventory', color: 'text-slate-900' },
-                  { label: 'Inventory Value', value: fmt(stats.totalInventoryValue) ? `${fmt(stats.totalInventoryValue)} DZD` : '—', sub: 'sell + command', color: 'text-blue-600' },
-                  { label: 'Total Cost', value: fmt(stats.totalCost) ? `${fmt(stats.totalCost)} DZD` : '—', sub: 'purchase prices', color: 'text-slate-600' },
-                  { label: 'Avg Margin', value: `${stats.avgMargin}%`, sub: 'expected profit', color: stats.avgMargin > 10 ? 'text-emerald-600' : 'text-amber-600' },
-                  { label: 'Sold Revenue', value: fmt(stats.soldRevenue) ? `${fmt(stats.soldRevenue)} DZD` : '—', sub: `${stats.soldCount} vehicles`, color: 'text-emerald-700' },
-                  { label: 'Active Listings', value: cars.filter(c => c.status === 'available').length.toString(), sub: 'available now', color: 'text-red-600' },
+                  { label: t('sales.total_units', 'Total Units'), value: stats.totalUnits.toString(), sub: t('sales.in_inventory', 'in inventory'), color: 'text-slate-900' },
+                  { label: t('sales.inventory_value', 'Inventory Value'), value: fmt(stats.totalInventoryValue) ? `${fmt(stats.totalInventoryValue)} DZD` : '—', sub: t('sales.sell_command', 'sell + command'), color: 'text-blue-600' },
+                  { label: t('sales.total_cost', 'Total Cost'), value: fmt(stats.totalCost) ? `${fmt(stats.totalCost)} DZD` : '—', sub: t('sales.purchase_prices', 'purchase prices'), color: 'text-slate-600' },
+                  { label: t('sales.avg_margin', 'Avg Margin'), value: `${stats.avgMargin}%`, sub: t('sales.expected_profit', 'expected profit'), color: stats.avgMargin > 10 ? 'text-emerald-600' : 'text-amber-600' },
+                  { label: t('sales.sold_revenue', 'Sold Revenue'), value: fmt(stats.soldRevenue) ? `${fmt(stats.soldRevenue)} DZD` : '—', sub: `${stats.soldCount} ${t('sales.vehicles', 'vehicles')}`, color: 'text-emerald-700' },
+                  { label: t('sales.active_listings', 'Active Listings'), value: cars.filter(c => c.status === 'available').length.toString(), sub: t('sales.available_now', 'available now'), color: 'text-red-600' },
                 ].map(stat => (
                   <div key={stat.label} className="pt-4 space-y-0.5">
                     <p className="text-[9px] font-bold uppercase text-slate-400 tracking-wider">{stat.label}</p>
@@ -861,7 +914,7 @@ export default function CarSalesPage() {
               const imgs = Array.isArray(car.images) ? car.images : []
 
               return (
-                <div key={car.id} className={`bg-white border rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-all duration-300 flex flex-col group text-left relative ${isSelected ? 'border-red-400 ring-2 ring-red-400/20' : 'border-slate-200/80 hover:border-slate-300'}`}>
+                <div key={car.id} className={`bg-white border rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-all duration-300 flex flex-col group text-left rtl:text-right relative ${isSelected ? 'border-red-400 ring-2 ring-red-400/20' : 'border-slate-200/80 hover:border-slate-300'}`}>
                   {/* Cover Image */}
                   <div className="h-48 bg-slate-100 relative overflow-hidden shrink-0">
                     <img
@@ -878,12 +931,12 @@ export default function CarSalesPage() {
                     <div className="absolute top-2 left-10 flex flex-wrap gap-1 max-w-[70%]">
                       <span className={`px-2 py-0.5 rounded-lg flex items-center gap-1 border text-[9px] font-extrabold ${sc.bg} ${sc.text}`}>
                         <span className={`h-1.5 w-1.5 rounded-full ${sc.dot} ${car.status === 'available' ? 'animate-pulse' : ''}`} />
-                        {sc.label}
+                        {t(sc.labelKey, sc.label)}
                       </span>
                       {car.condition && <span className="bg-red-600 text-white px-2 py-0.5 rounded-lg text-[9px] font-black uppercase">{car.condition === 'certified_pre_owned' ? 'CPO' : car.condition}</span>}
-                      {car.car_type === 'sell' && <span className="bg-blue-600 text-white px-2 py-0.5 rounded-lg text-[9px] font-black">À Vendre</span>}
-                      {car.car_type === 'sur_command' && <span className="bg-amber-500 text-white px-2 py-0.5 rounded-lg text-[9px] font-black">Sur Commande</span>}
-                      {car.car_type === 'rental' && <span className="bg-emerald-600 text-white px-2 py-0.5 rounded-lg text-[9px] font-black">Location</span>}
+                      {car.car_type === 'sell' && <span className="bg-blue-600 text-white px-2 py-0.5 rounded-lg text-[9px] font-black">{t('sales.for_sale', 'For Sale')}</span>}
+                      {car.car_type === 'sur_command' && <span className="bg-amber-500 text-white px-2 py-0.5 rounded-lg text-[9px] font-black">{t('sales.sur_command', 'Sur Command')}</span>}
+                      {car.car_type === 'rental' && <span className="bg-emerald-600 text-white px-2 py-0.5 rounded-lg text-[9px] font-black">{t('sales.rental', 'Rental')}</span>}
                     </div>
                     {/* Gallery indicator */}
                     {imgs.length > 0 && (
@@ -984,8 +1037,8 @@ export default function CarSalesPage() {
         const car = cars.find(c => c.id === statusChangeCarId)
         if (!car) return null
         return (
-          <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center z-[60] p-4 animate-fadeIn">
-            <div className="bg-white rounded-2xl shadow-2xl border w-full max-w-sm p-6 space-y-3 animate-scaleIn">
+          <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center z-[60] p-4 animate-fadeIn" onClick={() => setStatusChangeCarId(null)}>
+            <div className="bg-white rounded-2xl shadow-2xl border w-full max-w-sm p-6 space-y-3 animate-scaleIn" onClick={e => e.stopPropagation()}>
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-black text-slate-900">Change Status</h3>
                 <button onClick={() => setStatusChangeCarId(null)} className="h-7 w-7 rounded-lg hover:bg-slate-100 flex items-center justify-center cursor-pointer"><X className="h-4 w-4 text-slate-400" /></button>
@@ -1006,8 +1059,8 @@ export default function CarSalesPage() {
 
       {/* ═══════════════════════════ BULK IMPORT MODAL ═══════════════════════ */}
       {isBulkImportOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <div className="bg-white rounded-3xl shadow-2xl border w-full max-w-3xl overflow-hidden animate-scaleIn flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn" onClick={() => setIsBulkImportOpen(false)}>
+          <div className="bg-white rounded-3xl shadow-2xl border w-full max-w-3xl overflow-hidden animate-scaleIn flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
             <div className="bg-slate-900 px-6 py-5 text-white flex items-center justify-between shrink-0">
               <div>
                 <h3 className="text-sm font-black flex items-center gap-2"><FileUp className="h-4 w-4 text-blue-400" /> Bulk Import Cars (CSV)</h3>
@@ -1048,7 +1101,7 @@ export default function CarSalesPage() {
                       <thead className="bg-slate-50 border-b border-slate-200">
                         <tr>
                           {['Brand', 'Model', 'Year', 'Type', 'Fuel', 'Selling Price', 'Condition'].map(h => (
-                            <th key={h} className="px-3 py-2 text-left font-black text-slate-500 uppercase text-[9px] tracking-wider">{h}</th>
+                            <th key={h} className="px-3 py-2 text-left rtl:text-right font-black text-slate-500 uppercase text-[9px] tracking-wider">{h}</th>
                           ))}
                         </tr>
                       </thead>
@@ -1242,25 +1295,65 @@ export default function CarSalesPage() {
                             setFormState(prev => ({ ...prev, owner_target_payout: p, purchase_price: p, selling_price: p + fee }))
                           }} className="rounded-xl border-slate-200 text-xs" /></div>
                       </div>
+                      <div className="space-y-1 pt-1 border-t border-purple-100">
+                        <Label className="text-[10px] font-bold uppercase text-purple-600">Consignment Client (Propriétaire Dépôt-Vente)</Label>
+                        <select value={formState.owner_client_id} onChange={e => setFormState(p => ({ ...p, owner_client_id: e.target.value }))} className="w-full rounded-xl border border-slate-200 p-2.5 text-xs bg-white font-bold text-slate-700 transition-all focus:border-purple-500">
+                          <option value="">-- Select Consignment Client --</option>
+                          {clients.map(c => <option key={c.id} value={c.id}>{c.full_name} ({c.phone || c.email || 'No contact'})</option>)}
+                        </select>
+                      </div>
                     </div>
                   )}
                   {(formState.car_type === 'sell' || formState.car_type === 'sur_command') && (
                     <div className="space-y-1"><Label className="text-[10px] font-bold uppercase text-slate-400">Quantity in Stock</Label><Input type="number" min={1} value={formState.quantity} onChange={e => setFormState(p => ({ ...p, quantity: Number(e.target.value) }))} className="rounded-xl border-slate-200 text-xs font-bold" /></div>
                   )}
                   {formState.car_type === 'sur_command' && (
-                    <div className="grid grid-cols-2 gap-3 p-3 bg-amber-50/50 border border-amber-200 rounded-2xl">
-                      <div className="space-y-1"><Label className="text-[10px] font-bold uppercase text-amber-600">Container</Label>
-                        <select value={formState.container_id} onChange={e => setFormState(p => ({ ...p, container_id: e.target.value }))} className="w-full rounded-xl border border-slate-200 p-2.5 text-xs bg-white">
-                          <option value="">-- No Container --</option>
-                          {containers.map(c => <option key={c.id} value={c.id}>{c.container_number} ({c.status})</option>)}
-                        </select></div>
-                      <div className="space-y-1"><Label className="text-[10px] font-bold uppercase text-amber-600">Tracking #</Label><Input value={formState.tracking_number} onChange={e => setFormState(p => ({ ...p, tracking_number: e.target.value }))} placeholder="MAEU123456" className="rounded-xl border-slate-200 text-xs font-mono" /></div>
+                    <div className="space-y-3 p-4 bg-amber-50/50 border border-amber-200 rounded-3xl">
+                      <Label className="text-[10px] font-black uppercase text-amber-700 flex items-center gap-1">📦 Import Order Details & Shipping</Label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1"><Label className="text-[10px] font-bold uppercase text-slate-500">Container</Label>
+                          <select value={formState.container_id} onChange={e => setFormState(p => ({ ...p, container_id: e.target.value }))} className="w-full rounded-xl border border-slate-200 p-2.5 text-xs bg-white font-bold">
+                            <option value="">-- No Container --</option>
+                            {containers.map(c => <option key={c.id} value={c.id}>{c.container_number} ({c.status})</option>)}
+                          </select></div>
+                        <div className="space-y-1"><Label className="text-[10px] font-bold uppercase text-slate-500">Tracking #</Label><Input value={formState.tracking_number} onChange={e => setFormState(p => ({ ...p, tracking_number: e.target.value }))} placeholder="MAEU123456" className="rounded-xl border-slate-200 text-xs font-mono font-bold" /></div>
+                      </div>
+                      <div className="space-y-1 pt-1 border-t border-amber-200/50">
+                        <Label className="text-[10px] font-bold uppercase text-slate-500">Buyer Client (Client de commande)</Label>
+                        <select value={formState.owner_client_id} onChange={e => setFormState(p => ({ ...p, owner_client_id: e.target.value }))} className="w-full rounded-xl border border-slate-200 p-2.5 text-xs bg-white font-bold text-slate-700 transition-all focus:border-amber-500">
+                          <option value="">-- Unassigned (Loose Stock) --</option>
+                          {clients.map(c => <option key={c.id} value={c.id}>{c.full_name} ({c.phone || c.email || 'No contact'})</option>)}
+                        </select>
+                      </div>
                     </div>
                   )}
                   {formState.car_type === 'rental' ? (
-                    <div className="p-4 border border-emerald-200 bg-emerald-50/50 rounded-2xl space-y-2">
-                      <Label className="text-[10px] font-bold uppercase text-emerald-600">Daily Rate (DZD) *</Label>
-                      <Input type="number" required value={formState.rental_daily_rate} onChange={e => setFormState(p => ({ ...p, rental_daily_rate: Number(e.target.value) }))} className="rounded-xl border-emerald-200 text-xs font-bold text-emerald-700 bg-white" />
+                    <div className="p-4 border border-emerald-200 bg-emerald-50/50 rounded-2xl space-y-3">
+                      <Label className="text-[10px] font-bold uppercase text-emerald-600 flex items-center gap-1">🚗 Location (Rental) Fleet Details</Label>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-[10px] font-bold uppercase text-slate-400">Daily Rate *</Label>
+                          <Input type="number" required value={formState.rental_daily_rate} onChange={e => setFormState(p => ({ ...p, rental_daily_rate: Number(e.target.value) }))} className="rounded-xl border-slate-200 text-xs font-bold text-emerald-700 bg-white" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] font-bold uppercase text-slate-400">Weekly Rate</Label>
+                          <Input type="number" value={formState.rental_weekly_rate} onChange={e => setFormState(p => ({ ...p, rental_weekly_rate: Number(e.target.value) }))} placeholder="e.g. 45000" className="rounded-xl border-slate-200 text-xs text-slate-700 bg-white" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] font-bold uppercase text-slate-400">Monthly Rate</Label>
+                          <Input type="number" value={formState.rental_monthly_rate} onChange={e => setFormState(p => ({ ...p, rental_monthly_rate: Number(e.target.value) }))} placeholder="e.g. 150000" className="rounded-xl border-slate-200 text-xs text-slate-700 bg-white" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-[10px] font-bold uppercase text-slate-400">Plate Number (Matricule) *</Label>
+                          <Input required={formState.car_type === 'rental'} value={formState.registration_number} onChange={e => setFormState(p => ({ ...p, registration_number: e.target.value }))} placeholder="e.g. 12493-122-16" className="rounded-xl border-slate-200 text-xs font-mono font-bold" />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] font-bold uppercase text-slate-400">Security Deposit (Caution)</Label>
+                           <Input type="number" value={formState.security_deposit} onChange={e => setFormState(p => ({ ...p, security_deposit: Number(e.target.value) }))} placeholder="e.g. 40000" className="rounded-xl border-slate-200 text-xs font-bold text-slate-700 bg-white" />
+                        </div>
+                      </div>
                     </div>
                   ) : (
                     <>
@@ -1440,8 +1533,8 @@ export default function CarSalesPage() {
         const similarCars = cars.filter(c => c.id !== car.id && (c.brand === car.brand || c.body_type === car.body_type)).slice(0, 4)
 
         return (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex justify-end z-50 animate-fadeIn">
-            <div className="bg-white w-full max-w-2xl h-screen overflow-y-auto scrollbar-thin shadow-2xl border-l border-slate-200 flex flex-col text-left">
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex justify-end z-50 animate-fadeIn" onClick={() => { setActiveCarDetail(null); setIs360Active(false); setSimulatedAngle(0) }}>
+            <div className="bg-white w-full max-w-2xl h-screen overflow-y-auto scrollbar-thin shadow-2xl border-l border-slate-200 rtl:border-l-0 rtl:border-r flex flex-col text-left rtl:text-right" onClick={e => e.stopPropagation()}>
               {/* Header */}
               <div className="bg-slate-900 px-6 py-5 text-white flex items-center justify-between shrink-0">
                 <div className="space-y-1">
@@ -1748,7 +1841,7 @@ export default function CarSalesPage() {
                       ? <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed border-slate-200 rounded-3xl text-slate-400 text-center"><Car className="h-10 w-10 mb-3 text-slate-300" /><span className="font-bold text-slate-500">No similar vehicles</span><span className="text-[11px] mt-1">No other {car.brand} or {car.body_type} vehicles in inventory.</span></div>
                       : <div className="grid grid-cols-2 gap-3">
                         {similarCars.map(c => (
-                          <button key={c.id} onClick={() => { setActiveCarDetail(c); setActiveDrawerTab('specs'); setIs360Active(false) }} className="text-left bg-white border border-slate-200 rounded-2xl overflow-hidden hover:shadow-md transition cursor-pointer group">
+                          <button key={c.id} onClick={() => { setActiveCarDetail(c); setActiveDrawerTab('specs'); setIs360Active(false) }} className="text-left rtl:text-right bg-white border border-slate-200 rounded-2xl overflow-hidden hover:shadow-md transition cursor-pointer group">
                             <div className="h-24 bg-slate-100 overflow-hidden"><img src={c.cover_image_url || PLACEHOLDER_IMG} alt={c.model} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onError={e => { (e.target as HTMLImageElement).src = PLACEHOLDER_IMG }} /></div>
                             <div className="p-3 space-y-0.5">
                               <p className="text-[11px] font-black text-slate-800">{c.brand} {c.model} {c.year}</p>

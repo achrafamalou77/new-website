@@ -6,12 +6,23 @@ import { ApplicationsTable } from '@/components/visa/ApplicationsTable'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { FileText, PlusCircle, Compass, RefreshCw, Layers } from 'lucide-react'
-
-export const dynamic = 'force-dynamic'
+import { getCurrentAgencyContext } from '@/lib/server/agency-context'
+import { redirect } from 'next/navigation'
 
 export default async function VisaDashboardPage() {
-  // 1. Fetch stats
-  const statsRes = await getVisaStats()
+  const context = await getCurrentAgencyContext()
+
+  if (context.businessTypeSlug === 'car_showroom') {
+    redirect('/dashboard')
+  }
+
+  // Fetch stats, applications list, and employees list in parallel
+  const [statsRes, appsRes, employees] = await Promise.all([
+    getVisaStats(),
+    getVisaApplications(),
+    getEmployees()
+  ])
+
   const stats = statsRes.success && statsRes.stats ? statsRes.stats : {
     activeApplications: 0,
     pendingDocuments: 0,
@@ -22,12 +33,7 @@ export default async function VisaDashboardPage() {
     cashRevenue: 0
   }
 
-  // 2. Fetch applications list
-  const appsRes = await getVisaApplications()
   const applications = appsRes.success && appsRes.data ? appsRes.data : []
-
-  // 3. Fetch employees list
-  const employees = await getEmployees()
 
   return (
     <div className="flex-1 overflow-y-auto bg-slate-50/50 p-6 lg:p-8 font-geist">

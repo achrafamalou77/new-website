@@ -16,24 +16,22 @@ import {
   MessageSquare, 
   Flame, 
   Calendar, 
-  Bot, 
   ChevronRight, 
   Inbox, 
   ArrowUpRight, 
   Sparkles, 
   Car, 
-  ClipboardList,
   CheckCircle2,
   Circle,
   TrendingUp,
   Landmark,
   ListTodo,
-  Globe,
   DollarSign
 } from 'lucide-react'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { formatDistanceToNow } from 'date-fns'
+import { useLanguage } from '@/lib/contexts/LanguageContext'
 
 // Custom SVGs
 function FacebookIcon({ className }: { className?: string }) {
@@ -134,22 +132,6 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
   )
 }
 
-const salesVolumeData = [
-  { month: 'Jan', sales: 12500000 },
-  { month: 'Feb', sales: 18000000 },
-  { month: 'Mar', sales: 24500000 },
-  { month: 'Apr', sales: 19800000 },
-  { month: 'May', sales: 34000000 },
-  { month: 'Jun', sales: 42500000 },
-  { month: 'Jul', sales: 39000000 },
-]
-
-const leadQualityData = [
-  { name: 'HOT Leads', value: 50, color: '#ef4444' }, 
-  { name: 'WARM Leads', value: 35, color: '#f59e0b' }, 
-  { name: 'COLD Leads', value: 15, color: '#64748b' }, 
-]
-
 export function CarShowroomDashboard({
   userName,
   totalConversations,
@@ -158,7 +140,10 @@ export function CarShowroomDashboard({
   testDrivesScheduled = 8,
   financingApps = 3,
   salesVolume = 76500000,
-  recentLeads = []
+  followUpTasksCount = 0,
+  leadBreakdown,
+  recentLeads = [],
+  salesVolumeData = []
 }: {
   userName: string
   totalConversations: number
@@ -167,72 +152,106 @@ export function CarShowroomDashboard({
   testDrivesScheduled?: number
   financingApps?: number
   salesVolume?: number
+  followUpTasksCount?: number
+  leadBreakdown?: { hot: number; warm: number; cold: number }
   recentLeads?: any[]
+  salesVolumeData?: Array<{ month: string; sales?: number }>
 }) {
+  const { t, language } = useLanguage()
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
+  const leadCounts = leadBreakdown || { hot: hotLeads, warm: 0, cold: 0 }
+  const leadTotal = Math.max(leadCounts.hot + leadCounts.warm + leadCounts.cold, 1)
+  const hotWarmRate = Math.round(((leadCounts.hot + leadCounts.warm) / leadTotal) * 100)
+  const leadQualityData = [
+    { name: 'HOT Leads', value: leadCounts.hot, percent: Math.round((leadCounts.hot / leadTotal) * 100), color: '#ef4444' },
+    { name: 'WARM Leads', value: leadCounts.warm, percent: Math.round((leadCounts.warm / leadTotal) * 100), color: '#f59e0b' },
+    { name: 'COLD Leads', value: leadCounts.cold, percent: Math.round((leadCounts.cold / leadTotal) * 100), color: '#64748b' }
+  ]
+  const chartSalesVolume = salesVolumeData.length ? salesVolumeData : [{ month: 'No data', sales: 0 }]
+
   const statCards = [
     {
-      title: 'Conversations',
+      title: t('nav.inbox', 'Conversations'),
       value: totalConversations,
       icon: MessageSquare,
       color: 'indigo',
-      trend: '+15.2%',
+      trend: 'Live',
       trendUp: true,
       sparkline: [22, 38, 30, 48, 40, 55, totalConversations || 60],
-      desc: 'Active client messaging'
+      desc: t('dashboard.weekly_chats', 'Active client messaging')
     },
     {
-      title: 'HOT Leads',
+      title: t('dashboard.lead_score', 'HOT Leads'),
       value: hotLeads,
       icon: Flame,
       color: 'red',
-      trend: '+22.4%',
+      trend: 'Live',
       trendUp: true,
       sparkline: [12, 18, 28, 24, 32, 40, hotLeads || 45],
-      desc: 'High intent buyers'
+      desc: t('dashboard.hot_leads_desc', 'High intent buyers')
     },
     {
-      title: 'Cars in Stock',
+      title: t('showroom.cars_stock', 'Cars in Stock'),
       value: carsCount,
       icon: Car,
       color: 'emerald',
-      trend: '+2 vehicles',
+      trend: 'In stock',
       trendUp: true,
       sparkline: [2, 3, 2, 4, 3, 4, carsCount || 5],
-      desc: 'Active inventory list'
+      desc: t('showroom.active_inventory', 'Active inventory list')
     },
     {
-      title: 'Test Drives Scheduled',
+      title: t('showroom.test_drives', 'Test Drives Scheduled'),
       value: testDrivesScheduled,
       icon: Calendar,
       color: 'purple',
-      trend: '+12.5%',
+      trend: 'Scheduled',
       trendUp: true,
       sparkline: [3, 5, 4, 8, 6, 9, testDrivesScheduled || 10],
-      desc: 'Scheduled test runs'
+      desc: t('showroom.scheduled_runs', 'Scheduled test runs')
     },
     {
-      title: 'Financing Submissions',
+      title: t('showroom.financing_apps', 'Financing Submissions'),
       value: financingApps,
       icon: Landmark,
       color: 'red',
-      trend: '3 Approved',
+      trend: 'Active',
       trendUp: true,
       sparkline: [1, 2, 1, 3, 2, 3, financingApps || 4],
-      desc: 'CCP loan calculator apps'
+      desc: t('showroom.loan_apps', 'CCP loan calculator apps')
+    },
+    {
+      title: 'Closed Sales Value',
+      value: salesVolume,
+      icon: DollarSign,
+      color: 'purple',
+      trend: 'This year',
+      trendUp: true,
+      sparkline: chartSalesVolume.map(item => Number(item.sales || 0)),
+      desc: 'Completed sales value in DZD'
+    },
+    {
+      title: 'Open Follow-ups',
+      value: followUpTasksCount,
+      icon: ListTodo,
+      color: 'emerald',
+      trend: 'AI Tasks',
+      trendUp: true,
+      sparkline: [0, 1, 1, 2, 2, 3, followUpTasksCount || 1],
+      desc: 'Team actions created by AI'
     }
   ]
 
   const checklist = [
-    { id: 'profile', title: 'Complete Showroom Profile', desc: 'Set up business hours and contact info', done: true, href: '/dashboard/settings/agency' },
-    { id: 'inventory', title: 'Add First Showroom Car', desc: 'List your vehicles with photos, condition, & pricing', done: carsCount > 0, href: '/dashboard/management' },
-    { id: 'payment', title: 'Set CCP BaridiMob Details', desc: 'Allow deposit pre-payments through CPP/Edahabia', done: true, href: '/dashboard/settings/agency' },
-    { id: 'chatbot', title: 'Train AI Salesperson', desc: 'Pre-load vehicle specifications so AI captures leads', done: true, href: '/dashboard/settings/chatbot' }
+    { id: 'profile', title: language === 'ar' ? 'إكمال ملف المعرض' : language === 'fr' ? 'Compléter le profil du showroom' : 'Complete Showroom Profile', desc: language === 'ar' ? 'قم بإعداد مواعيد العمل ومعلومات الاتصال' : language === 'fr' ? 'Configurez les horaires et informations de contact' : 'Set up business hours and contact info', done: true, href: '/dashboard/settings/agency' },
+    { id: 'inventory', title: language === 'ar' ? 'إضافة أول سيارة للمعرض' : language === 'fr' ? 'Ajouter un premier véhicule' : 'Add First Showroom Car', desc: language === 'ar' ? 'قم بإدراج سياراتك مع الصور وتفاصيل السعر' : language === 'fr' ? 'Listez vos véhicules avec photos, caractéristiques & prix' : 'List your vehicles with photos, condition, & pricing', done: carsCount > 0, href: '/dashboard/management' },
+    { id: 'payment', title: language === 'ar' ? 'ضبط تفاصيل بريدي موب و CCP' : language === 'fr' ? 'Configurer CCP BaridiMob' : 'Set CCP BaridiMob Details', desc: language === 'ar' ? 'السماح بالمدفوعات المسبقة للعربون عن طريق الذهبية أو بريدي موب' : language === 'fr' ? 'Permettez le paiement d\'acomptes via CCP/Edahabia' : 'Allow deposit pre-payments through CPP/Edahabia', done: true, href: '/dashboard/settings/agency' },
+    { id: 'chatbot', title: language === 'ar' ? 'تدريب البائع الآلي بالذكاء الاصطناعي' : language === 'fr' ? 'Entraîner le vendeur IA' : 'Train AI Salesperson', desc: language === 'ar' ? 'تزويد المساعد الآلي بخصائص السيارات لتسهيل كسب العملاء' : language === 'fr' ? 'Pré-chargez les caractéristiques des voitures pour capturer des leads' : 'Pre-load vehicle specifications so AI captures leads', done: true, href: '/dashboard/settings/chatbot' }
   ]
 
   const doneCount = checklist.filter(item => item.done).length
@@ -240,48 +259,50 @@ export function CarShowroomDashboard({
 
   const quickActions = [
     {
-      title: 'Unified Inbox',
-      desc: 'Answer vehicle and booking questions',
+      title: t('dashboard.view_all', 'Unified Inbox'),
+      desc: language === 'ar' ? 'الرد على استفسارات وحجوزات السيارات' : language === 'fr' ? 'Répondez aux questions sur les véhicules & réservations' : 'Answer vehicle and booking questions',
       icon: Inbox,
       href: '/dashboard/inbox',
       color: 'text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50/20',
-      counter: `${totalConversations} active chats`
+      counter: language === 'ar' ? `${totalConversations} محادثة نشطة` : language === 'fr' ? `${totalConversations} chats actifs` : `${totalConversations} active chats`
     },
     {
-      title: 'Inventory & Lots',
-      desc: 'Add/Edit vehicle specifications',
+      title: language === 'ar' ? 'المخزون والمعرض' : language === 'fr' ? 'Inventaire & Véhicules' : 'Inventory & Lots',
+      desc: language === 'ar' ? 'إضافة وتعديل مواصفات السيارات' : language === 'fr' ? 'Ajoutez ou modifiez les fiches techniques des voitures' : 'Add/Edit vehicle specifications',
       icon: Car,
       href: '/dashboard/management',
       color: 'text-red-600 hover:border-red-200 hover:bg-red-50/20',
-      counter: `${carsCount} active cars`
+      counter: language === 'ar' ? `${carsCount} سيارات نشطة` : language === 'fr' ? `${carsCount} voitures actives` : `${carsCount} active cars`
     },
     {
-      title: 'Leads Kanban',
-      desc: 'Drag leads from contacted to deal closed',
+      title: language === 'ar' ? 'لوحة العملاء المحتملين' : language === 'fr' ? 'Kanban des Leads' : 'Leads Kanban',
+      desc: language === 'ar' ? 'تتبع مسار مبيعات العملاء وتجاوبهم' : language === 'fr' ? 'Suivez la progression des leads jusqu\'à la vente' : 'Drag leads from contacted to deal closed',
       icon: Flame,
       href: '/dashboard/leads',
       color: 'text-amber-600 hover:border-amber-200 hover:bg-amber-50/20',
-      counter: `${hotLeads} HOT leads`
+      counter: language === 'ar' ? `${hotLeads} عميل مهتم جداً` : language === 'fr' ? `${hotLeads} leads CHAUDS` : `${hotLeads} HOT leads`
     }
   ]
 
   return (
-    <div className="p-6 space-y-6 font-geist bg-[#f8fafc] h-[calc(100vh-64px)] overflow-y-auto page-enter text-left">
+    <div className="p-6 space-y-6 font-geist bg-[#f8fafc] h-[calc(100vh-64px)] overflow-y-auto page-enter text-left rtl:text-right">
       
       {/* Top Welcome Title Banner */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-slate-800 flex items-center gap-2">
-            Welcome back, {userName}! <Sparkles className="h-5 w-5 text-red-500 animate-pulse" />
+            {t('dashboard.welcome', 'Welcome back')}, {userName}! <Sparkles className="h-5 w-5 text-red-500 animate-pulse" />
           </h1>
-          <p className="text-xs text-slate-500 mt-1">Here is a quick snapshot of what is happening with your car showroom today.</p>
+          <p className="text-xs text-slate-500 mt-1">
+            {language === 'ar' ? 'إليك نظرة سريعة على ما يحدث في معرض سياراتك اليوم.' : language === 'fr' ? 'Voici un aperçu rapide de ce qui se passe dans votre showroom aujourd\'hui.' : 'Here is a quick snapshot of what is happening with your car showroom today.'}
+          </p>
         </div>
         <div className="flex items-center gap-2 text-xs font-semibold text-red-700 bg-red-50 border border-red-100/50 px-3.5 py-1.5 rounded-full shadow-xs">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
           </span>
-          AI Car Salesperson Active
+          {language === 'ar' ? 'البائع الآلي بالذكاء الاصطناعي نشط' : language === 'fr' ? 'Vendeur Auto IA Actif' : 'AI Car Salesperson Active'}
         </div>
       </div>
 
@@ -292,19 +313,23 @@ export function CarShowroomDashboard({
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="space-y-2 max-w-xl">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold bg-red-500/20 text-red-300 px-2.5 py-1 rounded-full uppercase tracking-wider">Showroom Setup Checklist</span>
-                <span className="text-xs text-slate-400">Step {doneCount} of 4</span>
+                <span className="text-xs font-bold bg-red-500/20 text-red-300 px-2.5 py-1 rounded-full uppercase tracking-wider">
+                  {language === 'ar' ? 'خطوات إعداد المعرض' : language === 'fr' ? 'Guide d\'activation du Showroom' : 'Showroom Setup Checklist'}
+                </span>
+                <span className="text-xs text-slate-400">
+                  {language === 'ar' ? `الخطوة ${doneCount} من 4` : language === 'fr' ? `Étape ${doneCount} sur 4` : `Step ${doneCount} of 4`}
+                </span>
               </div>
               <h2 className="text-lg font-bold tracking-tight text-white flex items-center gap-1.5">
-                Complete your showroom setup <Sparkles className="h-4.5 w-4.5 text-red-450 text-red-400" />
+                {language === 'ar' ? 'أكمل إعداد معرض سياراتك' : language === 'fr' ? 'Complétez la configuration' : 'Complete your showroom setup'} <Sparkles className="h-4.5 w-4.5 text-red-450 text-red-400" />
               </h2>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Configure your digital inventory, schedule test drives, and hook up AI chatbots to qualify leads 24/7 on WhatsApp.
+                {language === 'ar' ? 'قم بتهيئة المخزون الرقمي، وجدول مواعيد تجربة القيادة، وفعّل الرد الآلي للعملاء 24/7.' : language === 'fr' ? 'Configurez votre parc de véhicules, planifiez les essais et activez le chatbot IA pour capturer les leads.' : 'Configure your digital inventory, schedule test drives, and hook up AI chatbots to qualify leads 24/7.'}
               </p>
               
               <div className="pt-2">
                 <div className="flex justify-between items-center text-xs font-bold text-slate-300 mb-1">
-                  <span>Setup Progress</span>
+                  <span>{language === 'ar' ? 'مدى تقدم الإعداد' : language === 'fr' ? 'Progression de l\'activation' : 'Setup Progress'}</span>
                   <span className="text-red-450 text-red-400">{onboardingPercent}%</span>
                 </div>
                 <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden border border-slate-700/50">
@@ -321,7 +346,7 @@ export function CarShowroomDashboard({
                 <Link 
                   href={step.href} 
                   key={step.id}
-                  className={`flex items-start gap-3 p-3 rounded-xl border transition-all duration-200 text-left ${
+                  className={`flex items-start gap-3 p-3 rounded-xl border transition-all duration-200 text-left rtl:text-right ${
                     step.done 
                       ? 'bg-red-950/20 border-red-500/30 text-slate-350 text-slate-300' 
                       : 'bg-slate-900/40 border-slate-800 hover:border-slate-700 text-slate-400 hover:text-white'
@@ -359,7 +384,7 @@ export function CarShowroomDashboard({
       )}
 
       {/* Metrics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
         {statCards.map((card, i) => (
           <div 
             key={i} 
@@ -383,7 +408,7 @@ export function CarShowroomDashboard({
                   }`}>
                     <TrendingUp className="h-3 w-3" /> {card.trend}
                   </span>
-                  <span className="text-[8px] font-medium text-slate-400 mt-0.5 text-center">vs last week</span>
+                  <span className="text-[8px] font-medium text-slate-400 mt-0.5 text-center">real data</span>
                 </div>
               </div>
             </div>
@@ -413,7 +438,7 @@ export function CarShowroomDashboard({
             <div className="h-64 w-full flex items-center justify-center">
               {mounted ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={salesVolumeData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                  <BarChart data={chartSalesVolume} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                     <XAxis 
                       dataKey="month" 
                       axisLine={false} 
@@ -478,7 +503,7 @@ export function CarShowroomDashboard({
                   </ResponsiveContainer>
                   
                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <span className="text-2xl font-black text-slate-800">85%</span>
+                    <span className="text-2xl font-black text-slate-800">{hotWarmRate}%</span>
                     <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Hot/Warm Rate</span>
                   </div>
                 </>
@@ -494,7 +519,8 @@ export function CarShowroomDashboard({
                     <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} />
                     <span className="text-[9px] font-bold text-slate-500">{item.name.split(' ')[0]}</span>
                   </div>
-                  <span className="text-xs font-black text-slate-800 mt-1">{item.value}%</span>
+                  <span className="text-xs font-black text-slate-800 mt-1">{item.value}</span>
+                  <span className="text-[8px] font-bold text-slate-400">{item.percent}%</span>
                 </div>
               ))}
             </div>
@@ -520,8 +546,9 @@ export function CarShowroomDashboard({
           
           <div className="space-y-3">
             {recentLeads.map((conv: any) => {
-              const isHot = conv.lead_score === 'HOT'
-              const isWarm = conv.lead_score === 'WARM'
+              const score = String(conv.lead_score || '').toUpperCase()
+              const isHot = score === 'HOT'
+              const isWarm = score === 'WARM'
               
               let platformIcon = <Inbox className="h-3.5 w-3.5 text-indigo-500" />
               let platformColor = 'bg-indigo-500/10 border-indigo-200'
@@ -561,7 +588,7 @@ export function CarShowroomDashboard({
                       {platformIcon}
                     </span>
                   </div>
-                  <div className="flex-1 overflow-hidden text-left">
+                  <div className="flex-1 overflow-hidden text-left rtl:text-right">
                     <div className="flex items-center gap-1.5">
                       <p className="text-xs font-bold text-slate-800 group-hover:text-red-655 group-hover:text-red-650 transition truncate">
                         {conv.customer_name || conv.customer_phone || 'Anonymous Showroom Lead'}
@@ -594,7 +621,7 @@ export function CarShowroomDashboard({
                             : 'bg-slate-50 text-slate-600 hover:bg-slate-50 border border-slate-100'
                         }`}
                       >
-                        {conv.lead_score}
+                        {score}
                       </Badge>
                     )}
                   </div>
@@ -615,7 +642,7 @@ export function CarShowroomDashboard({
           </div>
           {quickActions.map((action, i) => (
             <Link href={action.href} key={i} className="block group">
-              <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:scale-[1.01] transition-all duration-200 cursor-pointer flex items-center justify-between text-left">
+              <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:scale-[1.01] transition-all duration-200 cursor-pointer flex items-center justify-between text-left rtl:text-right">
                 <div className="flex items-center gap-4">
                   <div className={`h-10 w-10 rounded-xl bg-slate-50 flex items-center justify-center group-hover:bg-red-50 transition ${action.color}`}>
                     <action.icon className="h-5 w-5 stroke-[2]" />

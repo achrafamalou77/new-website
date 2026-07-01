@@ -45,7 +45,7 @@ export function ConversationCard({
   const assignee = mockProfiles.find(p => p.id === conversation.assignee_id)
 
   // Get initials for avatar fallback
-  const name = conversation.customer_name || 'Guest'
+  const name = conversation.customer_name || (conversation.business_type_slug === 'car_showroom' ? 'Client' : 'Guest')
   const initials = name.substring(0, 2).toUpperCase()
 
   // Select platform colors for avatar ring & selected card states

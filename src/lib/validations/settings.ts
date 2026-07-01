@@ -2,7 +2,24 @@ import { z } from 'zod';
 
 const hexColorSchema = z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Invalid hex color format').nullable().optional().transform(v => v ?? '#0f172a').default('#0f172a');
 const phoneSchema = z.string().regex(/^\+213[0-9]{9}$/, 'Must be a valid Algerian phone number (+213XXXXXXXXX)').or(z.literal('')).nullable().optional().transform(v => v ?? '').default('');
-const optionalUrlSchema = z.string().url('Invalid URL').or(z.literal('')).nullable().optional().transform(v => v ?? '').default('');
+const optionalUrlSchema = z.string().trim().url('Invalid URL').or(z.literal('')).nullable().optional().transform(v => v ?? '').default('');
+const publicUrlSchema = z.preprocess(
+  (value) => value == null ? '' : String(value).trim(),
+  z.string()
+    .max(1000, 'URL is too long')
+    .refine((value) => value === '' || /^https?:\/\//i.test(value), 'Use a public http or https URL')
+    .refine((value) => value === '' || !value.startsWith('data:'), 'Paste a hosted image URL, not a raw image file')
+    .refine((value) => {
+      if (value === '') return true
+      try {
+        new URL(value)
+        return true
+      } catch {
+        return false
+      }
+    }, 'Invalid URL')
+).default('');
+const boundedText = (label: string, max = 250) => z.string().trim().max(max, `${label} is too long`).optional().default('');
 
 export const businessHoursSchema = z.object({
   saturday: z.string().default('09:00 - 18:00'),
@@ -16,12 +33,12 @@ export const businessHoursSchema = z.object({
 });
 
 export const socialMediaSchema = z.object({
-  facebook: z.string().default(''),
-  instagram: z.string().default(''),
-  tiktok: z.string().default(''),
-  youtube: z.string().default(''),
-  twitter: z.string().default(''),
-  linkedin: z.string().default('')
+  facebook: publicUrlSchema,
+  instagram: publicUrlSchema,
+  tiktok: publicUrlSchema,
+  youtube: publicUrlSchema,
+  twitter: publicUrlSchema,
+  linkedin: publicUrlSchema
 });
 
 export const websiteConfigSchema = z.object({
@@ -171,13 +188,13 @@ export const websiteConfigSchema = z.object({
     maintenance_message: z.string().optional().default('We are currently updating our website.'),
     cookie_consent: z.boolean().optional().default(false),
     cookie_message: z.string().optional().default('We use cookies.'),
-    publish_status: z.enum(['draft', 'published']).optional().default('published')
+    publish_status: z.enum(['draft', 'published', 'maintenance']).optional().default('published')
   }).passthrough().optional().default({} as any)
 }).passthrough();
 
 export const chatbotConfigSchema = z.object({
   personality: z.object({
-    bot_name: z.string().max(30).optional().default('Assistant'),
+    bot_name: z.string().max(100).optional().default('Assistant'),
     bot_avatar: optionalUrlSchema,
     bot_greeting: z.string().max(500).optional().default('Hello! How can I help you?'),
     bot_farewell: z.string().max(500).optional().default('Goodbye!'),
@@ -236,13 +253,24 @@ export const chatbotConfigSchema = z.object({
     voice_reply: z.boolean().optional().default(false),
     show_conversation_stats: z.boolean().optional().default(true)
   }).optional().default({} as any)
-});
+}).passthrough();
 
 export const agencyInfoSchema = z.object({
-  company_name: z.string().default(""),
-  phone: z.string().default(""),
-  email: z.string().default(""),
-  address: z.string().default(""),
+  company_name: z.string().trim().min(2, 'Business name is required').max(120, 'Business name is too long'),
+  phone: phoneSchema.refine((value) => value.length > 0, 'Business phone is required'),
+  whatsapp_phone: phoneSchema,
+  email: z.string().trim().email('Enter a valid business email').max(160, 'Business email is too long'),
+  address: boundedText('Address', 500),
+  logo_url: publicUrlSchema,
+  currency: z.enum(['DZD', 'EUR', 'USD', 'SAR', 'AED']).optional().default('DZD'),
+  payment_info: z.object({
+    ccp_account: boundedText('CCP account', 80),
+    bank_name: boundedText('Bank name', 120),
+    bank_account: boundedText('Bank account', 120),
+    rib: boundedText('RIB', 120),
+    payment_notes: boundedText('Payment notes', 600)
+  }).optional().default({} as any),
+  bank_integrations: z.record(z.string(), z.boolean()).optional().default({}),
   business_hours: businessHoursSchema.optional().default({} as any),
   social_media: socialMediaSchema.optional().default({} as any)
 });

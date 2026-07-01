@@ -3,12 +3,49 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LogOut, ChevronLeft, ChevronRight, MessageSquare, Flame, Users, Car, Users2, Bot, Globe, Settings, Pin, PinOff, Menu } from 'lucide-react'
+import { LogOut, ChevronLeft, ChevronRight, Globe, Pin, PinOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { NAVIGATION_CONFIG } from '@/lib/navigation'
 import { useSidebarStore } from '@/lib/stores/sidebar-store'
+import { useLanguage } from '@/lib/contexts/LanguageContext'
+import { canAccessPath, ROLE_LABELS, normalizeRole } from '@/lib/permissions'
+
+// Maps the hardcoded English nav item names in navigation.ts to their translation keys
+const NAV_KEY_MAP: Record<string, string> = {
+  'Inbox': 'nav.inbox',
+  'Autonomous Agent': 'nav.autonomousagent',
+  'Leads Board': 'nav.leadsboard',
+  'Clients': 'nav.clients',
+  'Trips Catalog': 'nav.tripscatalog',
+  'Bookings': 'nav.bookings',
+  'Visa Services': 'nav.visaservices',
+  'Invoices': 'nav.invoices',
+  'Finance & Money': 'nav.financemoney',
+  'Team Members': 'nav.teammembers',
+  'Team': 'nav.teammembers',
+  'Site Web Builder': 'nav.sitewebbuilder',
+  'Chatbot Bot AI': 'nav.chatbotbotai',
+  'Data Importer': 'nav.dataimporter',
+  'Agency Settings': 'nav.agencysettings',
+  'Subscription & Plan': 'nav.subscriptionplan',
+  'Car Sales': 'nav.carsales',
+  'Car Rental': 'nav.carrental',
+  'Car Import': 'nav.carimport',
+  'Customs & Finance': 'nav.customsfinance',
+  'Chatbot Settings': 'nav.chatbotsettings',
+  'Website Settings': 'nav.websitesettings',
+  'Business Settings': 'nav.businesssettings',
+  'Products': 'nav.products',
+  'Store Analytics': 'nav.storeanalytics',
+  'Store Customers': 'nav.storecustomers',
+  'Orders': 'nav.orders',
+  'Inventory': 'nav.inventory',
+  'Shipping': 'nav.shipping',
+  'Promotions': 'nav.promotions',
+  'Storefront Builder': 'nav.storefrontbuilder',
+  'Product Importer': 'nav.productimporter',
+}
 
 interface SidebarProps {
   role?: string
@@ -21,39 +58,53 @@ interface SidebarProps {
   salesCount?: number
   rentalCount?: number
   importCount?: number
+  ordersCount?: number
+  productsCount?: number
+  lowStockCount?: number
 }
 
-export function Sidebar({ 
-  role = 'superadmin', 
+export function Sidebar({
+  role = 'superadmin',
   businessTypeSlug = 'travel',
-  unreadInboxCount = 0, 
-  clientsCount = 0, 
+  unreadInboxCount = 0,
+  clientsCount = 0,
   unpaidInvoicesCount = 0,
   pendingVisasCount = 3,
   activeLeadsCount = 0,
   salesCount = 8,
   rentalCount = 4,
-  importCount = 3
+  importCount = 3,
+  ordersCount = 12,
+  productsCount = 48,
+  lowStockCount = 6
 }: SidebarProps) {
+  const { t, dir } = useLanguage()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const isRtl = mounted && dir === 'rtl'
   const pathname = usePathname()
   const router = useRouter()
   const [isCollapsed, setIsCollapsed] = useState(false)
   const { isOpen, setIsOpen, isPinned, togglePinned, isHovered, setIsHovered } = useSidebarStore()
 
-  // Hover-expand logic: Expanded if not collapsed OR if hovered (only in pinned mode)
   const isExpanded = isPinned ? (!isCollapsed || isHovered) : true
 
-  // Resolve active vertical slug dynamically based on pathname to prevent mixing contexts in showcase/demo mode
+  // Resolve active vertical slug dynamically
   let activeBusinessTypeSlug = businessTypeSlug
   if (pathname.includes('/dashboard/management/') || pathname.includes('/dashboard/management')) {
     activeBusinessTypeSlug = 'car_showroom'
+  } else if (pathname.includes('/dashboard/store')) {
+    activeBusinessTypeSlug = 'ecommerce'
   } else if (pathname.includes('/dashboard/trips') || pathname.includes('/dashboard/visa') || pathname.includes('/dashboard/bookings') || pathname.includes('/dashboard/invoices')) {
     activeBusinessTypeSlug = 'travel'
   }
 
   const currentConfig = NAVIGATION_CONFIG[activeBusinessTypeSlug] || NAVIGATION_CONFIG.travel
 
-  // Map keys to prop values
   const getBadgeValue = (key?: string) => {
     if (!key) return 0
     switch (key) {
@@ -65,21 +116,21 @@ export function Sidebar({
       case 'salesCount': return salesCount
       case 'rentalCount': return rentalCount
       case 'importCount': return importCount
+      case 'ordersCount': return ordersCount
+      case 'productsCount': return productsCount
+      case 'lowStockCount': return lowStockCount
       default: return 0
     }
   }
 
-  // Keyboard Shortcuts (Cmd+1 for Inbox, etc.)
+  // Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const isCmdOrCtrl = e.metaKey || e.ctrlKey
       if (isCmdOrCtrl && e.key >= '1' && e.key <= '9') {
         const idx = parseInt(e.key, 10) - 1
-        
-        // Flatten items to match index
         const flatItems = currentConfig.flatMap(g => g.items)
         const targetItem = flatItems[idx]
-
         if (targetItem) {
           e.preventDefault()
           router.push(targetItem.href)
@@ -87,235 +138,241 @@ export function Sidebar({
         }
       }
     }
-
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [router, role, currentConfig, isPinned, setIsOpen])
 
-  // Dynamic naming based on business vertical
   const getBranding = () => {
     switch (activeBusinessTypeSlug) {
       case 'car_showroom':
-        return { name: 'Auto Showroom', sub: 'SaaS Showroom', bg: 'from-red-600 to-red-400', initial: 'AS' }
+        return { name: 'Auto Showroom', sub: 'Car SaaS', color: '#dc2626', bg: '#fef2f2', initial: 'AS' }
       case 'real_estate':
-        return { name: 'Real Estate', sub: 'SaaS Agency', bg: 'from-emerald-600 to-emerald-400', initial: 'RE' }
+        return { name: 'Real Estate', sub: 'Property SaaS', color: '#059669', bg: '#ecfdf5', initial: 'RE' }
       case 'ecommerce':
-        return { name: 'ShopPro Elite', sub: 'SaaS E-store', bg: 'from-purple-600 to-purple-400', initial: 'SP' }
+        return { name: 'ShopPro Elite', sub: 'E-Store SaaS', color: '#7c3aed', bg: '#f5f3ff', initial: 'SP' }
       default:
-        return { name: 'Travel Agency', sub: 'SaaS Platform', bg: 'from-blue-600 to-blue-400', initial: 'TA' }
+        return { name: 'Snipe.dz', sub: 'Travel SaaS', color: '#2563eb', bg: '#eff6ff', initial: 'SN' }
     }
   }
 
   const branding = getBranding()
 
-  // Build responsive, dynamic wrapper classes
   const sidebarClasses = cn(
-    "h-screen select-none transition-[width,transform,opacity] duration-200 cubic-bezier(0.16, 1, 0.3, 1) z-40 border-r border-slate-200/80 bg-white flex flex-col justify-between shadow-xs",
-    isPinned 
+    "h-screen select-none transition-[width,transform] duration-200 ease-in-out z-50 flex flex-col rtl:border-r-0 rtl:border-l",
+    "bg-white border-r border-[#e8eaed]",
+    isPinned
       ? cn(
-          "hidden lg:flex shrink-0 sticky top-0",
-          isExpanded ? "w-[280px]" : "w-[80px]"
+          "fixed top-0 left-0 shadow-2xl lg:sticky lg:flex lg:shrink-0 lg:translate-x-0 lg:shadow-none rtl:left-auto rtl:right-0",
+          isOpen ? "translate-x-0 w-[252px]" : "-translate-x-full w-0 overflow-hidden pointer-events-none lg:pointer-events-auto rtl:translate-x-full lg:rtl:translate-x-0",
+          isExpanded ? "lg:w-[252px]" : "lg:w-[68px]"
         )
       : cn(
-          "fixed top-0 left-0 bg-white/75 backdrop-blur-md border-r border-white/20 shadow-2xl",
-          isOpen ? "translate-x-0 w-[280px]" : "-translate-x-full w-0 overflow-hidden pointer-events-none"
+          "fixed top-0 left-0 shadow-2xl rtl:left-auto rtl:right-0",
+          isOpen ? "translate-x-0 w-[252px]" : "-translate-x-full w-0 overflow-hidden pointer-events-none rtl:translate-x-full"
         )
   )
 
   return (
     <>
-      {/* Backdrop overlay for Focused (unpinned) drawer view */}
-      {(!isPinned && isOpen) && (
-        <div 
-          onClick={() => setIsOpen(false)} 
-          className="fixed inset-0 bg-slate-900/30 backdrop-blur-xs z-30 transition-all duration-300 animate-fadeIn"
+      {/* Backdrop overlay */}
+      {isOpen && (
+        <div
+          onClick={() => setIsOpen(false)}
+          className={cn(
+            "fixed inset-0 bg-gray-900/30 backdrop-blur-[2px] z-30 transition-opacity duration-200 animate-fadeIn",
+            isPinned && "lg:hidden"
+          )}
         />
       )}
 
-      <div 
+      <div
         onMouseEnter={() => { if (isPinned) setIsHovered(true) }}
         onMouseLeave={() => { if (isPinned) setIsHovered(false) }}
         className={sidebarClasses}
       >
-        
-        {/* Top Header Logo */}
-        <div className="flex flex-col px-5 pt-6 pb-4">
+
+        {/* Logo / Branding */}
+        <div className={cn("px-4 pt-[18px] pb-4 border-b border-[#f0f1f3]", !isExpanded && "px-3 pb-3")}>
           <div className={cn("flex items-center gap-3", !isExpanded && "justify-center")}>
-            <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white font-bold shadow-md bg-gradient-to-tr", branding.bg)}>
+            <div
+              className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[10px] text-white font-bold text-[12px] shadow-sm transition-all duration-200"
+              style={{ backgroundColor: branding.color }}
+            >
               {branding.initial}
             </div>
             {isExpanded && (
-              <div className="flex flex-col text-left animate-fadeIn">
-                <span className="font-semibold text-slate-800 tracking-tight leading-tight">
+              <div className="flex flex-col text-left rtl:text-right animate-fadeIn min-w-0">
+                <span className="font-[750] text-gray-900 text-[13px] leading-tight truncate tracking-tight">
                   {branding.name}
                 </span>
-                <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mt-0.5">{branding.sub}</span>
+                <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-[0.06em] mt-[1px]">
+                  {branding.sub}
+                </span>
               </div>
             )}
           </div>
         </div>
 
-        {/* Navigation Sections */}
-        <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6 scrollbar-thin">
+        {/* Navigation */}
+        <div className="flex-1 overflow-y-auto px-2.5 py-3 scrollbar-none">
           {currentConfig.map((group, groupIdx) => (
-            <div key={groupIdx} className="space-y-1">
-              {groupIdx > 0 && <div className="h-4" />}
-              <div className="space-y-1">
-                {group.items.map((item, itemIdx) => {
-                  // Hide Team and Settings for employee
-                  if (role === 'employee' && (item.name.includes('Team') || item.name.includes('Settings') || item.name.includes('Config') || item.name.includes('AI') || item.name.includes('Business'))) {
-                    return null
-                  }
+            <div key={groupIdx} className={cn("space-y-[2px]", groupIdx > 0 && "mt-4")}>
+              {isExpanded && group.title ? (
+                <div className="px-3 mb-1.5 mt-4 first:mt-1">
+                  <span className="text-[10px] font-[750] text-gray-400 uppercase tracking-[0.14em] block select-none">
+                    {mounted ? t(group.title, group.title) : group.title}
+                  </span>
+                </div>
+              ) : (
+                !isExpanded && groupIdx > 0 && (
+                  <div className="px-2 mb-2.5 mt-1">
+                    <div className="h-px bg-[#f0f1f3]" />
+                  </div>
+                )
+              )}
+              {group.items.map((item) => {
+                if (!canAccessPath(role, item.href)) {
+                  return null
+                }
 
-                  // Check active state
-                  const isActive = pathname.startsWith(item.href)
-                  const shortcutIndex = groupIdx === 0 ? itemIdx + 1 : null
-                  const badgeVal = getBadgeValue(item.badgeKey)
+                const isActive = pathname.startsWith(item.href)
+                const badgeVal = getBadgeValue(item.badgeKey)
 
-                  return (
-                    <Link
-                      key={item.name}
-                      href={item.href}
-                      title={!isExpanded ? item.name : undefined}
-                      onClick={() => {
-                        if (!isPinned) setIsOpen(false)
-                      }}
-                      className={cn(
-                        "flex items-center justify-between py-2.5 transition-all duration-200 group font-medium text-[13px] relative",
-                        isActive 
-                          ? "border-l-[3px] border-blue-600 bg-blue-50/50 text-blue-600 rounded-none pl-[9px] pr-3" 
-                          : "text-slate-500 hover:bg-slate-50 hover:text-slate-700 rounded-xl pl-3 pr-3",
-                        !isExpanded && "justify-center pl-0 pr-0"
-                      )}
-                    >
-                      <div className={cn("flex items-center gap-3", !isExpanded && "justify-center")}>
-                        <item.icon 
-                          className={cn(
-                            "h-[22px] w-[22px] shrink-0 transition-transform duration-200 group-hover:scale-105", 
-                            isActive ? "text-blue-600" : "text-slate-400 group-hover:text-slate-600"
-                          )}
-                          strokeWidth={2.5}
-                        />
-                        {isExpanded && <span className="animate-fadeIn">{item.name}</span>}
-                      </div>
-
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    title={!isExpanded ? item.name : undefined}
+                    onClick={() => setIsOpen(false)}
+                    className={cn(
+                      "flex items-center justify-between px-2.5 py-[7px] rounded-[10px] text-[13px] font-medium transition-all duration-100 group",
+                      isActive
+                        ? "bg-[#111827] text-white"
+                        : "text-[#6b7280] hover:bg-[#f3f4f6] hover:text-[#111827]",
+                      !isExpanded && "justify-center px-2"
+                    )}
+                  >
+                    <div className={cn("flex items-center gap-2.5", !isExpanded && "justify-center")}>
+                      <item.icon
+                        className={cn(
+                          "h-[15px] w-[15px] shrink-0 transition-colors",
+                          isActive ? "text-white" : "text-[#9ca3af] group-hover:text-[#374151]"
+                        )}
+                        strokeWidth={isActive ? 2.2 : 1.9}
+                      />
                       {isExpanded && (
-                        <div className="flex items-center gap-1.5 ml-auto">
-                          {/* Keyboard shortcut display */}
-                          {shortcutIndex !== null && shortcutIndex <= 9 && (
-                            <kbd className="hidden group-hover:inline-flex items-center text-[9px] text-slate-400 bg-slate-100 border border-slate-200 px-1 py-0.2 rounded font-mono select-none scale-90">
-                              ⌘{shortcutIndex}
-                            </kbd>
-                          )}
-
-                          {/* Badges */}
-                          {badgeVal > 0 && (
-                            <Badge className={cn(
-                              "text-[10px] px-2 py-0.5 rounded-full transition shadow-xs font-bold flex items-center gap-1",
-                              item.badgeColor
-                            )}>
-                              {item.showGlobe && <Globe className="h-2.5 w-2.5 shrink-0" />}
-                              {badgeVal}
-                            </Badge>
-                          )}
-                        </div>
+                        <span className="animate-fadeIn leading-none text-[12.5px]">
+                          {mounted
+                            ? t(NAV_KEY_MAP[item.name] || 'nav.' + item.name.toLowerCase().replace(/[^a-z]/g, ''), item.name)
+                            : item.name
+                          }
+                        </span>
                       )}
-                    </Link>
-                  )
-                })}
-              </div>
+                    </div>
+
+                    {isExpanded && badgeVal > 0 && (
+                      <Badge className={cn(
+                        "text-[10px] h-[18px] min-w-[18px] px-1.5 rounded-full font-bold ml-auto border-0 shadow-none",
+                        isActive
+                          ? "bg-white/20 text-white"
+                          : item.badgeColor
+                      )}>
+                        {item.showGlobe && <Globe className="h-2.5 w-2.5 shrink-0 mr-0.5" />}
+                        {badgeVal}
+                      </Badge>
+                    )}
+                  </Link>
+                )
+              })}
             </div>
           ))}
 
-          {/* General Divider & Logout */}
-          <div className="h-4" />
-          <div className="space-y-1">
-            <button 
-              title={!isExpanded ? "Log Out" : undefined}
-              onClick={async () => {
-                const { logout } = await import('@/app/actions/auth')
-                await logout()
+          {/* Logout */}
+          <div className="mt-3 pt-3 border-t border-[#f0f1f3]">
+            <button
+              title={!isExpanded ? (mounted ? t('nav.logout', 'Log Out') : 'Log Out') : undefined}
+              onClick={() => {
+                window.location.href = '/api/auth/logout'
               }}
               className={cn(
-                "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] text-slate-500 hover:bg-red-50 hover:text-red-600 font-medium transition text-left group cursor-pointer",
-                !isExpanded && "justify-center px-0"
+                "flex w-full items-center gap-2.5 px-2.5 py-[7px] text-[12.5px] text-[#6b7280] hover:bg-red-50 hover:text-red-600 font-medium rounded-[10px] transition-all duration-100 cursor-pointer group text-left rtl:text-right",
+                !isExpanded && "justify-center px-2"
               )}
             >
-              <LogOut 
-                className="h-[22px] w-[22px] text-slate-400 group-hover:text-red-500 transition-colors shrink-0" 
-                strokeWidth={2.5}
-              />
-              {isExpanded && <span className="animate-fadeIn">Log Out</span>}
+              <LogOut className="h-[15px] w-[15px] text-[#9ca3af] group-hover:text-red-500 transition-colors shrink-0" strokeWidth={1.9} />
+              {isExpanded && <span className="animate-fadeIn">{mounted ? t('nav.logout', 'Log Out') : 'Log Out'}</span>}
             </button>
           </div>
         </div>
 
-        {/* Bottom User Profile Section */}
-        <div className={cn("p-4 border-t border-slate-100 bg-slate-50/50", !isExpanded && "flex justify-center")}>
-          <div className={cn("flex items-center gap-3 bg-white p-3 rounded-2xl border border-slate-200/40 shadow-xs w-full", !isExpanded && "p-1.5 border-0 bg-transparent shadow-none w-auto justify-center")}>
+        {/* User Profile */}
+        <div className={cn("px-2.5 py-3 border-t border-[#f0f1f3]", !isExpanded && "flex justify-center px-2")}>
+          <div className={cn(
+            "flex items-center gap-2.5 px-2.5 py-2 rounded-[10px] transition-colors duration-100 cursor-pointer group w-full",
+            "hover:bg-[#f3f4f6]",
+            !isExpanded && "w-auto p-2 hover:bg-[#f3f4f6]"
+          )}>
             <div className="relative shrink-0">
-              <Avatar className={cn("h-10 w-10 border border-blue-100 shadow-xs shrink-0")}>
-                <AvatarFallback className="bg-blue-50/80 text-blue-600 font-bold text-sm">
-                  {role === 'employee' ? 'AB' : 'AA'}
-                </AvatarFallback>
-              </Avatar>
-              <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 border-2 border-white ring-1 ring-emerald-400/20" />
+              <div className="h-[30px] w-[30px] rounded-full bg-blue-600 flex items-center justify-center text-white text-[10px] font-bold ring-2 ring-blue-100">
+                {normalizeRole(role).slice(0, 2).toUpperCase()}
+              </div>
+              <span className="absolute -bottom-[1px] -right-[1px] h-[8px] w-[8px] rounded-full bg-emerald-500 border-[1.5px] border-white" />
             </div>
             {isExpanded && (
-              <div className="flex flex-col overflow-hidden text-left min-w-0 animate-fadeIn">
-                <span className="truncate text-xs font-bold text-slate-700 leading-tight">
-                  {role === 'employee' ? 'Amine Belkadi' : 'Achraf Amalou'}
+              <div className="flex flex-col overflow-hidden text-left rtl:text-right min-w-0 animate-fadeIn">
+                <span className="truncate text-[12px] font-semibold text-[#111827] leading-tight">
+                  {ROLE_LABELS[normalizeRole(role)]}
                 </span>
-                <span className="text-[10px] text-slate-400 font-semibold capitalize mt-0.5 leading-none">
-                  {role === 'employee' ? 'Sales Agent' : 'Superadmin'}
+                <span className="text-[10px] text-[#9ca3af] capitalize leading-tight mt-[1px]">
+                  {ROLE_LABELS[normalizeRole(role)]}
                 </span>
               </div>
             )}
           </div>
         </div>
 
-        {/* Bottom Toggle Bar (Focused vs Docked, and Collapse trigger) */}
-        <div className="p-4 border-t border-slate-100 flex flex-col gap-2 shrink-0 bg-white">
-          
-          {/* Focused View Pin Switch */}
+        {/* Bottom Controls */}
+        <div className="px-2.5 pb-3 pt-2 border-t border-[#f0f1f3] flex flex-col gap-1.5">
           <div className="flex items-center justify-between">
             {isExpanded && (
-              <span className="text-[11px] text-slate-400 font-semibold tracking-tight uppercase">Focused Mode</span>
+              <span className="text-[10px] text-[#9ca3af] font-semibold tracking-wide uppercase px-1">
+                {mounted ? t('sidebar.focusedMode', 'Focused Mode') : 'Focused Mode'}
+              </span>
             )}
-            <button 
+            <button
               onClick={togglePinned}
               className={cn(
-                "h-8 w-8 rounded-lg transition-all flex items-center justify-center active:scale-95 cursor-pointer border",
-                !isPinned 
-                  ? "bg-indigo-50 border-indigo-100/50 text-indigo-600" 
-                  : "bg-transparent border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50",
+                "h-6 w-6 rounded-lg transition-all flex items-center justify-center cursor-pointer text-xs",
+                !isPinned
+                  ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                  : "bg-transparent text-[#9ca3af] hover:text-[#6b7280] hover:bg-[#f3f4f6]",
                 !isExpanded && "mx-auto"
               )}
-              title={isPinned ? "Switch to Focused Fullscreen View" : "Pin Menu (Docked View)"}
+              title={isPinned ? "Switch to Focused View" : "Pin Menu (Docked)"}
             >
-              {isPinned ? (
-                <PinOff className="h-3.5 w-3.5 stroke-[2.5]" />
-              ) : (
-                <Pin className="h-3.5 w-3.5 stroke-[2.5]" />
-              )}
+              {isPinned ? <PinOff className="h-[11px] w-[11px]" /> : <Pin className="h-[11px] w-[11px]" />}
             </button>
           </div>
 
-          {/* Traditional Expand/Collapse Arrow (Only shown when Docked/Pinned) */}
           {isPinned && (
-            <div className="flex items-center justify-between pt-2 border-t border-slate-100/60 transition-all">
+            <div className="flex items-center justify-between">
               {isExpanded && (
-                <span className="text-[11px] text-slate-400 font-semibold uppercase">Minimize</span>
+                <span className="text-[10px] text-[#9ca3af] font-semibold uppercase tracking-wide px-1">
+                  {mounted ? t('sidebar.minimize', 'Minimize') : 'Minimize'}
+                </span>
               )}
-              <button 
+              <button
                 onClick={() => setIsCollapsed(!isCollapsed)}
                 className={cn(
-                  "h-8 w-8 rounded-lg hover:bg-slate-50 text-slate-400 hover:text-slate-600 transition flex items-center justify-center active:scale-95 cursor-pointer",
+                  "h-6 w-6 rounded-lg hover:bg-[#f3f4f6] text-[#9ca3af] hover:text-[#6b7280] transition flex items-center justify-center cursor-pointer",
                   !isExpanded && "mx-auto"
                 )}
-                title={isExpanded ? "Collapse Sidebar" : "Expand Sidebar"}
+                title={isExpanded ? "Collapse" : "Expand"}
               >
-                {isCollapsed ? <ChevronRight className="h-4 w-4 stroke-[2.5]" /> : <ChevronLeft className="h-4 w-4 stroke-[2.5]" />}
+                {isCollapsed
+                  ? (isRtl ? <ChevronLeft className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />)
+                  : (isRtl ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />)
+                }
               </button>
             </div>
           )}

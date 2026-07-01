@@ -53,7 +53,7 @@ export default function VisualBuilderPage() {
 
   if (loading) {
     return (
-      <div className="h-screen w-screen bg-[#0a0a0a] flex flex-col items-center justify-center text-slate-400 gap-4">
+      <div className="fixed inset-0 z-[9999] bg-[#0a0a0a] flex flex-col items-center justify-center text-slate-400 gap-4">
         <RefreshCw className="h-10 w-10 animate-spin text-rose-500" />
         <span className="text-xs font-black uppercase tracking-widest text-slate-300">
           Chargement de l'atelier de création...
@@ -64,7 +64,7 @@ export default function VisualBuilderPage() {
 
   if (error) {
     return (
-      <div className="h-screen w-screen bg-[#0a0a0a] flex flex-col items-center justify-center text-slate-400 gap-4">
+      <div className="fixed inset-0 z-[9999] bg-[#0a0a0a] flex flex-col items-center justify-center text-slate-400 gap-4">
         <div className="text-red-400 text-sm font-bold">{error}</div>
       </div>
     )

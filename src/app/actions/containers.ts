@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
+import { buildContainerTrackingSnapshot } from '@/lib/container-tracking'
 
 
 // Fetch all containers for the current agency
@@ -245,13 +246,86 @@ function maskClientName(name: string): string {
   }).join(' ')
 }
 
+// ─── Dynamic Live AIS Marine Vessel Tracking Simulation ──────────────────────
+function getLiveTrackingInfo(containerObj: any) {
+  return buildContainerTrackingSnapshot(containerObj)
+
+/*
+  if (!containerObj) return null
+
+  const status = (containerObj.status || '').toLowerCase()
+  
+  let lat = 39.5
+  let lng = 4.2
+  let speed = 19.4
+  let heading = 188
+  let statusText = 'Under Way Using Engine'
+  let historyLogs = [
+    { time: '2026-05-24T08:00:00Z', event: 'Port Gate-In & Verified', loc: containerObj.departure_port || 'Marseille Port' },
+    { time: '2026-05-24T14:30:00Z', event: 'Vessel Loaded & Secured', loc: containerObj.departure_port || 'Marseille Port' }
+  ]
+
+  if (status.includes('origin') || status.includes('depart') || status.includes('quote') || status.includes('deposit') || status.includes('ordered')) {
+    lat = 43.3444
+    lng = 5.3484 // Marseille
+    speed = 0.0
+    heading = 0
+    statusText = 'Moored / Loading manifests'
+    historyLogs.push({ time: '2026-05-25T08:00:00Z', event: 'Manifest Loaded into System', loc: containerObj.departure_port || 'Marseille Port' })
+  } else if (status.includes('vessel') || status.includes('sea') || status.includes('transit') || status.includes('ship')) {
+    lat = 39.8452
+    lng = 4.3121 // Middle of Mediterranean Sea
+    speed = 18.6
+    heading = 194
+    statusText = 'Under Way Using Engine (Sailing)'
+    historyLogs.push(
+      { time: '2026-05-25T02:15:00Z', event: 'Sailed Marseille Anchorage', loc: 'Gulf of Lion' },
+      { time: '2026-05-26T06:30:00Z', event: 'AIS Beacon Sweep Active', loc: 'Balearic Sea (Sardinia passage)' }
+    )
+  } else if (status.includes('arrived') || status.includes('algiers') || status.includes('customs') || status.includes('port')) {
+    lat = 36.7725
+    lng = 3.0714 // Algiers Port
+    speed = 0.0
+    heading = 90
+    statusText = 'Moored / Discharging Cargo'
+    historyLogs.push(
+      { time: '2026-05-25T02:15:00Z', event: 'Sailed Marseille Anchorage', loc: 'Gulf of Lion' },
+      { time: '2026-05-25T23:00:00Z', event: 'Vessel Berthed', loc: 'Port of Algiers' },
+      { time: '2026-05-26T09:00:00Z', event: 'Customs Transit Agent Notified', loc: 'Algiers Customs Terminal' }
+    )
+  } else if (status.includes('dispatch') || status.includes('deliver') || status.includes('ready')) {
+    lat = 36.7525
+    lng = 3.0414 // Showroom
+    speed = 0.0
+    heading = 0
+    statusText = 'Delivered & De-consolidated'
+    historyLogs.push(
+      { time: '2026-05-25T23:00:00Z', event: 'Vessel Berthed', loc: 'Port of Algiers' },
+      { time: '2026-05-26T08:15:00Z', event: 'Customs Clearance Finalized', loc: 'Algiers Customs Terminal' },
+      { time: '2026-05-26T11:30:00Z', event: 'Dispatched to Showroom Hub', loc: 'Algeria Regional Logistics' }
+    )
+  }
+
+  return {
+    vessel_name: containerObj.vessel_name || 'MSC VALERIA V-88',
+    vessel_speed: speed,
+    vessel_heading: heading,
+    vessel_lat: lat,
+    vessel_lng: lng,
+    vessel_status: statusText,
+    vessel_route: `${containerObj.departure_port || 'Marseille, FR'} ➔ ${containerObj.arrival_port || 'Algiers, DZ'}`,
+    ais_quality: 'Class-A Satellite AIS (Excellent)',
+    ais_history: historyLogs
+  }
+*/
+}
+
 export async function getContainerTrackingInfo(query: string, agencyId: string, clientPhone?: string) {
   const supabase = createAdminClient()
   const cleanQuery = query.trim().toUpperCase()
   const agencyUuid = agencyId
 
   // 1. Check if the query is a Phone Number
-  // Algerian phone regex check: e.g. 05/06/07 followed by 8 digits, or +213 followed by 9 digits, or 9-digit direct numbers
   const isPhone = /^(0[567]\d{8}|\+213[567]\d{8}|[567]\d{8})$/.test(cleanQuery)
 
   if (isPhone) {
@@ -279,11 +353,22 @@ export async function getContainerTrackingInfo(query: string, agencyId: string, 
         return { success: false, error: 'Erreur lors du chargement des commandes.' }
       }
 
+      // Enrich joined container for client phone searches
+      const enrichedOrders = (clientOrders || []).map((order: any) => {
+        if (order.container) {
+          order.container = {
+            ...order.container,
+            live_tracking: getLiveTrackingInfo(order.container)
+          }
+        }
+        return order
+      })
+
       return { 
         success: true, 
         type: 'client_phone', 
         client: clientObj, 
-        data: clientOrders || [] 
+        data: enrichedOrders
       }
     } else {
       return { success: false, error: 'Aucun dossier client trouvé pour ce numéro de téléphone dans cet établissement.' }
@@ -291,7 +376,6 @@ export async function getContainerTrackingInfo(query: string, agencyId: string, 
   }
 
   // 2. Check if query is a Container Number
-  // Typically, container numbers are alphanumeric, e.g. MSCU8829402 (length >= 6)
   const isContainerNumber = /^[A-Z0-9]{4,15}$/.test(cleanQuery)
 
   if (isContainerNumber) {
@@ -341,6 +425,7 @@ export async function getContainerTrackingInfo(query: string, agencyId: string, 
             client: clientData,
             data: [{
               ...containerObj,
+              live_tracking: getLiveTrackingInfo(containerObj),
               import_orders: filteredOrders
             }]
           }
@@ -358,6 +443,7 @@ export async function getContainerTrackingInfo(query: string, agencyId: string, 
           lockedCargo: true,
           data: [{
             ...containerObj,
+            live_tracking: getLiveTrackingInfo(containerObj),
             import_orders: [] // Keep vehicle array strictly empty to preserve privacy
           }]
         }
@@ -366,7 +452,6 @@ export async function getContainerTrackingInfo(query: string, agencyId: string, 
   }
 
   // 3. Check if query is a Unique Vehicle Tracking Number
-  // e.g. starts with MSCTRK or other common patterns, or length between 6 and 20
   if (cleanQuery.length >= 6) {
     const { data: matchingOrders, error: orderErr } = await (supabase)
       .from('import_orders')
@@ -391,7 +476,11 @@ export async function getContainerTrackingInfo(query: string, agencyId: string, 
         client: maskedClient,
         total_cost: 0,
         deposit_paid: 0,
-        balance_due: 0
+        balance_due: 0,
+        container: order.container ? {
+          ...order.container,
+          live_tracking: getLiveTrackingInfo(order.container)
+        } : null
       }
 
       return {
@@ -408,4 +497,3 @@ export async function getContainerTrackingInfo(query: string, agencyId: string, 
     error: 'Recherche non valide ou inexistante. Veuillez entrer un N° de Conteneur (ex: MSCU8829402), votre N° de Téléphone (ex: 0770123456) ou votre N° de Suivi Unique.' 
   }
 }
-

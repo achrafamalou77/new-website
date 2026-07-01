@@ -47,7 +47,7 @@ export function PlatformSelector({
       activeClass: 'bg-[#25D366] text-white shadow-[0_0_15px_rgba(37,211,102,0.35)]', 
       activeClassDark: 'bg-[#25D366] text-white shadow-[0_0_20px_rgba(37,211,102,0.35)]', 
       hoverClass: 'text-slate-400 hover:text-[#25D366] hover:bg-[#25D366]/10',
-      hoverClassDark: 'text-slate-550 hover:text-[#25D366] hover:bg-[#25D366]/15',
+      hoverClassDark: 'text-slate-500 hover:text-[#25D366] hover:bg-[#25D366]/15',
       unread: unreadCounts.whatsapp 
     },
     { 
@@ -57,7 +57,7 @@ export function PlatformSelector({
       activeClass: 'bg-[#0084FF] text-white shadow-[0_0_15px_rgba(0,132,255,0.35)]', 
       activeClassDark: 'bg-[#0084FF] text-white shadow-[0_0_20px_rgba(0,132,255,0.35)]',
       hoverClass: 'text-slate-400 hover:text-[#0084FF] hover:bg-[#0084FF]/10',
-      hoverClassDark: 'text-slate-550 hover:text-[#0084FF] hover:bg-[#0084FF]/15',
+      hoverClassDark: 'text-slate-500 hover:text-[#0084FF] hover:bg-[#0084FF]/15',
       unread: unreadCounts.facebook 
     },
     { 
@@ -67,7 +67,7 @@ export function PlatformSelector({
       activeClass: 'bg-gradient-to-tr from-[#fdf497] via-[#fd5949] to-[#d6249f] text-white shadow-[0_0_15px_rgba(214,36,159,0.35)]', 
       activeClassDark: 'bg-gradient-to-tr from-[#fdf497] via-[#fd5949] to-[#d6249f] text-white shadow-[0_0_20px_rgba(214,36,159,0.35)]',
       hoverClass: 'text-slate-400 hover:text-pink-500 hover:bg-pink-500/10',
-      hoverClassDark: 'text-slate-550 hover:text-pink-400 hover:bg-white/10',
+      hoverClassDark: 'text-slate-500 hover:text-pink-400 hover:bg-white/10',
       unread: unreadCounts.instagram 
     }
   ]
@@ -80,7 +80,7 @@ export function PlatformSelector({
       colorClass: 'text-red-500',
       activeClass: 'bg-red-500 text-white shadow-[0_0_15px_rgba(239,68,68,0.4)] border border-transparent', 
       hoverClass: 'text-slate-400 hover:text-red-500 hover:bg-red-500/10',
-      hoverClassDark: 'text-slate-550 hover:text-red-400 hover:bg-red-500/15',
+      hoverClassDark: 'text-slate-500 hover:text-red-400 hover:bg-red-500/15',
       unread: unreadCounts.hot 
     },
     { 
@@ -90,7 +90,7 @@ export function PlatformSelector({
       colorClass: 'text-amber-500',
       activeClass: 'bg-amber-500 text-white shadow-[0_0_15px_rgba(245,158,11,0.4)] border border-transparent', 
       hoverClass: 'text-slate-400 hover:text-amber-500 hover:bg-amber-500/10',
-      hoverClassDark: 'text-slate-550 hover:text-amber-400 hover:bg-amber-500/15',
+      hoverClassDark: 'text-slate-500 hover:text-amber-400 hover:bg-amber-500/15',
       unread: unreadCounts.warm 
     },
     { 
@@ -99,8 +99,8 @@ export function PlatformSelector({
       icon: Snowflake, 
       colorClass: 'text-blue-400',
       activeClass: 'bg-sky-500 text-white shadow-[0_0_15px_rgba(14,165,233,0.4)] border border-transparent', 
-      hoverClass: 'text-slate-400 hover:text-sky-550 hover:bg-sky-500/10',
-      hoverClassDark: 'text-slate-550 hover:text-sky-400 hover:bg-sky-500/15',
+      hoverClass: 'text-slate-400 hover:text-sky-500 hover:bg-sky-500/10',
+      hoverClassDark: 'text-slate-500 hover:text-sky-400 hover:bg-sky-500/15',
       unread: unreadCounts.cold 
     }
   ]
@@ -133,7 +133,7 @@ export function PlatformSelector({
                 onSelectScore(null)
               }}
               className={cn(
-                "relative w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 group outline-none",
+                "relative w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 group outline-none cursor-pointer",
                 isActive 
                   ? (isDarkTheme ? platform.activeClassDark : platform.activeClass) 
                   : (isDarkTheme ? platform.hoverClassDark : platform.hoverClass)
@@ -177,7 +177,7 @@ export function PlatformSelector({
                 onSelectPlatform(null)
               }}
               className={cn(
-                "relative w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 group outline-none",
+                "relative w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 group outline-none cursor-pointer",
                 isActive 
                   ? score.activeClass 
                   : (isDarkTheme ? score.hoverClassDark : score.hoverClass)

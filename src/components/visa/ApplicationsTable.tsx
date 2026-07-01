@@ -75,7 +75,7 @@ export function ApplicationsTable({ initialApplications, employees }: Applicatio
   const triggerWhatsApp = async (appId: string, type: 'document_request' | 'appointment' | 'approval') => {
     const result = await sendVisaWhatsAppReminder(appId, type)
     if (result.success) {
-      alert(`WhatsApp Simulated Notice: Template sent successfully for this application!`)
+      alert(result.message || 'Reminder draft saved. No WhatsApp message was sent.')
     }
   }
 

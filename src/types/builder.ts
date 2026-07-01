@@ -4,6 +4,7 @@ export type SectionType =
   | 'Hero' 
   | 'Stats' 
   | 'Trips' 
+  | 'Visas'
   | 'WhyUs' 
   | 'Testimonials' 
   | 'Gallery' 
@@ -70,7 +71,7 @@ export interface GlobalStyles {
   content_width: number;
   page_padding: number;
   
-  global_animation_speed: 'Fast' | 'Normal' | 'Slow';
+  global_animation_speed: 'Fast' | 'Normal' | 'Slow' | 'Smooth';
   stagger_delay: number;
 }
 
@@ -79,13 +80,19 @@ export interface WebsiteTemplate {
   name: string;
   description: string;
   thumbnail_url: string;
-  category: 'general' | 'luxury' | 'family' | 'adventure' | 'religious';
+  category: string;
+  tags?: string[];
+  preview_url?: string;
+  is_premium?: boolean;
   is_default: boolean;
   is_custom: boolean;
   agency_id?: string | null;
   business_type_slug?: string;
+  /** For ecommerce business type: maps to agency.website_settings.store_theme */
+  store_theme?: string;
   structure: {
     sections: Section[];
   };
   global_styles: GlobalStyles;
 }
+

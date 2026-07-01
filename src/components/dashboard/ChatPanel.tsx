@@ -1,15 +1,16 @@
 'use client'
 
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { ExtendedConversation } from '@/app/dashboard/inbox/page'
-import { Message, mockProfiles } from '@/lib/mock-data'
+import { Message, mockProfiles, mockBookings, mockTrips } from '@/lib/mock-data'
 import { MessageBubble } from './MessageBubble'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { 
   Smile, Mic, Paperclip, Send, ChevronLeft, CheckCircle2, 
   Flame, Sun, Snowflake, Phone, Clock,
-  MoreVertical, UserPlus, FileText, Bot, User, X, Lock, Check
+  MoreVertical, UserPlus, FileText, Bot, User, X, Lock, Check,
+  MapPin, Plane, Calendar, CreditCard, ChevronRight, Info, StickyNote, ShieldAlert, Sparkles, UserCheck
 } from 'lucide-react'
 import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon'
 import { MessengerIcon } from '@/components/icons/MessengerIcon'
@@ -24,6 +25,7 @@ interface ChatPanelProps {
   onSendMessage: (content: string, options?: { is_internal_note?: boolean; is_voice_note?: boolean; duration?: string; transcript?: string }) => void
   recentConversations: ExtendedConversation[]
   onSelectRecent: (id: string) => void
+  businessTypeSlug?: string
 }
 
 export function ChatPanel({
@@ -33,8 +35,11 @@ export function ChatPanel({
   onUpdateConversation,
   onSendMessage,
   recentConversations,
-  onSelectRecent
+  onSelectRecent,
+  businessTypeSlug = 'travel'
 }: ChatPanelProps) {
+  const isShowroom = businessTypeSlug === 'car_showroom'
+  const isEcommerce = ['ecommerce', 'online_store', 'store'].includes(businessTypeSlug)
   
   const [inputValue, setInputValue] = useState('')
   const [showOptionsMenu, setShowOptionsMenu] = useState(false)
@@ -47,7 +52,8 @@ export function ChatPanel({
   const [showBookingModal, setShowBookingModal] = useState(false)
   const [bookingForm, setBookingForm] = useState({
     tripId: 'trip-1',
-    clientName: conversation?.customer_name || 'Achraf Benali',
+    clientName: conversation?.customer_name || (isShowroom ? 'Client' : 'Achraf Benali'),
+    dealType: 'import',
     adults: 2,
     children: 0,
     price: 300000
@@ -61,10 +67,10 @@ export function ChatPanel({
     if (conversation) {
       setBookingForm(prev => ({
         ...prev,
-        clientName: conversation.customer_name || 'Guest'
+        clientName: conversation.customer_name || (isShowroom ? 'Client' : 'Guest')
       }))
     }
-  }, [conversation])
+  }, [conversation, isShowroom])
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -80,6 +86,77 @@ export function ChatPanel({
     setInputValue('')
     setSendMode('reply')
   }, [conversation])
+
+  const [showProfileSidebar, setShowProfileSidebar] = useState(true)
+  const [clientNote, setClientNote] = useState('')
+  const [noteSavedStatus, setNoteSavedStatus] = useState(false)
+
+  // Load persistent note from localStorage on change
+  useEffect(() => {
+    if (conversation) {
+      const saved = localStorage.getItem(`note-${conversation.id}`)
+      setClientNote(saved || (isShowroom
+        ? 'Wants details on imported Tucson. Interested in financing options.'
+        : isEcommerce
+        ? 'Interested in product availability, delivery options, and payment on delivery.'
+        : 'Interested in Turkey packages. Prefers 5-star hotels and direct flights.'
+      ))
+      setNoteSavedStatus(false)
+    }
+  }, [conversation, isShowroom, isEcommerce])
+
+  const handleNoteChange = (val: string) => {
+    setClientNote(val)
+    if (conversation) {
+      localStorage.setItem(`note-${conversation.id}`, val)
+      setNoteSavedStatus(true)
+      setTimeout(() => setNoteSavedStatus(false), 1500)
+    }
+  }
+
+  const aiSuggestions = useMemo(() => {
+    if (!conversation) return []
+    const name = conversation.customer_name || 'Client'
+
+    if (isEcommerce) {
+      return [
+        { label: 'Stock check', text: 'Which size, color, and quantity do you want? I can confirm availability and delivery options for you.' },
+        { label: 'Delivery details', text: 'We can help with delivery. Please send your city, address, and phone number so we can prepare the order.' },
+        { label: 'Payment options', text: 'We can confirm payment options and total price after checking the exact product and delivery location.' }
+      ]
+    }
+    
+    if (conversation.id === 'conv-1' || name.toLowerCase().includes('achraf')) {
+      return [
+        { label: '✈️ Next flights', text: 'Our next flights depart next Monday and Thursday from Algiers. Which departure date works better for your schedule?' },
+        { label: '🏔️ Bursa excursion', text: 'Would you be interested in adding a day trip to Bursa to ride the Mount Uludağ cable car? It is highly recommended for summer!' },
+        { label: '📸 Request Passport', text: 'Could you please share your passport copy so we can verify name spelling for the flight reservations?' }
+      ]
+    }
+    
+    if (conversation.id === 'conv-2' || name.toLowerCase().includes('sarah')) {
+      return [
+        { label: '🕌 Umrah documents', text: 'For the Umrah visa, we require your passport (valid for at least 6 months), a certificate of vaccination, and two passport photos with a white background.' },
+        { label: '⚡ Urgent Saudi e-visa', text: 'We can process the urgent Saudi e-visa within 7 days. Would you like us to submit your request today?' },
+        { label: '🏨 5★ Hotel near Haram', text: 'We have excellent 5-star hotel options located just 200m from the Haram. Would you like me to send the hotel names and photos?' }
+      ]
+    }
+
+    if (conversation.id === 'conv-3' || name.toLowerCase().includes('mourad')) {
+      return [
+        { label: '🏨 Sousse Hotel Link', text: 'Here is the booking confirmation link for Sousse Palace Hotel. You can review the family suite photos here.' },
+        { label: '👦 Kids 50% discount', text: 'For kids under 12, we offer a 50% discount on the package price. Your total family price will adjust accordingly.' },
+        { label: '🍛 Half vs All-inclusive', text: 'The Sousse package includes half-board. Would you prefer to upgrade to all-inclusive for an extra 12,000 DZD?' }
+      ]
+    }
+
+    // Default suggestions
+    return [
+      { label: '📅 Request dates', text: 'When are you planning to travel, and what is your preferred duration for the trip?' },
+      { label: '📄 Summer packages PDF', text: 'Here is our complete catalog of summer group departures. Let me know which destination interests you!' },
+      { label: '👥 Ask passenger count', text: 'How many adults and children will be traveling in your group?' }
+    ]
+  }, [conversation, isEcommerce])
 
   // Send textual message handler
   const handleSend = () => {
@@ -104,10 +181,13 @@ export function ChatPanel({
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
-  // Confirm paid booking reservation handler
   const handleConfirmBooking = () => {
-    onUpdateConversation(conversation?.id || '', { lead_score: 'COLD' }) // Booked leads mark as finished/cold
-    onSendMessage(`🎉 BOOKING CONFIRMED: 7-Day Istanbul package departs for ${bookingForm.clientName} (${bookingForm.adults} Adults, ${bookingForm.children} Children). Total paid: ${bookingForm.price.toLocaleString()} DZD!`)
+    onUpdateConversation(conversation?.id || '', { lead_score: 'COLD' })
+    if (isShowroom) {
+      onSendMessage(`DEAL LOGGED: ${bookingForm.clientName} is interested in ${bookingForm.tripId}. Type: ${bookingForm.dealType}. Quantity: ${bookingForm.adults}. Deposit requested: ${(bookingForm.price * 0.3).toLocaleString()} DZD. Estimated total: ${(bookingForm.price * bookingForm.adults).toLocaleString()} DZD.`)
+    } else {
+      onSendMessage(`BOOKING CONFIRMED: 7-Day Istanbul package departs for ${bookingForm.clientName} (${bookingForm.adults} Adults, ${bookingForm.children} Children). Total paid: ${bookingForm.price.toLocaleString()} DZD!`)
+    }
     setShowBookingModal(false)
   }
 
@@ -120,12 +200,26 @@ export function ChatPanel({
   }
 
   // Quick template reply chips
-  const quickReplies = [
-    { label: '👋 Welcome message', text: 'Marhaban bikoum! Welcome to our agency, how can we assist you today?' },
-    { label: '💰 Pricing info', text: 'Here are our standard packages: Turkey starts from 120,000 DZD, and Tunisia from 65,000 DZD.' },
-    { label: '📅 Available dates', text: 'Our next scheduled departures are every Saturday and Tuesday. Which date suits you best?' },
-    { label: '✈️ Itinerary details', text: 'Our packages cover flight bookings, 4/5 star hotels, guided excursions, and visa processing.' }
-  ]
+  const quickReplies = isShowroom
+    ? [
+        { label: 'Welcome message', text: 'Salam! Welcome to our showroom. Which vehicle are you interested in: stock, import on order, or rental?' },
+        { label: 'Price info', text: 'Tell me the model, year, engine, and budget you want, and I will confirm availability and price.' },
+        { label: 'Import timing', text: 'For import on order, delivery depends on supplier availability, shipping, and customs clearance. I can prepare an estimate for you.' },
+        { label: 'Documents', text: 'To open a vehicle file, we need your full name, phone number, ID/passport details, preferred model, color, and deposit confirmation.' }
+      ]
+    : isEcommerce
+    ? [
+        { label: 'Welcome message', text: 'Salam! Welcome to our store. Which product, size, color, and quantity are you looking for?' },
+        { label: 'Stock check', text: 'Send me the product name or photo plus size/color, and I will confirm availability for you.' },
+        { label: 'Delivery info', text: 'We deliver by location. Please share your city and address so we can confirm delivery fee and timing.' },
+        { label: 'Order details', text: 'To prepare your order, we need your full name, phone number, city, address, product, size/color, and quantity.' }
+      ]
+    : [
+        { label: 'Welcome message', text: 'Marhaban bikoum! Welcome to our agency, how can we assist you today?' },
+        { label: 'Pricing info', text: 'Here are our standard packages: Turkey starts from 120,000 DZD, and Tunisia from 65,000 DZD.' },
+        { label: 'Available dates', text: 'Our next scheduled departures are every Saturday and Tuesday. Which date suits you best?' },
+        { label: 'Itinerary details', text: 'Our packages cover flight bookings, 4/5 star hotels, guided excursions, and visa processing.' }
+      ]
 
   // Render Platform Icon SVG
   const getPlatformIcon = (platform: string) => {
@@ -448,7 +542,7 @@ export function ChatPanel({
             )}
           </div>
 
-          {/* Mark as Booking Indigo button */}
+          {/* Mark as Booking button */}
           <Button 
             size="sm" 
             onClick={() => setShowBookingModal(true)}
@@ -529,270 +623,639 @@ export function ChatPanel({
             )}
           </div>
 
+          {/* Collapsible Profile Sidebar Toggle */}
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => setShowProfileSidebar(!showProfileSidebar)}
+            className={cn(
+              "h-9 w-9 rounded-xl border shadow-xs transition-all cursor-pointer hidden md:flex items-center justify-center shrink-0",
+              showProfileSidebar 
+                ? isInstagram ? "bg-purple-500/20 border-purple-500/30 text-purple-300" : "bg-indigo-50 border-indigo-200 text-indigo-600"
+                : isInstagram ? "bg-slate-900/60 border-white/10 text-slate-400 hover:text-white" : "bg-white border-slate-200 hover:bg-slate-50 text-slate-600"
+            )}
+            title="Toggle Customer Profile"
+          >
+            <Info className="h-4.5 w-4.5" />
+          </Button>
+
         </div>
       </div>
 
-      {/* Dynamic Messages History Feed area */}
-      <div className={cn(
-        "flex-1 overflow-y-auto p-6 space-y-4 relative z-10 transition-colors duration-500",
-        isWhatsapp 
-          ? "whatsapp-pattern glass-scrollbar" 
-          : isInstagram 
-          ? "bg-slate-950/20 glass-scrollbar-dark" 
-          : "bg-slate-50/10 glass-scrollbar"
-      )}>
+      {/* Main Layout containing Left Chat Column and Right Collapsible Sidebar */}
+      <div className="flex-1 flex overflow-hidden relative z-10 w-full">
         
-        {/* Live chat started divider */}
-        <div className="text-center my-4">
-          <span className={cn(
-            "text-[9px] font-black uppercase tracking-wider px-3.5 py-1.5 rounded-full border shadow-xs flex items-center gap-1 w-max mx-auto select-none",
-            isInstagram
-              ? "bg-slate-900/60 border-white/5 text-slate-400"
-              : "bg-white/60 border-slate-200/40 text-slate-500"
+        {/* Left Column: Chat feed and bottom input pane */}
+        <div className="flex-1 flex flex-col h-full min-w-0 relative">
+
+          {/* Dynamic Messages History Feed area */}
+          <div className={cn(
+            "flex-1 overflow-y-auto p-6 space-y-4 relative z-10 transition-colors duration-500",
+            isWhatsapp 
+              ? "whatsapp-pattern glass-scrollbar" 
+              : isInstagram 
+              ? "bg-slate-950/20 glass-scrollbar-dark" 
+              : "bg-slate-50/10 glass-scrollbar"
           )}>
-            <Clock className="h-3 w-3" /> Live Chat Session Started
-          </span>
-        </div>
-
-        {/* Messages */}
-        {messages.length === 0 ? (
-          <div className="flex h-full items-center justify-center p-8 text-center text-slate-400 text-xs">
-            <p>No messages in this chat yet. Type a template below to begin!</p>
-          </div>
-        ) : (
-          messages.map((msg, index) => {
-            const showDivider = index === 0 || 
-              new Date(msg.created_at || 0).getDate() !== new Date(messages[index - 1].created_at || 0).getDate()
             
-            const msgDate = new Date(msg.created_at || 0)
-            const dateLabel = msgDate.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'short' })
-
-            return (
-              <div key={msg.id} className="space-y-4">
-                {showDivider && (
-                  <div className="text-center my-4 shrink-0">
-                    <span className={cn(
-                      "text-[9px] font-bold px-3.5 py-1 rounded-full border",
-                      isInstagram
-                        ? "bg-slate-900/60 border-white/5 text-slate-400"
-                        : "bg-white/60 border-slate-200/40 text-slate-500"
-                    )}>
-                      {dateLabel}
-                    </span>
-                  </div>
-                )}
-                
-                <MessageBubble 
-                  message={msg} 
-                  platform={conversation.platform || ''} 
-                />
-              </div>
-            )
-          })
-        )}
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* BOTTOM CONTROL PANE */}
-      <div className={cn(
-        "shrink-0 p-4 space-y-3 z-10 shadow-lg border-t backdrop-blur-lg",
-        isInstagram
-          ? "bg-slate-900/60 border-white/5"
-          : "bg-white/40 border-slate-200/40"
-      )}>
-        
-        {/* Quick replies templates scroll bar */}
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide select-none">
-          {quickReplies.map((chip, idx) => (
-            <button
-              key={idx}
-              onClick={() => setInputValue(chip.text)}
-              className={cn(
-                "px-3 py-1.5 text-[10px] font-bold border rounded-xl whitespace-nowrap transition-all shadow-xs active:scale-97 shrink-0 cursor-pointer",
+            {/* Live chat started divider */}
+            <div className="text-center my-4">
+              <span className={cn(
+                "text-[9px] font-black uppercase tracking-wider px-3.5 py-1.5 rounded-full border shadow-xs flex items-center gap-1 w-max mx-auto select-none",
                 isInstagram
-                  ? "bg-slate-800/40 hover:bg-slate-800/80 border-white/10 text-slate-300"
-                  : "bg-white/60 hover:bg-white/95 border-slate-200/50 text-slate-600"
-              )}
-            >
-              {chip.label}
-            </button>
-          ))}
-        </div>
+                  ? "bg-slate-900/60 border-white/5 text-slate-400"
+                  : "bg-white/60 border-slate-200/40 text-slate-500"
+              )}>
+                <Clock className="h-3 w-3" /> Live Chat Session Started
+              </span>
+            </div>
 
-        {/* Mode Switcher toolbar ("Reply" vs "Private Note") */}
-        <div className={cn(
-          "flex items-center gap-1.5 p-1 rounded-xl w-max border",
-          isInstagram
-            ? "bg-slate-950/40 border-white/5"
-            : "bg-slate-100/60 border-slate-200/30"
-        )}>
-          <button
-            onClick={() => setSendMode('reply')}
-            className={cn(
-              "px-3 py-1 text-[10px] font-black rounded-lg transition uppercase tracking-wider flex items-center gap-1 cursor-pointer",
-              sendMode === 'reply' 
-                ? isInstagram
-                  ? "bg-purple-500/20 text-purple-300 border border-purple-500/20 shadow-xs"
-                  : "bg-white text-indigo-600 shadow-xs" 
-                : isInstagram
-                ? "text-slate-400 hover:text-slate-300"
-                : "text-slate-500 hover:text-slate-700"
-            )}
-          >
-            <User className="h-3 w-3" /> Reply Client
-          </button>
-          <button
-            onClick={() => setSendMode('note')}
-            className={cn(
-              "px-3 py-1 text-[10px] font-black rounded-lg transition uppercase tracking-wider flex items-center gap-1 cursor-pointer",
-              sendMode === 'note' 
-                ? "bg-amber-500/10 text-amber-400 shadow-xs border border-amber-500/20" 
-                : isInstagram
-                ? "text-slate-400 hover:text-slate-300"
-                : "text-slate-500 hover:text-slate-700"
-            )}
-          >
-            <Lock className="h-3 w-3" /> Private Note
-          </button>
-        </div>
+            {/* Messages */}
+            {messages.length === 0 ? (
+              <div className="flex h-full items-center justify-center p-8 text-center text-slate-400 text-xs">
+                <p>No messages in this chat yet. Type a reply below to begin!</p>
+              </div>
+            ) : (
+              messages.map((msg, index) => {
+                const showDivider = index === 0 || 
+                  new Date(msg.created_at || 0).getDate() !== new Date(messages[index - 1].created_at || 0).getDate()
+                
+                const getSmartDateLabel = (dateStr: string) => {
+                  const date = new Date(dateStr)
+                  const today = new Date()
+                  const yesterday = new Date()
+                  yesterday.setDate(today.getDate() - 1)
 
-        {/* Input box editor controls */}
-        <div className="relative">
-          {/* Emojis picker */}
-          {showEmojiPicker && (
-            <div className={cn(
-              "absolute bottom-14 left-0 p-2 rounded-2xl shadow-xl flex gap-1.5 z-40 animate-in fade-in slide-in-from-bottom-2 duration-155 border",
-              isInstagram ? "glass-panel-dark border-white/10" : "glass-panel border-white/20"
-            )}>
-              {['😊', '👍', '❤️', '👋', '✈️', '📅', '📍', '💰'].map(emoji => (
+                  if (date.toDateString() === today.toDateString()) {
+                    return 'Today'
+                  } else if (date.toDateString() === yesterday.toDateString()) {
+                    return 'Yesterday'
+                  } else {
+                    return date.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'short' })
+                  }
+                }
+                
+                const dateLabel = getSmartDateLabel(msg.created_at || '')
+
+                return (
+                  <div key={msg.id} className="space-y-4">
+                    {showDivider && (
+                      <div className="text-center my-4 shrink-0">
+                        <span className={cn(
+                          "text-[9px] font-bold px-3.5 py-1 rounded-full border",
+                          isInstagram
+                            ? "bg-slate-900/60 border-white/5 text-slate-400"
+                            : "bg-white/60 border-slate-200/40 text-slate-500"
+                        )}>
+                          {dateLabel}
+                        </span>
+                      </div>
+                    )}
+                    
+                    <MessageBubble 
+                      message={msg} 
+                      platform={conversation.platform || ''} 
+                    />
+                  </div>
+                )
+              })
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* BOTTOM CONTROL PANE */}
+          <div className={cn(
+            "shrink-0 p-4 space-y-3 z-10 shadow-lg border-t backdrop-blur-lg",
+            isInstagram
+              ? "bg-slate-900/60 border-white/5"
+              : "bg-white/40 border-slate-200/40"
+          )}>
+            
+            {/* Quick replies templates scroll bar */}
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide select-none">
+              {quickReplies.map((chip, idx) => (
                 <button
-                  key={emoji}
-                  onClick={() => {
-                    setInputValue(prev => prev + emoji)
-                    setShowEmojiPicker(false)
-                  }}
+                  key={idx}
+                  onClick={() => setInputValue(chip.text)}
                   className={cn(
-                    "h-8 w-8 rounded-lg flex items-center justify-center text-sm transition cursor-pointer",
-                    isInstagram ? "hover:bg-white/10 text-white" : "hover:bg-slate-100 text-slate-750"
+                    "px-3 py-1.5 text-[10px] font-bold border rounded-xl whitespace-nowrap transition-all shadow-xs active:scale-97 shrink-0 cursor-pointer",
+                    isInstagram
+                      ? "bg-slate-800/40 hover:bg-slate-800/80 border-white/10 text-slate-300"
+                      : "bg-white/60 hover:bg-white/95 border-slate-200/50 text-slate-600"
                   )}
                 >
-                  {emoji}
+                  {chip.label}
                 </button>
               ))}
             </div>
-          )}
 
-          {/* Hidden File input controller */}
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            onChange={handleFileChange} 
-            className="hidden" 
-            accept="image/*,application/pdf"
-          />
-
-          <div className="flex items-center gap-2.5">
-            {/* Emojis Smiles button */}
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-              className={cn(
-                "h-10 w-10 shrink-0 rounded-xl border transition cursor-pointer",
-                showEmojiPicker 
-                  ? isInstagram 
-                    ? 'bg-purple-500/20 border-purple-500/35 text-purple-300' 
-                    : 'bg-indigo-50 border-indigo-200 text-indigo-600' 
-                  : isInstagram 
-                  ? 'bg-slate-900/60 border-white/10 text-slate-400 hover:text-white' 
-                  : 'bg-slate-50 border-slate-200/40 text-slate-400 hover:text-slate-600'
-              )}
-            >
-              <Smile className="h-5 w-5" />
-            </Button>
-
-            {/* Unified Input Bar (Styling adapts dynamically based on Reply vs Note mode) */}
-            <input 
-              className={cn(
-                "flex-1 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:ring-2 transition border placeholder:text-slate-400 font-medium",
-                sendMode === 'note'
-                  ? isInstagram
-                    ? "bg-amber-500/5 border-amber-500/30 focus:bg-amber-500/10 focus:ring-amber-500/30 text-amber-250 placeholder:text-amber-500/45"
-                    : "bg-amber-50/70 border-amber-300 focus:bg-amber-50 focus:ring-amber-500/20 text-amber-900"
-                  : isInstagram
-                  ? "glass-input-dark"
-                  : "glass-input"
-              )}
-              placeholder={
-                sendMode === 'note'
-                  ? "🔒 Write a yellow private note for the staff team..."
-                  : conversation.platform === 'whatsapp' 
-                  ? "Type in Arabic/Darja or French (WhatsApp)..." 
-                  : "Type a reply..."
-              }
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={handleKeyPress}
-            />
-
-            {/* Attach file paperclip button */}
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={() => fileInputRef.current?.click()}
-              className={cn(
-                "h-10 w-10 shrink-0 border transition cursor-pointer rounded-xl",
-                isInstagram
-                  ? "bg-slate-900/60 border-white/10 text-slate-400 hover:text-white"
-                  : "bg-slate-50 border-slate-200/40 text-slate-400 hover:text-slate-600"
-              )}
-            >
-              <Paperclip className="h-5 w-5" />
-            </Button>
-
-            {/* Send or Voice Note button */}
-            {inputValue.trim() ? (
-              <Button 
-                size="icon" 
-                onClick={handleSend}
-                className={cn(
-                  "h-10 w-10 shrink-0 rounded-xl text-white shadow-sm transition active:scale-95 border border-transparent cursor-pointer",
-                  sendMode === 'note'
-                    ? "bg-amber-500 hover:bg-amber-600 shadow-amber-500/20"
-                    : isWhatsapp
-                    ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20"
-                    : isInstagram
-                    ? "bg-gradient-to-tr from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 shadow-pink-500/20"
-                    : "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-500/20"
-                )}
-              >
-                <Send className="h-4.5 w-4.5 ml-0.5" />
-              </Button>
-            ) : (
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => {
-                  // Simulate recording voice note
-                  const voiceMsg = conversation.platform === 'whatsapp' 
-                    ? 'Voice Note (0:42) - "Salam khouya, choufli les prix ta3 Turkey stp w ch7al b9aw places."'
-                    : conversation.platform === 'instagram'
-                    ? 'Voice Note (0:15) - "Hi, could you send me the itinerary of Sahara oasis getaway?"'
-                    : 'Voice Note (0:30) - "Hello, when is the next departure to Tunisia?"'
-                  onSendMessage(voiceMsg, { is_voice_note: true })
-                }}
-                className={cn(
-                  "h-10 w-10 shrink-0 border transition active:scale-95 cursor-pointer rounded-xl",
-                  isInstagram
-                    ? "bg-slate-900/60 border-white/10 text-slate-400 hover:text-white"
-                    : "bg-slate-50 border-slate-200/40 text-slate-400 hover:text-slate-600"
-                )}
-              >
-                <Mic className="h-5 w-5" />
-              </Button>
+            {/* Smart AI Suggestions Bar */}
+            {aiSuggestions.length > 0 && (
+              <div className="flex items-center gap-2 select-none py-0.5 overflow-hidden">
+                <span className={cn(
+                  "text-[9px] font-black uppercase tracking-wider shrink-0 flex items-center gap-1",
+                  isInstagram ? "text-pink-400" : "text-indigo-650"
+                )}>
+                  <Bot className="h-3.5 w-3.5 text-indigo-500 shrink-0 animate-pulse" /> AI Suggestions:
+                </span>
+                <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide flex-1">
+                  {aiSuggestions.map((suggestion, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setInputValue(suggestion.text)}
+                      className={cn(
+                        "px-2.5 py-1 text-[9px] font-bold border rounded-lg whitespace-nowrap transition-all active:scale-97 shrink-0 cursor-pointer flex items-center gap-1",
+                        isInstagram
+                          ? "bg-purple-950/40 hover:bg-purple-900/50 border-purple-500/20 text-purple-300"
+                          : "bg-indigo-50/50 hover:bg-indigo-100/80 border-indigo-200/60 text-indigo-700"
+                      )}
+                    >
+                      <span>✨</span>
+                      <span>{suggestion.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
+
+            {/* Mode Switcher toolbar ("Reply" vs "Private Note") */}
+            <div className={cn(
+              "flex items-center gap-1.5 p-1 rounded-xl w-max border",
+              isInstagram
+                ? "bg-slate-950/40 border-white/5"
+                : "bg-slate-100/60 border-slate-200/30"
+            )}>
+              <button
+                onClick={() => setSendMode('reply')}
+                className={cn(
+                  "px-3 py-1 text-[10px] font-black rounded-lg transition uppercase tracking-wider flex items-center gap-1 cursor-pointer",
+                  sendMode === 'reply' 
+                    ? isInstagram
+                      ? "bg-purple-500/20 text-purple-300 border border-purple-500/20 shadow-xs"
+                      : "bg-white text-indigo-600 shadow-xs" 
+                    : isInstagram
+                    ? "text-slate-400 hover:text-slate-300"
+                    : "text-slate-500 hover:text-slate-700"
+                )}
+              >
+                <User className="h-3 w-3" /> Reply Client
+              </button>
+              <button
+                onClick={() => setSendMode('note')}
+                className={cn(
+                  "px-3 py-1 text-[10px] font-black rounded-lg transition uppercase tracking-wider flex items-center gap-1 cursor-pointer",
+                  sendMode === 'note' 
+                    ? "bg-amber-500/10 text-amber-400 shadow-xs border border-amber-500/20" 
+                    : isInstagram
+                    ? "text-slate-400 hover:text-slate-300"
+                    : "text-slate-500 hover:text-slate-700"
+                )}
+              >
+                <Lock className="h-3 w-3" /> Private Note
+              </button>
+            </div>
+
+            {/* Input box editor controls */}
+            <div className="relative">
+              {/* Emojis picker */}
+              {showEmojiPicker && (
+                <div className={cn(
+                  "absolute bottom-14 left-0 p-2 rounded-2xl shadow-xl flex gap-1.5 z-40 animate-in fade-in slide-in-from-bottom-2 duration-155 border",
+                  isInstagram ? "glass-panel-dark border-white/10" : "glass-panel border-white/20"
+                )}>
+                  {['😊', '👍', '❤️', '👋', '✈️', '📅', '📍', '💰'].map(emoji => (
+                    <button
+                      key={emoji}
+                      onClick={() => {
+                        setInputValue(prev => prev + emoji)
+                        setShowEmojiPicker(false)
+                      }}
+                      className={cn(
+                        "h-8 w-8 rounded-lg flex items-center justify-center text-sm transition cursor-pointer",
+                        isInstagram ? "hover:bg-white/10 text-white" : "hover:bg-slate-100 text-slate-750"
+                      )}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Hidden File input controller */}
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleFileChange} 
+                className="hidden" 
+                accept="image/*,application/pdf"
+              />
+
+              <div className="flex items-center gap-2.5">
+                {/* Emojis Smiles button */}
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  className={cn(
+                    "h-10 w-10 shrink-0 rounded-xl border transition cursor-pointer",
+                    showEmojiPicker 
+                      ? isInstagram 
+                        ? 'bg-purple-500/20 border-purple-500/35 text-purple-300' 
+                        : 'bg-indigo-50 border-indigo-200 text-indigo-600' 
+                      : isInstagram 
+                      ? 'bg-slate-900/60 border-white/10 text-slate-400 hover:text-white' 
+                      : 'bg-slate-50 border-slate-200/40 text-slate-400 hover:text-slate-600'
+                  )}
+                >
+                  <Smile className="h-5 w-5" />
+                </Button>
+
+                {/* Unified Input Bar (Styling adapts dynamically based on Reply vs Note mode) */}
+                <input 
+                  className={cn(
+                    "flex-1 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:ring-2 transition border placeholder:text-slate-400 font-medium",
+                    sendMode === 'note'
+                      ? isInstagram
+                        ? "bg-amber-500/5 border-amber-500/30 focus:bg-amber-500/10 focus:ring-amber-500/30 text-amber-250 placeholder:text-amber-500/45"
+                        : "bg-amber-50/70 border-amber-300 focus:bg-amber-50 focus:ring-amber-500/20 text-amber-900"
+                      : isInstagram
+                      ? "glass-input-dark"
+                      : "glass-input"
+                  )}
+                  placeholder={
+                    sendMode === 'note'
+                      ? "🔒 Write a yellow private note for the staff team..."
+                      : conversation.platform === 'whatsapp' 
+                      ? isEcommerce
+                        ? "Reply about products, sizes, delivery, or orders..."
+                        : "Type in Arabic/Darja or French (WhatsApp)..."
+                      : "Type a reply..."
+                  }
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyDown={handleKeyPress}
+                />
+
+                {/* Attach file paperclip button */}
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => fileInputRef.current?.click()}
+                  className={cn(
+                    "h-10 w-10 shrink-0 border transition cursor-pointer rounded-xl",
+                    isInstagram
+                      ? "bg-slate-900/60 border-white/10 text-slate-400 hover:text-white"
+                      : "bg-slate-50 border-slate-200/40 text-slate-400 hover:text-slate-600"
+                  )}
+                >
+                  <Paperclip className="h-5 w-5" />
+                </Button>
+
+                {/* Send or Voice Note button */}
+                {inputValue.trim() ? (
+                  <Button 
+                    size="icon" 
+                    onClick={handleSend}
+                    className={cn(
+                      "h-10 w-10 shrink-0 rounded-xl text-white shadow-sm transition active:scale-95 border border-transparent cursor-pointer",
+                      sendMode === 'note'
+                        ? "bg-amber-500 hover:bg-amber-600 shadow-amber-500/20"
+                        : isWhatsapp
+                        ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20"
+                        : isInstagram
+                        ? "bg-gradient-to-tr from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 shadow-pink-500/20"
+                        : "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-500/20"
+                    )}
+                  >
+                    <Send className="h-4.5 w-4.5 ml-0.5" />
+                  </Button>
+                ) : (
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={() => {
+                      // Simulate recording voice note
+                      const voiceMsg = conversation.platform === 'whatsapp' 
+                        ? 'Voice Note (0:42) - "Salam khouya, choufli les prix ta3 Turkey stp w ch7al b9aw places."'
+                        : conversation.platform === 'instagram'
+                        ? 'Voice Note (0:15) - "Hi, could you send me the itinerary of Sahara oasis getaway?"'
+                        : 'Voice Note (0:30) - "Hello, when is the next departure to Tunisia?"'
+                      onSendMessage(voiceMsg, { is_voice_note: true })
+                    }}
+                    className={cn(
+                      "h-10 w-10 shrink-0 border transition active:scale-95 cursor-pointer rounded-xl",
+                      isInstagram
+                        ? "bg-slate-900/60 border-white/10 text-slate-400 hover:text-white"
+                        : "bg-slate-50 border-slate-200/40 text-slate-400 hover:text-slate-600"
+                    )}
+                  >
+                    <Mic className="h-5 w-5" />
+                  </Button>
+                )}
+              </div>
+            </div>
+
           </div>
+
         </div>
+
+        {/* Right Column: Collapsible Customer Profile Sidebar */}
+        {showProfileSidebar && (
+          <div className={cn(
+            "w-[320px] shrink-0 border-l flex flex-col h-full animate-in slide-in-from-right duration-200 hidden md:flex",
+            isInstagram 
+              ? "bg-slate-950/60 border-white/5 text-white" 
+              : "bg-white/80 border-slate-200/50 text-slate-800 backdrop-blur-md"
+          )}>
+            {/* Header */}
+            <div className={cn(
+              "p-4 border-b flex items-center justify-between shrink-0",
+              isInstagram ? "border-white/5" : "border-slate-200/50"
+            )}>
+              <span className="text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                <UserCheck className="h-4 w-4 text-indigo-500" /> {isEcommerce ? 'Customer Store Profile' : 'Customer Travel Profile'}
+              </span>
+              <button 
+                onClick={() => setShowProfileSidebar(false)}
+                className="p-1 rounded-lg hover:bg-slate-500/10 transition-colors cursor-pointer"
+              >
+                <X className="h-4 w-4 text-slate-400" />
+              </button>
+            </div>
+
+            {/* Scrollable Details */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-5 glass-scrollbar">
+              {/* Profile Card */}
+              <div className="flex flex-col items-center text-center p-4 rounded-2xl border bg-slate-500/5 border-slate-500/10 shadow-sm relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-2">
+                  {conversation.platform === 'whatsapp' && <WhatsAppIcon className="h-4 w-4" />}
+                  {conversation.platform === 'instagram' && <InstagramIcon className="h-4 w-4" />}
+                  {conversation.platform === 'facebook' && <MessengerIcon className="h-4 w-4" />}
+                </div>
+
+                <div className={cn(
+                  "h-16 w-16 rounded-2xl font-black text-xl flex items-center justify-center shadow-md border mb-3 uppercase tracking-wider",
+                  isInstagram 
+                    ? "bg-gradient-to-tr from-purple-600 to-pink-600 border-pink-500/35 text-white" 
+                    : "bg-indigo-50 border-indigo-100 text-indigo-650"
+                )}>
+                  {conversation.customer_name?.substring(0, 2).toUpperCase() || 'G'}
+                </div>
+
+                <h3 className="text-xs font-black tracking-tight">{conversation.customer_name || 'Guest Client'}</h3>
+                <span className="text-[10px] text-slate-450 font-bold mt-0.5">{conversation.customer_phone}</span>
+
+                {/* Score */}
+                <div className="mt-3">
+                  {conversation.lead_score === 'HOT' && (
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider bg-red-500/10 text-red-500 border border-red-500/20 animate-pulse">
+                      <Flame className="h-3 w-3 fill-red-500" /> HOT Lead
+                    </span>
+                  )}
+                  {conversation.lead_score === 'WARM' && (
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                      <Sun className="h-3 w-3" /> WARM Lead
+                    </span>
+                  )}
+                  {conversation.lead_score === 'COLD' && (
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider bg-slate-500/10 text-slate-400 border border-slate-500/20">
+                      <Snowflake className="h-3 w-3" /> COLD Lead
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Travel Context Tagging */}
+              <div className="space-y-2">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-450 flex items-center gap-1">
+                  <Plane className="h-3.5 w-3.5 text-indigo-500" /> {isEcommerce ? 'Shopping Preferences' : 'Trip Preferences'}
+                </span>
+                {isEcommerce && (
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="px-2 py-0.5 rounded-md text-[9px] font-bold border border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400">Product interest</span>
+                    <span className="px-2 py-0.5 rounded-md text-[9px] font-bold border border-indigo-500/20 bg-indigo-500/5 text-indigo-650 dark:text-indigo-400">Size/color needed</span>
+                    <span className="px-2 py-0.5 rounded-md text-[9px] font-bold border border-purple-500/20 bg-purple-500/5 text-purple-650 dark:text-purple-400">Delivery request</span>
+                    <span className="px-2 py-0.5 rounded-md text-[9px] font-bold border border-amber-500/20 bg-amber-500/5 text-amber-650 dark:text-amber-400">Order intent</span>
+                  </div>
+                )}
+                <div className={cn("flex flex-wrap gap-1.5", isEcommerce && "hidden")}>
+                  <span className="px-2 py-0.5 rounded-md text-[9px] font-bold border border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400">✈️ Flights Req.</span>
+                  <span className="px-2 py-0.5 rounded-md text-[9px] font-bold border border-indigo-500/20 bg-indigo-500/5 text-indigo-650 dark:text-indigo-400">🏨 5★ Hotel</span>
+                  <span className="px-2 py-0.5 rounded-md text-[9px] font-bold border border-purple-500/20 bg-purple-500/5 text-purple-650 dark:text-purple-400">🍛 Half Board</span>
+                  <span className="px-2 py-0.5 rounded-md text-[9px] font-bold border border-amber-500/20 bg-amber-500/5 text-amber-650 dark:text-amber-400">🕌 Tours Incl.</span>
+                </div>
+              </div>
+
+              {/* Booking Context */}
+              {(() => {
+                const booking = mockBookings.find(b => b.conversation_id === conversation.id)
+                const trip = booking ? mockTrips.find(t => t.id === booking.trip_id) : null
+
+                return (
+                  <div className="space-y-2.5">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-455 flex items-center gap-1">
+                      <Calendar className="h-3.5 w-3.5 text-indigo-500" /> Active Booking Details
+                    </span>
+
+                    {booking ? (
+                      <div className="p-3.5 rounded-xl border border-slate-500/10 bg-slate-500/5 space-y-3">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h4 className="text-[11px] font-bold leading-tight">{trip?.title || 'Istanbul & Bursa Summer Tour'}</h4>
+                            <span className="text-[9px] text-slate-400 font-semibold">{trip?.duration_days} Days • {trip?.destination}</span>
+                          </div>
+                          
+                          {/* Booking Status Badge */}
+                          {booking.status === 'completed' && (
+                            <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">Paid</span>
+                          )}
+                          {booking.status === 'pending_payment' && (
+                            <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20 animate-pulse">Pending</span>
+                          )}
+                          {booking.status === 'cancelled' && (
+                            <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-red-500/10 text-red-500 border border-red-500/20">Cancelled</span>
+                          )}
+                        </div>
+
+                        {/* Passenger Details */}
+                        <div className="grid grid-cols-2 gap-2 text-[10px] border-t border-slate-500/10 pt-2.5">
+                          <div>
+                            <span className="text-[9px] text-slate-400 block font-semibold">Guests Count</span>
+                            <span className="font-bold">{booking.client_manifest?.adults} Adults {booking.client_manifest?.children > 0 && `, ${booking.client_manifest?.children} Kids`}</span>
+                          </div>
+                          <div>
+                            <span className="text-[9px] text-slate-400 block font-semibold">Total Price</span>
+                            <span className="font-bold text-indigo-650 dark:text-indigo-400">{booking.total_price.toLocaleString()} DZD</span>
+                          </div>
+                        </div>
+
+                        {/* Balance Remaining status */}
+                        {booking.status === 'pending_payment' && (
+                          <div className="bg-amber-500/10 border border-amber-500/25 rounded-lg p-2 text-[9px] font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                            <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
+                            <span>Deposit Paid. Balance: 150,000 DZD pending.</span>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="p-3.5 rounded-xl border border-dashed border-slate-500/20 bg-slate-500/2 flex flex-col items-center justify-center text-center text-slate-400 py-6">
+                        <span className="text-xs">{isEcommerce ? 'No active order yet' : 'No active trips booked yet'}</span>
+                        <Button 
+                          size="sm" 
+                          onClick={() => setShowBookingModal(true)}
+                          className="mt-2 text-[10px] font-bold h-7 rounded-lg bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 shrink-0 cursor-pointer"
+                        >
+                          {isEcommerce ? 'Create Order' : 'Book Package'}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
+
+              {/* Persistent Client Notes */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-455 flex items-center gap-1">
+                    <StickyNote className="h-3.5 w-3.5 text-indigo-500" /> Private Client Notes
+                  </span>
+                  {noteSavedStatus && (
+                    <span className="text-[9px] font-black text-emerald-500 animate-fade-in flex items-center gap-0.5">
+                      <Check className="h-3 w-3 stroke-[3]" /> Saved
+                    </span>
+                  )}
+                </div>
+                <textarea
+                  className={cn(
+                    "w-full h-20 rounded-xl p-3 text-xs outline-none focus:ring-2 border placeholder:text-slate-400 resize-none font-medium leading-relaxed transition-all",
+                    isInstagram
+                      ? "bg-slate-900/60 border-white/10 text-white focus:ring-pink-500/25"
+                      : "bg-white/65 border-slate-200/65 text-slate-800 focus:ring-indigo-500/15"
+                  )}
+                  placeholder="Type internal client notes (autosaves)..."
+                  value={clientNote}
+                  onChange={(e) => handleNoteChange(e.target.value)}
+                />
+              </div>
+
+              {/* Quick Document Requests / Actions */}
+              <div className="space-y-2">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-450 flex items-center gap-1">
+                  ⚡ Quick Actions
+                </span>
+                {isEcommerce && (
+                  <div className="flex flex-col gap-1.5">
+                    <button
+                      onClick={() => {
+                        setInputValue("Store order summary:\n- Product: please confirm product name/photo\n- Size/color: please confirm\n- Delivery city/address: please confirm\n- Payment: will be confirmed after availability check.")
+                      }}
+                      className={cn(
+                        "flex items-center justify-between p-2.5 rounded-xl border text-left text-[11px] font-bold transition-all active:scale-99 hover:translate-x-0.5 cursor-pointer",
+                        isInstagram
+                          ? "bg-slate-900/50 hover:bg-slate-900/90 border-white/10"
+                          : "bg-white hover:bg-slate-50 border-slate-200"
+                      )}
+                    >
+                      <span>Send Order Summary</span>
+                      <ChevronRight className="h-3.5 w-3.5 text-slate-450" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setInputValue("Please send the product photo or name, size/color, quantity, delivery city, and your phone number so we can confirm the order.")
+                      }}
+                      className={cn(
+                        "flex items-center justify-between p-2.5 rounded-xl border text-left text-[11px] font-bold transition-all active:scale-99 hover:translate-x-0.5 cursor-pointer",
+                        isInstagram
+                          ? "bg-slate-900/50 hover:bg-slate-900/90 border-white/10"
+                          : "bg-white hover:bg-slate-50 border-slate-200"
+                      )}
+                    >
+                      <span>Request Product Details</span>
+                      <ChevronRight className="h-3.5 w-3.5 text-slate-450" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setInputValue("Here is your secure order payment link: https://saas-store.dz/pay/order?invoice=inv-99283")
+                      }}
+                      className={cn(
+                        "flex items-center justify-between p-2.5 rounded-xl border text-left text-[11px] font-bold transition-all active:scale-99 hover:translate-x-0.5 cursor-pointer",
+                        isInstagram
+                          ? "bg-slate-900/50 hover:bg-slate-900/90 border-white/10"
+                          : "bg-white hover:bg-slate-50 border-slate-200"
+                      )}
+                    >
+                      <span>Send Order Payment Link</span>
+                      <ChevronRight className="h-3.5 w-3.5 text-slate-450" />
+                    </button>
+                  </div>
+                )}
+                <div className={cn("flex flex-col gap-1.5", isEcommerce && "hidden")}>
+                  {/* Send Itinerary PDF */}
+                  <button
+                    onClick={() => {
+                      const booking = mockBookings.find(b => b.conversation_id === conversation.id)
+                      const text = isEcommerce
+                        ? "Store order summary:\n- Product: please confirm product name/photo\n- Size/color: please confirm\n- Delivery city/address: please confirm\n- Payment: will be confirmed after availability check."
+                        : booking?.trip_id === 'trip-2'
+                        ? "Umrah VIP Package Itinerary (15 Days):\n- 5-star hotel near Haram in Makkah (10 nights)\n- 5-star hotel in Madinah (5 nights)\n- VIP transport & visa processing included\nPrice: 320,000 DZD per person."
+                        : booking?.trip_id === 'trip-3'
+                        ? "Tunisia Sousse Beach Itinerary (5 Days):\n- All-inclusive 4-star resort stay\n- Airport transfers included\n- Full day excursion to Tunis & Carthage ruins\nPrice: 65,000 DZD per person."
+                        : "Istanbul & Bursa Summer Tour Itinerary (7 Days):\n- Day 1: Arrival & Bosphorus cruise\n- Day 2: Old City tour (Hagia Sophia, Blue Mosque)\n- Day 3: Cable car ride to Mount Uludag, Bursa\n- Day 4: Princess Islands day tour\n- Day 5-6: Free shopping days\n- Day 7: Flight back\nPrice: 150,000 DZD per person."
+                      setInputValue(text)
+                    }}
+                    className={cn(
+                      "flex items-center justify-between p-2.5 rounded-xl border text-left text-[11px] font-bold transition-all active:scale-99 hover:translate-x-0.5 cursor-pointer",
+                      isInstagram
+                        ? "bg-slate-900/50 hover:bg-slate-900/90 border-white/10"
+                        : "bg-white hover:bg-slate-50 border-slate-200"
+                    )}
+                  >
+                    <span>📄 Send PDF Itinerary</span>
+                    <ChevronRight className="h-3.5 w-3.5 text-slate-450" />
+                  </button>
+
+                  {/* Request Passport */}
+                  <button
+                    onClick={() => {
+                      setInputValue(isEcommerce
+                        ? "Please send the product photo or name, size/color, quantity, delivery city, and your phone number so we can confirm the order."
+                        : "To confirm your travel booking and submit visa documents, could you please send us a clear photo of the first page of your passport (valid for at least 6 months)? Shoukran!"
+                      )
+                    }}
+                    className={cn(
+                      "flex items-center justify-between p-2.5 rounded-xl border text-left text-[11px] font-bold transition-all active:scale-99 hover:translate-x-0.5 cursor-pointer",
+                      isInstagram
+                        ? "bg-slate-900/50 hover:bg-slate-900/90 border-white/10"
+                        : "bg-white hover:bg-slate-50 border-slate-200"
+                    )}
+                  >
+                    <span>📸 Request Passport Copy</span>
+                    <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
+                  </button>
+
+                  {/* Send Deposit payment link */}
+                  <button
+                    onClick={() => {
+                      setInputValue(isEcommerce
+                        ? "Here is your secure order payment link: https://saas-store.dz/pay/order?invoice=inv-99283"
+                        : "Here is your deposit secure invoice payment link: https://travelagency.dz/pay/deposit?invoice=inv-99283"
+                      )
+                    }}
+                    className={cn(
+                      "flex items-center justify-between p-2.5 rounded-xl border text-left text-[11px] font-bold transition-all active:scale-99 hover:translate-x-0.5 cursor-pointer",
+                      isInstagram
+                        ? "bg-slate-900/50 hover:bg-slate-900/90 border-white/10"
+                        : "bg-white hover:bg-slate-50 border-slate-200"
+                    )}
+                  >
+                    <span>🔗 Send Invoice Payment Link</span>
+                    <ChevronRight className="h-3.5 w-3.5 text-slate-450" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
 
@@ -800,7 +1263,7 @@ export function ChatPanel({
       {showBookingModal && (
         <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
           <div className={cn(
-            "rounded-2xl border p-6 shadow-2xl max-w-sm w-full space-y-4 animate-in zoom-in-95 duration-150",
+            "rounded-2xl border p-6 shadow-2xl max-w-sm w-full space-y-4 animate-in zoom-in-95 duration-155",
             isInstagram 
               ? "glass-panel-dark border-white/10" 
               : "glass-panel border-white/35"
@@ -811,7 +1274,7 @@ export function ChatPanel({
                   "text-sm font-bold uppercase tracking-tight",
                   isInstagram ? "text-white" : "text-slate-800"
                 )}>Create Trip Booking</h3>
-                <p className="text-[10px] text-slate-405 text-slate-400 font-semibold mt-1">Select trip details and confirm guest registration.</p>
+                <p className="text-[10px] text-slate-400 font-semibold mt-1">Select trip details and confirm guest registration.</p>
               </div>
               <Button 
                 variant="ghost" 
@@ -879,8 +1342,8 @@ export function ChatPanel({
                     className={cn(
                       "w-full rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2",
                       isInstagram
-                        ? "bg-slate-900/60 border border-white/10 focus:ring-pink-500/20 text-white"
-                        : "bg-white/60 border border-slate-200/50 focus:ring-indigo-500/20 text-slate-800"
+                        ? "bg-slate-900/60 border-white/10 focus:ring-pink-500/20 text-white"
+                        : "bg-white/60 border-slate-200/50 focus:ring-indigo-500/20 text-slate-800"
                     )}
                   />
                 </div>
@@ -896,8 +1359,8 @@ export function ChatPanel({
                     className={cn(
                       "w-full rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2",
                       isInstagram
-                        ? "bg-slate-900/60 border border-white/10 focus:ring-pink-500/20 text-white"
-                        : "bg-white/60 border border-slate-200/50 focus:ring-indigo-500/20 text-slate-800"
+                        ? "bg-slate-900/60 border-white/10 focus:ring-pink-500/20 text-white"
+                        : "bg-white/60 border-slate-200/50 focus:ring-indigo-500/20 text-slate-800"
                     )}
                   />
                 </div>

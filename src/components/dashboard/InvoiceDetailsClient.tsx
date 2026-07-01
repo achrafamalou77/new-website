@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { 
   ArrowLeft, FileText, Printer, Share2, CreditCard, Plus, HelpCircle, 
-  Calendar, AlertCircle, CheckCircle, User, Award, MapPin, Copy, Save, Check
+  Calendar, AlertCircle, CheckCircle, User, Award, MapPin, Copy, Save, Check,
+  ChevronDown, MoreHorizontal
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -49,6 +50,9 @@ export function InvoiceDetailsClient({ invoice, initialPayments }: InvoiceDetail
 
   // Custom template saving state
   const [templateSavedMsg, setTemplateSavedMsg] = useState('')
+
+  // UI simplified states
+  const [dropdownOpen, setDropdownOpen] = useState(false)
 
   const handleRecordPayment = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -213,60 +217,7 @@ export function InvoiceDetailsClient({ invoice, initialPayments }: InvoiceDetail
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
-          {/* Duplicate Cloner Link */}
-          <Link href={`/dashboard/invoices/new?duplicate_id=${invoice.id}`}>
-            <Button variant="outline" className="rounded-xl border-slate-200 text-slate-600 text-xs font-bold py-2 px-3 flex items-center gap-1.5 transition">
-              <Copy className="h-4 w-4" />
-              Dupliquer Facture
-            </Button>
-          </Link>
-
-          {/* Save as Template button */}
-          <Button 
-            variant="outline" 
-            onClick={handleSaveAsTemplate}
-            className="rounded-xl border-slate-200 text-slate-600 text-xs font-bold py-2 px-3 flex items-center gap-1.5 transition"
-          >
-            <Save className="h-4 w-4" />
-            Sauver comme Modèle
-          </Button>
-
-          {/* Print Layout */}
-          <Link href={`/dashboard/invoices/${invoice.id}/print`} target="_blank">
-            <Button variant="outline" className="rounded-xl border-slate-200 text-slate-600 text-xs font-bold py-2 px-3 flex items-center gap-1.5 transition">
-              <Printer className="h-4 w-4" />
-              Imprimer (A4)
-            </Button>
-          </Link>
-
-          {/* Dynamic react-pdf Download Link */}
-          <div className="rounded-xl border border-slate-200 hover:bg-slate-50 transition px-3 py-2 text-xs font-bold flex items-center justify-center bg-white cursor-pointer select-none">
-            <PDFDownloadLink 
-              document={<InvoicePDFDocument invoice={invoice} />} 
-              fileName={`Facture-${invoice.invoice_number}.pdf`}
-            >
-              {({ loading }) => (
-                <span className="text-slate-655 flex items-center gap-1.5 text-slate-700">
-                  <FileText className="h-4 w-4 text-slate-500" />
-                  {loading ? 'Préparation PDF...' : 'Télécharger PDF'}
-                </span>
-              )}
-            </PDFDownloadLink>
-          </div>
-
-          {/* WhatsApp receipt share */}
-          {invoice.client?.phone && (
-            <Button 
-              variant="outline"
-              onClick={handleSendWhatsAppReceipt}
-              className="rounded-xl border-[#25D366]/35 text-[#25D366] hover:bg-[#25D366]/5 text-xs font-bold py-2 px-3 flex items-center gap-1.5 transition"
-            >
-              <Share2 className="h-4 w-4" />
-              WhatsApp Reçu
-            </Button>
-          )}
-
+        <div className="flex items-center gap-2.5 relative">
           {/* Record payment */}
           {invoice.balance_due > 0 && (
             <Button 
@@ -274,12 +225,97 @@ export function InvoiceDetailsClient({ invoice, initialPayments }: InvoiceDetail
                 setAmount(invoice.balance_due)
                 setModalOpen(true)
               }}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold py-2 px-4 shadow-sm shadow-indigo-150 transition flex items-center gap-1.5"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold py-2 px-4 shadow-sm shadow-indigo-150 transition flex items-center gap-1.5 text-xs h-9"
             >
-              <Plus className="h-4.5 w-4.5" />
+              <Plus className="h-4 w-4" />
               Enregistrer Versement
             </Button>
           )}
+
+          {/* Dynamic react-pdf Download Link */}
+          <div className="rounded-xl border border-slate-200 hover:bg-slate-50 transition px-3 h-9 text-xs font-bold flex items-center justify-center bg-white cursor-pointer select-none">
+            <PDFDownloadLink 
+              document={<InvoicePDFDocument invoice={invoice} />} 
+              fileName={`Facture-${invoice.invoice_number}.pdf`}
+            >
+              {({ loading }) => (
+                <span className="text-slate-700 flex items-center gap-1.5">
+                  <FileText className="h-4 w-4 text-slate-500" />
+                  {loading ? 'Préparation...' : 'Télécharger PDF'}
+                </span>
+              )}
+            </PDFDownloadLink>
+          </div>
+
+          {/* More Actions Dropdown */}
+          <div className="relative">
+            <Button
+              variant="outline"
+              onClick={() => setDropdownOpen(!dropdownOpen)}
+              className="rounded-xl border-slate-200 text-slate-600 text-xs font-bold h-9 px-3 flex items-center gap-1 transition"
+            >
+              <span>Plus d'actions</span>
+              <ChevronDown className={cn("h-4 w-4 transition-transform", dropdownOpen ? "rotate-180" : "")} />
+            </Button>
+
+            {dropdownOpen && (
+              <>
+                {/* Overlay backdrop to close dropdown easily on clicking outside */}
+                <div className="fixed inset-0 z-20 cursor-default" onClick={() => setDropdownOpen(false)} />
+                
+                <div className="absolute right-0 top-10 w-52 bg-white border border-slate-200 rounded-xl shadow-lg py-1.5 z-30 flex flex-col text-left font-semibold text-slate-700 animate-in fade-in slide-in-from-top-1 duration-100">
+                  
+                  {/* WhatsApp Receipt Share */}
+                  {invoice.client?.phone && (
+                    <button 
+                      onClick={() => {
+                        setDropdownOpen(false);
+                        handleSendWhatsAppReceipt();
+                      }}
+                      className="px-3.5 py-2 hover:bg-slate-50 text-xs text-[#25D366] flex items-center gap-2 transition w-full text-left"
+                    >
+                      <Share2 className="h-4 w-4 text-[#25D366]" />
+                      <span>WhatsApp Reçu</span>
+                    </button>
+                  )}
+
+                  {/* Print Layout */}
+                  <Link 
+                    href={`/dashboard/invoices/${invoice.id}/print`} 
+                    target="_blank"
+                    onClick={() => setDropdownOpen(false)}
+                    className="px-3.5 py-2 hover:bg-slate-50 text-xs text-slate-700 flex items-center gap-2 transition w-full text-left"
+                  >
+                    <Printer className="h-4 w-4 text-slate-450" />
+                    <span>Imprimer la Facture (A4)</span>
+                  </Link>
+
+                  {/* Duplicate Cloner Link */}
+                  <Link 
+                    href={`/dashboard/invoices/new?duplicate_id=${invoice.id}`}
+                    onClick={() => setDropdownOpen(false)}
+                    className="px-3.5 py-2 hover:bg-slate-50 text-xs text-slate-700 flex items-center gap-2 transition w-full text-left"
+                  >
+                    <Copy className="h-4 w-4 text-slate-450" />
+                    <span>Dupliquer Facture</span>
+                  </Link>
+
+                  {/* Save as Template button */}
+                  <button 
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      handleSaveAsTemplate();
+                    }}
+                    className="px-3.5 py-2 hover:bg-slate-50 text-xs text-slate-700 flex items-center gap-2 transition border-t border-slate-100 w-full text-left font-semibold"
+                  >
+                    <Save className="h-4 w-4 text-slate-450" />
+                    <span>Sauver comme Modèle</span>
+                  </button>
+
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -291,73 +327,44 @@ export function InvoiceDetailsClient({ invoice, initialPayments }: InvoiceDetail
       )}
 
       {/* PROGRESSIVE PAYMENT TIMELINE */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-5">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-          <h3 className="text-xs font-black text-indigo-950 uppercase tracking-wider flex items-center gap-2">
-            <CreditCard className="h-4.5 w-4.5 text-indigo-650" />
-            Échéancier & Ligne Temporelle des Versements ({percentPaid}% payé)
-          </h3>
-          <Badge className="bg-indigo-50 text-indigo-600 border-indigo-100 uppercase tracking-widest text-[9px] rounded-xl font-bold py-1">
-            Installments timeline
+      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CreditCard className="h-4.5 w-4.5 text-indigo-605 text-indigo-600" />
+            <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">
+              Suivi des Règlements ({percentPaid}% payé)
+            </h3>
+          </div>
+          <Badge className={cn(
+            "uppercase tracking-widest text-[9px] rounded-xl font-bold py-0.5 px-2",
+            percentPaid >= 100 ? "bg-emerald-50 text-emerald-700 border-emerald-100" : "bg-indigo-50 text-indigo-605 text-indigo-600 border-indigo-100"
+          )}>
+            {percentPaid >= 100 ? 'Règlement Complet' : 'Paiement en Cours'}
           </Badge>
         </div>
-        
-        <div className="relative pt-4 pb-2 px-4 select-none">
-          {/* Background track line */}
-          <div className="absolute top-1/2 left-8 right-8 h-1 bg-slate-100 -translate-y-1/2 z-0" />
-          {/* Active track line fill */}
-          <div 
-            className="absolute top-1/2 left-8 h-1 bg-indigo-500 -translate-y-1/2 z-0 transition-all duration-500"
-            style={{ width: `calc(${Math.min(percentPaid, 100)}% - 40px)` }}
-          />
+
+        {/* Clean, minimalist progress bar */}
+        <div className="space-y-2">
+          <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+            <div 
+              className={cn("h-full rounded-full transition-all duration-500", percentPaid >= 100 ? "bg-emerald-500" : "bg-indigo-500")}
+              style={{ width: `${Math.min(percentPaid, 100)}%` }} 
+            />
+          </div>
           
-          <div className="flex items-center justify-between relative z-10">
-            {/* Node 1: Acompte */}
-            <div className="flex flex-col items-center gap-1 bg-white px-2">
-              <div className={cn(
-                "h-8 w-8 rounded-full border-2 flex items-center justify-center font-bold text-xs transition duration-300",
-                isAcompteChecked ? "bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-100 scale-110" : "bg-white border-slate-200 text-slate-400"
-              )}>
-                {isAcompteChecked ? <Check className="h-4 w-4" /> : "1"}
-              </div>
-              <span className="text-[10px] font-black text-slate-800 mt-1 uppercase tracking-wide">Acompte (Deposit)</span>
-              <span className="text-[9px] text-slate-400 font-bold">{acompteDate || "25% requis"}</span>
+          {/* Sleek inline statistics grid */}
+          <div className="grid grid-cols-3 gap-4 pt-1 text-xs">
+            <div>
+              <span className="text-slate-400 font-bold uppercase text-[9px] tracking-wider block">Montant Total :</span>
+              <span className="font-extrabold text-slate-700 text-sm mt-0.5 block">{(invoice.total_amount || 0).toLocaleString()} DZD</span>
             </div>
-
-            {/* Node 2: Installment 1 */}
-            <div className="flex flex-col items-center gap-1 bg-white px-2">
-              <div className={cn(
-                "h-8 w-8 rounded-full border-2 flex items-center justify-center font-bold text-xs transition duration-300",
-                isTranche1Checked ? "bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-100 scale-110" : "bg-white border-slate-200 text-slate-400"
-              )}>
-                {isTranche1Checked ? <Check className="h-4 w-4" /> : "2"}
-              </div>
-              <span className="text-[10px] font-black text-slate-800 mt-1 uppercase tracking-wide">Versement 1</span>
-              <span className="text-[9px] text-slate-400 font-bold">{tranche1Date || "50% requis"}</span>
+            <div>
+              <span className="text-slate-400 font-bold uppercase text-[9px] tracking-wider block">Déjà Encaissé :</span>
+              <span className="font-extrabold text-emerald-600 text-sm mt-0.5 block">+ {(invoice.amount_paid || 0).toLocaleString()} DZD</span>
             </div>
-
-            {/* Node 3: Installment 2 */}
-            <div className="flex flex-col items-center gap-1 bg-white px-2">
-              <div className={cn(
-                "h-8 w-8 rounded-full border-2 flex items-center justify-center font-bold text-xs transition duration-300",
-                isTranche2Checked ? "bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-100 scale-110" : "bg-white border-slate-200 text-slate-400"
-              )}>
-                {isTranche2Checked ? <Check className="h-4 w-4" /> : "3"}
-              </div>
-              <span className="text-[10px] font-black text-slate-800 mt-1 uppercase tracking-wide">Versement 2</span>
-              <span className="text-[9px] text-slate-400 font-bold">{tranche2Date || "75% requis"}</span>
-            </div>
-
-            {/* Node 4: Solde Final */}
-            <div className="flex flex-col items-center gap-1 bg-white px-2">
-              <div className={cn(
-                "h-8 w-8 rounded-full border-2 flex items-center justify-center font-bold text-xs transition duration-300",
-                isFinalChecked ? "bg-emerald-600 border-emerald-600 text-white shadow-md shadow-emerald-100 scale-110" : "bg-white border-slate-200 text-slate-400"
-              )}>
-                {isFinalChecked ? <Check className="h-4 w-4" /> : "4"}
-              </div>
-              <span className="text-[10px] font-black text-slate-800 mt-1 uppercase tracking-wide">Solde Final</span>
-              <span className="text-[9px] text-slate-400 font-bold">{finalDate || "100% payé"}</span>
+            <div>
+              <span className="text-slate-400 font-bold uppercase text-[9px] tracking-wider block">Solde Restant :</span>
+              <span className="font-extrabold text-red-550 text-red-600 text-sm mt-0.5 block">{(invoice.balance_due || 0).toLocaleString()} DZD</span>
             </div>
           </div>
         </div>

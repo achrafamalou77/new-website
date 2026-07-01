@@ -2,6 +2,20 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { getCurrentAgencyContext } from '@/lib/server/agency-context'
+import { hasPermission } from '@/lib/permissions'
+
+async function requireTravelSuperadmin() {
+  const context = await getCurrentAgencyContext()
+  if (!context.userId || !context.agencyId) return { success: false as const, error: 'Unauthorized' }
+  if (context.businessTypeSlug === 'car_showroom') {
+    return { success: false as const, error: 'Trips are only available for travel agencies' }
+  }
+  if (!hasPermission(context.role, 'catalog:manage')) {
+    return { success: false as const, error: 'You do not have permission to manage trips' }
+  }
+  return { success: true as const, context: { ...context, agencyId: context.agencyId as string } }
+}
 
 export async function createTrip(formData: any) {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
@@ -9,20 +23,12 @@ export async function createTrip(formData: any) {
   }
 
   const supabase = await createClient()
-
-  // Verify superadmin role
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { success: false, error: 'Unauthorized' }
-  
-  const { data: profileData } = await supabase.from('profiles').select('role, agency_id').eq('id', user.id).single()
-  const profile = profileData
-  if (profile?.role !== 'superadmin') {
-    return { success: false, error: 'Only superadmins can create trips' }
-  }
+  const guard = await requireTravelSuperadmin()
+  if (!guard.success) return guard
 
   const tripsTable: any = supabase.from('trips')
   const { error } = await tripsTable.insert({
-    agency_id: profile.agency_id,
+    agency_id: guard.context.agencyId,
     title: formData.title,
     description: formData.description,
     price: Number(formData.price),
@@ -98,19 +104,11 @@ export async function updateTrip(tripId: string, formData: any) {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return { success: true }
 
   const supabase = await createClient()
-
-  // Verify superadmin role
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { success: false, error: 'Unauthorized' }
-  
-  const { data: profileData } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  const profile = profileData
-  if (profile?.role !== 'superadmin') {
-    return { success: false, error: 'Only superadmins can update trips' }
-  }
+  const guard = await requireTravelSuperadmin()
+  if (!guard.success) return guard
 
   const tripsTable: any = supabase.from('trips')
-  const { error } = await tripsTable.update({
+  const { data: trip, error } = await tripsTable.update({
     title: formData.title,
     description: formData.description,
     price: Number(formData.price),
@@ -172,11 +170,17 @@ export async function updateTrip(tripId: string, formData: any) {
     bookings_open: formData.bookings_open !== false,
     show_on_website: formData.show_on_website !== false,
     show_on_chatbot: formData.show_on_chatbot !== false
-  }).eq('id', tripId)
+  })
+    .eq('id', tripId)
+    .eq('agency_id', guard.context.agencyId)
+    .select('id')
+    .maybeSingle()
 
   if (error) {
     return { success: false, error: error.message }
   }
+
+  if (!trip) return { success: false, error: 'Trip not found in this agency' }
 
   revalidatePath('/dashboard/trips')
   return { success: true }
@@ -186,22 +190,15 @@ export async function deleteTrip(tripId: string) {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return { success: true }
 
   const supabase = await createClient()
-
-  // Verify superadmin role
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { success: false, error: 'Unauthorized' }
-  
-  const { data: profileData } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  const profile = profileData
-  if (profile?.role !== 'superadmin') {
-    return { success: false, error: 'Only superadmins can delete trips' }
-  }
+  const guard = await requireTravelSuperadmin()
+  if (!guard.success) return guard
 
   // Check for active bookings
   const { count, error: countError } = await supabase
     .from('bookings')
     .select('*', { count: 'exact', head: true })
     .eq('trip_id', tripId)
+    .eq('agency_id', guard.context.agencyId)
     .neq('status', 'cancelled')
 
   if (countError) {
@@ -212,11 +209,19 @@ export async function deleteTrip(tripId: string) {
     return { success: false, error: 'Cannot delete trip with active bookings.' }
   }
 
-  const { error } = await supabase.from('trips').delete().eq('id', tripId)
+  const { data: trip, error } = await supabase
+    .from('trips')
+    .delete()
+    .eq('id', tripId)
+    .eq('agency_id', guard.context.agencyId)
+    .select('id')
+    .maybeSingle()
 
   if (error) {
     return { success: false, error: error.message }
   }
+
+  if (!trip) return { success: false, error: 'Trip not found in this agency' }
 
   revalidatePath('/dashboard/trips')
   return { success: true }

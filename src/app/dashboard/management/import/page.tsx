@@ -12,13 +12,15 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { useLanguage } from '@/lib/contexts/LanguageContext'
 
 import {
   getImportOrders,
   getAgencyClients,
   createImportOrder,
   updateImportOrder,
-  deleteImportOrder
+  deleteImportOrder,
+  getExportEligibleInventoryCars
 } from '@/app/actions/import-orders'
 import {
   getContainers,
@@ -86,6 +88,7 @@ function getPipelineStage(status: string) {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 export default function CarImportPage() {
+  const { t, dir } = useLanguage()
   const [activeTab, setActiveTab] = useState<'orders' | 'containers'>('orders')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -94,6 +97,7 @@ export default function CarImportPage() {
   const [containers, setContainers] = useState<any[]>([])
   const [unlinkedCars, setUnlinkedCars] = useState<any[]>([])
   const [clients, setClients] = useState<any[]>([])
+  const [exportCars, setExportCars] = useState<any[]>([])
 
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -109,6 +113,7 @@ export default function CarImportPage() {
 
   const [newOrderForm, setNewOrderForm] = useState({
     client_id: '', clientName: '', clientPhone: '',
+    inventory_car_id: '',
     vehicle_brand: '', vehicle_model: '', vehicle_year: '2026',
     color: '', total_cost: '', deposit_paid: '',
     supplier_name: '', origin_country: '',
@@ -130,8 +135,8 @@ export default function CarImportPage() {
   const loadAllData = async () => {
     setLoading(true); setError(null)
     try {
-      const [ordersRes, containersRes, unlinkedRes, clientsRes] = await Promise.all([
-        getImportOrders(), getContainers(), getUnlinkedImportCars(), getAgencyClients()
+      const [ordersRes, containersRes, unlinkedRes, clientsRes, exportCarsRes] = await Promise.all([
+        getImportOrders(), getContainers(), getUnlinkedImportCars(), getAgencyClients(), getExportEligibleInventoryCars()
       ])
       if (ordersRes.success)     setOrders(ordersRes.data || [])
       else throw new Error(ordersRes.error)
@@ -141,6 +146,8 @@ export default function CarImportPage() {
       else throw new Error(unlinkedRes.error)
       if (clientsRes.success)    setClients(clientsRes.data || [])
       else throw new Error(clientsRes.error)
+      if (exportCarsRes.success) setExportCars(exportCarsRes.data || [])
+      else throw new Error(exportCarsRes.error)
     } catch (err: any) {
       setError(err.message || 'An error occurred')
     } finally {
@@ -217,14 +224,44 @@ export default function CarImportPage() {
     if (res.success) { loadAllData(); setActiveOrder({ ...activeOrder, status: newStatus, specs: { ...(activeOrder.specs || {}), timeline: updatedTimeline } }) }
   }
 
+  const handleCarSelect = (carId: string) => {
+    const car = exportCars.find(c => c.id === carId)
+    if (car) {
+      setNewOrderForm(p => ({
+        ...p,
+        inventory_car_id: carId,
+        vehicle_brand: car.brand || '',
+        vehicle_model: car.model || '',
+        vehicle_year: String(car.year || '2026'),
+        color: car.color_exterior || car.color || '',
+        total_cost: String(car.selling_price || car.price || ''),
+      }))
+    } else {
+      setNewOrderForm(p => ({
+        ...p,
+        inventory_car_id: '',
+        vehicle_brand: '',
+        vehicle_model: '',
+        vehicle_year: '2026',
+        color: '',
+        total_cost: '',
+      }))
+    }
+  }
+
   const handleCreateOrderSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!newOrderForm.inventory_car_id) {
+      alert('Please choose an export vehicle from inventory')
+      return
+    }
     const tCost = Number(newOrderForm.total_cost) || 0
     const dPaid = Number(newOrderForm.deposit_paid) || 0
     const res = await createImportOrder({
       client_id: newOrderForm.client_id || undefined,
       clientName: newOrderForm.clientName || undefined,
       clientPhone: newOrderForm.clientPhone || undefined,
+      inventory_car_id: newOrderForm.inventory_car_id,
       vehicle_brand: newOrderForm.vehicle_brand,
       vehicle_model: newOrderForm.vehicle_model,
       vehicle_year: Number(newOrderForm.vehicle_year),
@@ -244,7 +281,7 @@ export default function CarImportPage() {
     })
     if (res.success) {
       setIsNewOrderOpen(false)
-      setNewOrderForm({ client_id: '', clientName: '', clientPhone: '', vehicle_brand: '', vehicle_model: '', vehicle_year: '2026', color: '', total_cost: '', deposit_paid: '', supplier_name: '', origin_country: '' })
+      setNewOrderForm({ client_id: '', clientName: '', clientPhone: '', inventory_car_id: '', vehicle_brand: '', vehicle_model: '', vehicle_year: '2026', color: '', total_cost: '', deposit_paid: '', supplier_name: '', origin_country: '' })
       loadAllData()
     } else alert('Failed: ' + res.error)
   }
@@ -344,15 +381,15 @@ export default function CarImportPage() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="flex-1 overflow-hidden flex flex-col gap-5 text-left">
+    <div className="flex-1 overflow-hidden flex flex-col gap-5 text-left rtl:text-right">
 
       {/* ── STATS ROW ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 shrink-0">
         {[
-          { label: 'Import Volume',    value: stats.total,     sub: 'total dossiers',       icon: Globe,         color: 'indigo', pulse: false },
-          { label: 'Active Shipments', value: stats.active,    sub: 'at sea or in port',    icon: Ship,          color: 'blue',   pulse: false },
-          { label: 'In Customs',       value: stats.inCustoms, sub: 'awaiting clearance',   icon: Landmark,      color: 'amber',  pulse: stats.inCustoms > 0 },
-          { label: 'Delivered',        value: stats.delivered, sub: 'closed & received',    icon: CheckCircle2,  color: 'emerald',pulse: false },
+          { label: t('import.volume', 'Import Volume'),    value: stats.total,     sub: t('import.volume_desc', 'total dossiers'),       icon: Globe,         color: 'indigo', pulse: false },
+          { label: t('import.active', 'Active Shipments'), value: stats.active,    sub: t('import.active_desc', 'at sea or in port'),    icon: Ship,          color: 'blue',   pulse: false },
+          { label: t('import.customs', 'In Customs'),       value: stats.inCustoms, sub: t('import.customs_desc', 'awaiting clearance'),   icon: Landmark,      color: 'amber',  pulse: stats.inCustoms > 0 },
+          { label: t('import.delivered', 'Delivered'),        value: stats.delivered, sub: t('import.delivered_desc', 'closed & received'),    icon: CheckCircle2,  color: 'emerald',pulse: false },
         ].map(s => {
           const Icon = s.icon
           const iconClass: Record<string,string> = {
@@ -381,36 +418,36 @@ export default function CarImportPage() {
         <div className="flex bg-slate-100 p-1 rounded-xl gap-0.5 border">
           <button onClick={() => { setActiveTab('orders'); setSearch('') }}
             className={`flex items-center gap-2 px-4 py-2 text-xs font-black rounded-lg transition cursor-pointer ${activeTab === 'orders' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-            <Layers className="h-3.5 w-3.5" /> Import Dossiers
+            <Layers className="h-3.5 w-3.5" /> {t('nav.import', 'Import Dossiers')}
             {orders.length > 0 && <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-black ${activeTab === 'orders' ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-200 text-slate-500'}`}>{orders.length}</span>}
           </button>
           <button onClick={() => { setActiveTab('containers'); setSearch('') }}
             className={`flex items-center gap-2 px-4 py-2 text-xs font-black rounded-lg transition cursor-pointer ${activeTab === 'containers' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-            <Ship className="h-3.5 w-3.5" /> Shipping Containers
+            <Ship className="h-3.5 w-3.5" /> {t('import.shipping_containers', 'Shipping Containers')}
             {containers.length > 0 && <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-black ${activeTab === 'containers' ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-200 text-slate-500'}`}>{containers.length}</span>}
           </button>
         </div>
 
         <div className="flex flex-wrap gap-2 items-center">
           <div className="relative">
-            <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
+            <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400 rtl:left-auto rtl:right-3" />
             <Input value={search} onChange={e => setSearch(e.target.value)}
-              placeholder={activeTab === 'orders' ? 'Search dossiers...' : 'Search containers...'}
-              className="pl-8 text-xs rounded-xl border-slate-200 h-9 w-52" />
+              placeholder={activeTab === 'orders' ? t('import.search_placeholder', 'Search dossiers...') : t('import.search_containers_placeholder', 'Search containers...')}
+              className="pl-8 text-xs rounded-xl border-slate-200 h-9 w-52 rtl:pl-2 rtl:pr-8" />
           </div>
 
           {activeTab === 'orders' && (
             <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
               className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 bg-white h-9 cursor-pointer">
-              <option value="all">All Stages</option>
-              {PIPELINE_STAGES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+              <option value="all">{t('import.all_stages', 'All Stages')}</option>
+              {PIPELINE_STAGES.map(s => <option key={s.key} value={s.key}>{t('import.stage.' + s.key, s.label)}</option>)}
             </select>
           )}
 
           <Button onClick={() => activeTab === 'orders' ? setIsNewOrderOpen(true) : setIsNewContainerOpen(true)}
             className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black h-9 gap-1.5 cursor-pointer shadow-sm">
             <Plus className="h-3.5 w-3.5" />
-            {activeTab === 'orders' ? 'New Import Order' : 'New Container'}
+            {activeTab === 'orders' ? t('import.new_order', 'New Import Order') : t('import.new_container', 'New Container')}
           </Button>
         </div>
       </div>
@@ -508,7 +545,7 @@ export default function CarImportPage() {
                           <p className="text-sm font-black text-slate-900">{(order.total_cost || 0).toLocaleString()}</p>
                           <p className="text-[9px] text-slate-400">DZD</p>
                         </div>
-                        <div className="border-l border-slate-200 pl-3">
+                        <div className="border-l border-slate-200 pl-3 rtl:border-l-0 rtl:border-r rtl:pl-0 rtl:pr-3">
                           <p className="text-[9px] font-black text-slate-400 uppercase">Balance Due</p>
                           <p className={`text-sm font-black ${(order.balance_due || 0) > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
                             {(order.balance_due || 0).toLocaleString()}
@@ -620,7 +657,7 @@ export default function CarImportPage() {
                           <p className="text-xs font-black text-slate-800">{container.arrival_port}</p>
                         </div>
                         {container.estimated_arrival_date && (
-                          <div className="border-l border-slate-200 pl-3 text-center">
+                          <div className="border-l border-slate-200 pl-3 rtl:border-l-0 rtl:border-r rtl:pl-0 rtl:pr-3 text-center">
                             <p className="text-[9px] font-black text-slate-400 uppercase">ETA</p>
                             <p className="text-[10px] font-black text-indigo-600">
                               {new Date(container.estimated_arrival_date).toLocaleDateString('fr-DZ', { day: '2-digit', month: 'short' })}
@@ -705,7 +742,7 @@ export default function CarImportPage() {
       {activeOrder && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex justify-end z-50 animate-fadeIn"
           onClick={() => setActiveOrder(null)}>
-          <div className="bg-white w-full max-w-3xl h-screen flex flex-col shadow-2xl border-l border-slate-200 animate-slideInRight"
+          <div className="bg-white w-full max-w-3xl h-screen flex flex-col shadow-2xl border-l border-slate-200 animate-slideInRight rtl:border-l-0 rtl:border-r rtl:animate-slideInLeft"
             onClick={e => e.stopPropagation()}>
 
             {/* Drawer header */}
@@ -929,7 +966,7 @@ export default function CarImportPage() {
                     <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
                       <Activity className="h-3.5 w-3.5 text-slate-400" /> Audit Log
                     </h4>
-                    <div className="relative pl-5 border-l border-slate-200 space-y-4">
+                    <div className="relative pl-5 rtl:pl-0 rtl:pr-5 border-l rtl:border-l-0 rtl:border-r border-slate-200 space-y-4">
                       {(activeOrder.specs?.timeline || [{ stage: 'ordered', date: activeOrder.order_date, note: 'Order registered.' }]).map((item: any, idx: number) => (
                         <div key={idx} className="relative">
                           <div className="absolute -left-[22px] top-1 h-3 w-3 rounded-full bg-white border-2 border-indigo-500" />
@@ -958,7 +995,7 @@ export default function CarImportPage() {
       {/* ═══════════════ CONTAINER TIMELINE MODAL ═══════════════ */}
       {activeContainer && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <div className="bg-white rounded-3xl shadow-2xl border w-full max-w-2xl overflow-hidden animate-scaleIn text-left max-h-[90vh] flex flex-col">
+          <div className="bg-white rounded-3xl shadow-2xl border w-full max-w-2xl overflow-hidden animate-scaleIn text-left rtl:text-right max-h-[90vh] flex flex-col">
             <div className="bg-slate-900 px-6 py-5 text-white flex items-center justify-between shrink-0">
               <div className="flex items-center gap-3">
                 <Ship className="h-5 w-5 text-indigo-400" />
@@ -992,7 +1029,7 @@ export default function CarImportPage() {
                 <h4 className="text-[10px] font-black text-slate-400 uppercase mb-4 flex items-center gap-1.5">
                   <Activity className="h-3.5 w-3.5" /> Vessel Journey Timeline
                 </h4>
-                <div className="relative pl-7 border-l border-slate-200 space-y-5">
+                <div className="relative pl-7 rtl:pl-0 rtl:pr-7 border-l rtl:border-l-0 rtl:border-r border-slate-200 space-y-5">
                   {SHIPMENT_STAGES.map((stage, idx) => {
                     const currentIdx = SHIPMENT_STAGES.findIndex(s => s.key === activeContainer.status)
                     const isCompleted = idx < currentIdx
@@ -1059,7 +1096,7 @@ export default function CarImportPage() {
       {/* ═══════════════ NEW ORDER MODAL ═══════════════ */}
       {isNewOrderOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <div className="bg-white rounded-3xl shadow-2xl border w-full max-w-lg overflow-hidden animate-scaleIn text-left">
+          <div className="bg-white rounded-3xl shadow-2xl border w-full max-w-lg overflow-hidden animate-scaleIn text-left rtl:text-right">
             <div className="bg-slate-900 px-6 py-5 text-white flex items-center justify-between">
               <div>
                 <p className="text-[10px] text-slate-400 font-bold uppercase">New Import Dossier</p>
@@ -1098,33 +1135,44 @@ export default function CarImportPage() {
                 </div>
               )}
 
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black text-slate-400 uppercase">Export Vehicle from Inventory *</Label>
+                <select required value={newOrderForm.inventory_car_id}
+                  onChange={e => handleCarSelect(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 p-2.5 text-xs font-bold bg-white cursor-pointer">
+                  <option value="">— Select export-eligible vehicle —</option>
+                  {exportCars.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.display_name} (Stock: {c.quantity})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-2 space-y-1.5">
-                  <Label className="text-[10px] font-black text-slate-400 uppercase">Brand *</Label>
-                  <Input required value={newOrderForm.vehicle_brand}
-                    onChange={e => setNewOrderForm(p => ({ ...p, vehicle_brand: e.target.value }))}
-                    placeholder="Mercedes-Benz" className="rounded-xl text-xs" />
+                  <Label className="text-[10px] font-black text-slate-400 uppercase">Brand</Label>
+                  <Input readOnly disabled value={newOrderForm.vehicle_brand}
+                    className="rounded-xl text-xs bg-slate-50 text-slate-500 cursor-not-allowed" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] font-black text-slate-400 uppercase">Year *</Label>
-                  <Input required type="number" value={newOrderForm.vehicle_year}
-                    onChange={e => setNewOrderForm(p => ({ ...p, vehicle_year: e.target.value }))}
-                    className="rounded-xl text-xs font-mono" />
+                  <Label className="text-[10px] font-black text-slate-400 uppercase">Year</Label>
+                  <Input readOnly disabled value={newOrderForm.vehicle_year}
+                    className="rounded-xl text-xs font-mono bg-slate-50 text-slate-500 cursor-not-allowed" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] font-black text-slate-400 uppercase">Model *</Label>
-                  <Input required value={newOrderForm.vehicle_model}
-                    onChange={e => setNewOrderForm(p => ({ ...p, vehicle_model: e.target.value }))}
-                    placeholder="Classe C AMG" className="rounded-xl text-xs" />
+                  <Label className="text-[10px] font-black text-slate-400 uppercase">Model</Label>
+                  <Input readOnly disabled value={newOrderForm.vehicle_model}
+                    className="rounded-xl text-xs bg-slate-50 text-slate-500 cursor-not-allowed" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-[10px] font-black text-slate-400 uppercase">Color</Label>
                   <Input value={newOrderForm.color}
                     onChange={e => setNewOrderForm(p => ({ ...p, color: e.target.value }))}
-                    placeholder="Gris Dauphin" className="rounded-xl text-xs" />
+                    placeholder="e.g. Noir Obsidian" className="rounded-xl text-xs" />
                 </div>
               </div>
 
@@ -1179,7 +1227,7 @@ export default function CarImportPage() {
       {/* ═══════════════ NEW CONTAINER MODAL ═══════════════ */}
       {isNewContainerOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <div className="bg-white rounded-3xl shadow-2xl border w-full max-w-lg overflow-hidden animate-scaleIn text-left">
+          <div className="bg-white rounded-3xl shadow-2xl border w-full max-w-lg overflow-hidden animate-scaleIn text-left rtl:text-right">
             <div className="bg-slate-900 px-6 py-5 text-white flex items-center justify-between">
               <div>
                 <p className="text-[10px] text-slate-400 font-bold uppercase">Ocean Freight</p>
@@ -1270,7 +1318,7 @@ export default function CarImportPage() {
       {/* ═══════════════ CAR LINKING MODAL ═══════════════ */}
       {isLinkingModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <div className="bg-white rounded-3xl shadow-2xl border w-full max-w-md overflow-hidden animate-scaleIn text-left">
+          <div className="bg-white rounded-3xl shadow-2xl border w-full max-w-md overflow-hidden animate-scaleIn text-left rtl:text-right">
             <div className="bg-slate-900 px-6 py-5 text-white flex items-center justify-between">
               <div>
                 <p className="text-[10px] text-slate-400 font-bold uppercase">Manifest Manager</p>

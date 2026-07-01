@@ -2,8 +2,6 @@ import { getVisaApplicationById } from '@/app/actions/visa'
 import { VisaDetailsClient } from '@/components/visa/VisaDetailsClient'
 import { redirect } from 'next/navigation'
 
-export const dynamic = 'force-dynamic'
-
 interface PageProps {
   params: Promise<{ id: string }>
 }

@@ -4,8 +4,6 @@ import { numberToFrenchWords } from '@/lib/number-to-words'
 import { PrintTrigger } from '@/components/dashboard/PrintTrigger'
 import { AlertCircle, CreditCard, Compass } from 'lucide-react'
 
-export const dynamic = 'force-dynamic'
-
 export default async function InvoicePrintPage({
   params
 }: {
@@ -216,28 +214,6 @@ export default async function InvoicePrintPage({
           <div className="flex justify-between text-red-600 font-black">
             <span>SOLDE A RÉGLER :</span>
             <span>{(invoice.balance_due || 0).toLocaleString()} DZD</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Signature and Stamp Blocks */}
-      <div className="grid grid-cols-2 gap-8 pt-8 border-t border-slate-200 text-center font-bold text-slate-450 text-[10px] uppercase tracking-wider select-none">
-        <div>
-          <span>Visa & Cachet Client / توقيع الزبون</span>
-          <div className="h-24 w-44 mx-auto border border-dashed border-slate-200 rounded-xl mt-3 flex items-center justify-center text-slate-300 font-normal italic">
-            Cadre Signature
-          </div>
-        </div>
-        <div>
-          <span>Visa & Cachet Agence / توقيع الوكالة</span>
-          {/* Simulated ROTATED red official agency cachet stamp */}
-          <div className="relative h-24 w-44 mx-auto border border-dashed border-slate-200 rounded-xl mt-3 flex items-center justify-center overflow-hidden bg-slate-50/50">
-            <div className="absolute transform -rotate-12 border-[2.5px] border-red-500 rounded-full px-3 py-1.5 text-center font-black uppercase text-[9px] text-red-500 tracking-wider pointer-events-none ring-2 ring-red-500/20 scale-102 opacity-80 leading-normal">
-              AGENCE DE VOYAGE<br/>
-              ★ CACHET OFFICIEL ★<br/>
-              ALGER, ALGÉRIE
-            </div>
-            <span className="text-[8px] text-slate-350 italic font-medium z-0">Timbre Agence</span>
           </div>
         </div>
       </div>

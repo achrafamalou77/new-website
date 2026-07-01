@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { ChatbotSettingsClient } from '@/components/dashboard/ChatbotSettingsClient'
 
 export const metadata = {
@@ -12,6 +13,7 @@ export default async function ChatbotSettingsPage() {
   let activeTrips: any[] = []
   let activeCars: any[] = []
   let agencyId = ''
+  let metaIntegration: any = null
   
   if (user) {
     const { data: profileData } = await supabase.from('profiles').select('agency_id').eq('id', user.id).single()
@@ -28,24 +30,37 @@ export default async function ChatbotSettingsPage() {
       
       const isShowroom = agencyData?.business_type_slug === 'car_showroom'
 
+      // Fetch vertical-specific catalog and Meta Integration concurrently
       if (isShowroom) {
-        // Query available sales cars
-        const { data: salesData } = await supabase
-          .from('car_sales_inventory')
-          .select('id, brand, model, year, price, status, specs')
-          .eq('agency_id', profile.agency_id)
-          .eq('status', 'available')
-          .order('brand', { ascending: true })
+        const [salesRes, rentalRes, metaRes] = await Promise.all([
+          supabase
+            .from('car_sales_inventory')
+            .select('id, brand, model, year, price, status, specs')
+            .eq('agency_id', profile.agency_id)
+            .eq('status', 'available')
+            .order('brand', { ascending: true }),
+          supabase
+            .from('car_rental_fleet')
+            .select('id, brand, model, year, daily_rate, status, specs')
+            .eq('agency_id', profile.agency_id)
+            .eq('status', 'available')
+            .order('brand', { ascending: true }),
+          (async () => {
+            try {
+              const admin = createAdminClient() as any
+              const { data } = await admin
+                .from('meta_integrations')
+                .select('*')
+                .eq('agency_id', profile.agency_id)
+                .maybeSingle()
+              return data
+            } catch (e) {
+              return null
+            }
+          })()
+        ])
 
-        // Query available rental cars
-        const { data: rentalData } = await supabase
-          .from('car_rental_fleet')
-          .select('id, brand, model, year, daily_rate, status, specs')
-          .eq('agency_id', profile.agency_id)
-          .eq('status', 'available')
-          .order('brand', { ascending: true })
-
-        const salesCars = (salesData || []).map(car => ({
+        const salesCars = (salesRes.data || []).map(car => ({
           id: car.id,
           title: `${car.brand} ${car.model} (${car.year})`,
           destination: 'Vente',
@@ -54,7 +69,7 @@ export default async function ChatbotSettingsPage() {
           specs: car.specs || {}
         }))
 
-        const rentalCars = (rentalData || []).map(car => ({
+        const rentalCars = (rentalRes.data || []).map(car => ({
           id: car.id,
           title: `${car.brand} ${car.model} (${car.year})`,
           destination: 'Location',
@@ -64,17 +79,42 @@ export default async function ChatbotSettingsPage() {
         }))
 
         activeCars = [...salesCars, ...rentalCars]
+        metaIntegration = metaRes
       } else {
-        const { data } = await supabase
-          .from('trips')
-          .select('*')
-          .eq('agency_id', profile.agency_id)
-          .eq('is_active', true)
-          .order('created_at', { ascending: false })
-        activeTrips = data || []
+        const [tripsRes, metaRes] = await Promise.all([
+          supabase
+            .from('trips')
+            .select('*')
+            .eq('agency_id', profile.agency_id)
+            .eq('is_active', true)
+            .order('created_at', { ascending: false }),
+          (async () => {
+            try {
+              const admin = createAdminClient() as any
+              const { data } = await admin
+                .from('meta_integrations')
+                .select('*')
+                .eq('agency_id', profile.agency_id)
+                .maybeSingle()
+              return data
+            } catch (e) {
+              return null
+            }
+          })()
+        ])
+
+        activeTrips = tripsRes.data || []
+        metaIntegration = metaRes
       }
     }
   }
 
-  return <ChatbotSettingsClient activeTrips={activeTrips} activeCars={activeCars} agencyId={agencyId} />
+  return (
+    <ChatbotSettingsClient
+      activeTrips={activeTrips}
+      activeCars={activeCars}
+      agencyId={agencyId}
+      metaIntegration={metaIntegration}
+    />
+  )
 }

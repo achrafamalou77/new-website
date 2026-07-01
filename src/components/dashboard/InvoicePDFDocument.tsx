@@ -222,42 +222,6 @@ const styles = StyleSheet.create({
     height: 8,
     backgroundColor: '#ffffff'
   },
-
-  // Stamp and signature areas
-  stampSignatureRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 15,
-    borderTopWidth: 0.5,
-    borderTopColor: '#e2e8f0',
-    paddingTop: 15
-  },
-  signBlock: {
-    width: '45%',
-    alignItems: 'center'
-  },
-  signTitle: {
-    fontSize: 8,
-    fontWeight: 'bold',
-    color: '#64748b',
-    textTransform: 'uppercase',
-    marginBottom: 5
-  },
-  stampBoxSimulated: {
-    width: 140,
-    height: 70,
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderColor: '#cbd5e1',
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  stampText: {
-    fontSize: 6,
-    color: '#cbd5e1',
-    fontStyle: 'italic'
-  },
   
   termsBlock: {
     marginTop: 10,
@@ -455,24 +419,6 @@ export function InvoicePDFDocument({ invoice }: InvoicePDFDocumentProps) {
             <Text style={[styles.regularText, { fontSize: 7, color: '#64748b' }]}>{invoice.terms}</Text>
           </View>
         )}
-
-        {/* Stamp and signature block */}
-        <View style={styles.stampSignatureRow}>
-          <View style={styles.signBlock}>
-            <Text style={styles.signTitle}>Visa & Cachet Client / توقيع الزبون</Text>
-            <View style={styles.stampBoxSimulated}>
-              <Text style={styles.stampText}>Signature client</Text>
-            </View>
-          </View>
-          
-          <View style={styles.signBlock}>
-            <Text style={styles.signTitle}>Visa & Cachet Agence / توقيع الوكالة</Text>
-            <View style={[styles.stampBoxSimulated, { borderColor: '#4f46e5/30' }]}>
-              <Text style={[styles.stampText, { color: '#4f46e5', fontWeight: 'bold' }]}>TRAVEL AGENCY</Text>
-              <Text style={{ fontSize: 5, color: '#94a3b8', marginTop: 2 }}>ALGER S.A.R.L - TIMBRE OFFICIEL</Text>
-            </View>
-          </View>
-        </View>
 
         {/* Footer */}
         <Text style={styles.footer}>

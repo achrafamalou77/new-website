@@ -135,6 +135,33 @@ export function TripCard({ trip, agency, isCompared = false, onToggleCompare }: 
             
             {/* Tag Badges row */}
             <div className="flex flex-wrap gap-1.5 items-center">
+              {/* Type de Voyage */}
+              <span className="px-2.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100 text-[9px] font-bold uppercase tracking-wider">
+                {trip.trip_type === 'circuit_routier' ? '🚌 Circuit' :
+                 trip.trip_type === 'omra' ? '🕋 Omra' :
+                 trip.trip_type === 'free_voyage' ? '🏖️ Libre' :
+                 trip.trip_type === 'excursion' ? '⛰️ Excursion' : '✈️ Organisé'}
+              </span>
+
+              {/* Rythme / Difficulté */}
+              <span className={`px-2.5 py-0.5 rounded-md border text-[9px] font-bold uppercase tracking-wider ${
+                trip.trip_type === 'free_voyage' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                trip.trip_type === 'excursion' ? 'bg-rose-50 text-rose-700 border-rose-100' :
+                trip.duration_days <= 5 ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                trip.duration_days <= 10 ? 'bg-amber-50 text-amber-700 border-amber-100' :
+                'bg-orange-50 text-orange-700 border-orange-100'
+              }`}>
+                {trip.trip_type === 'free_voyage' ? '🟢 Facile & Relax' :
+                 trip.trip_type === 'excursion' ? '⚡ Intense' :
+                 trip.duration_days <= 5 ? '🟢 Facile' :
+                 trip.duration_days <= 10 ? '🟡 Modéré' : '🟠 Actif / Complet'}
+              </span>
+
+              {/* Accompagnement */}
+              <span className="px-2.5 py-0.5 rounded-md bg-slate-50 text-slate-700 border border-slate-200 text-[9px] font-bold uppercase tracking-wider">
+                {trip.guide_included ? '🧑‍✈️ Avec Guide' : '👤 Autonomie'}
+              </span>
+
               {renderStars() && (
                 <span className="px-2.5 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-100 text-[9px] font-bold uppercase tracking-wider flex items-center gap-0.5">
                   <Star className="w-3 h-3 fill-amber-500 text-amber-500" /> {renderStars()}
@@ -142,7 +169,19 @@ export function TripCard({ trip, agency, isCompared = false, onToggleCompare }: 
               )}
               {trip.meal_plan && (
                 <span className="px-2.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100 text-[9px] font-bold uppercase tracking-wider">
-                  {trip.meal_plan}
+                  {trip.meal_plan.startsWith('[') 
+                    ? (() => {
+                        try {
+                          const parsed = JSON.parse(trip.meal_plan)
+                          if (Array.isArray(parsed) && parsed.length > 0) {
+                            return parsed[0].name + (parsed.length > 1 ? ` +${parsed.length - 1}` : '')
+                          }
+                        } catch (e) {
+                          console.error(e)
+                        }
+                        return trip.meal_plan
+                      })()
+                    : trip.meal_plan}
                 </span>
               )}
               {trip.transport_details?.flight_type === 'Direct' && (

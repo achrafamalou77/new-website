@@ -87,38 +87,38 @@ export function MessageBubble({ message, platform }: MessageBubbleProps) {
       // Inbound Customer message
       switch (platform) {
         case 'whatsapp':
-          return 'bg-white border border-black/5 shadow-xs text-[#111b21] rounded-2xl rounded-tl-sm'
+          return 'bg-white border border-[#e5ebed] shadow-[0_1px_0.5px_rgba(0,0,0,0.13)] text-[#111b21] rounded-2xl rounded-tl-none'
         case 'instagram':
-          return 'bg-slate-900/60 backdrop-blur-md border border-white/5 shadow-md text-slate-100 rounded-2xl rounded-tl-sm'
+          return 'bg-slate-900/60 backdrop-blur-md border border-white/5 shadow-md text-slate-100 rounded-2xl rounded-tl-none'
         case 'facebook':
-          return 'bg-[#f0f2f5]/90 backdrop-blur-xs border border-transparent shadow-xs text-slate-800 rounded-2xl rounded-tl-sm'
+          return 'bg-[#f0f2f5]/90 backdrop-blur-xs border border-transparent shadow-xs text-slate-800 rounded-2xl rounded-tl-none'
         default:
-          return 'bg-slate-100 border border-slate-200/40 text-slate-800 rounded-2xl rounded-tl-sm shadow-xs'
+          return 'bg-slate-100 border border-slate-200/40 text-slate-800 rounded-2xl rounded-tl-none shadow-xs'
       }
     } else {
       // Outbound (Human or AI)
       if (isAi) {
         switch (platform) {
           case 'instagram':
-            return 'bg-purple-900/35 border border-purple-500/25 text-purple-100 rounded-2xl rounded-tr-sm shadow-sm'
+            return 'bg-purple-900/35 border border-purple-500/25 text-purple-100 rounded-2xl rounded-tr-none shadow-sm'
           case 'whatsapp':
-            return 'bg-[#d9fdd3]/75 backdrop-blur-md border border-[#c3f6bb]/60 text-[#1f2c34] rounded-2xl rounded-tr-sm shadow-xs'
+            return 'bg-[#e7f7e2] border border-[#d3ecd0] text-[#1f2c34] rounded-2xl rounded-tr-none shadow-[0_1px_0.5px_rgba(0,0,0,0.13)]'
           case 'facebook':
-            return 'bg-blue-500/10 border border-blue-500/20 text-blue-900 rounded-2xl rounded-tr-sm shadow-xs'
+            return 'bg-blue-500/10 border border-blue-500/20 text-blue-900 rounded-2xl rounded-tr-none shadow-xs'
           default:
-            return 'bg-white border border-slate-200 text-slate-800 rounded-2xl rounded-tr-sm shadow-xs'
+            return 'bg-white border border-slate-200 text-slate-800 rounded-2xl rounded-tr-none shadow-xs'
         }
       } else {
         // Human Agent reply
         switch (platform) {
           case 'whatsapp':
-            return 'bg-[#d9fdd3] border border-[#bcecb5] shadow-xs text-[#1f2c34] rounded-2xl rounded-tr-sm'
+            return 'bg-[#d9fdd3] border border-[#bcecb5] shadow-[0_1px_0.5px_rgba(0,0,0,0.13)] text-[#1f2c34] rounded-2xl rounded-tr-none'
           case 'instagram':
-            return 'bg-gradient-to-tr from-purple-600/35 via-pink-600/35 to-orange-500/35 backdrop-blur-md border border-pink-500/30 text-white rounded-2xl rounded-tr-sm shadow-sm'
+            return 'bg-gradient-to-tr from-purple-600/35 via-pink-600/35 to-orange-500/35 backdrop-blur-md border border-pink-500/30 text-white rounded-2xl rounded-tr-none shadow-sm'
           case 'facebook':
-            return 'bg-gradient-to-tr from-blue-600/25 to-sky-500/25 backdrop-blur-md border border-blue-500/30 text-blue-900 rounded-2xl rounded-tr-sm shadow-sm'
+            return 'bg-gradient-to-tr from-blue-600/25 to-sky-500/25 backdrop-blur-md border border-blue-500/30 text-blue-900 rounded-2xl rounded-tr-none shadow-sm'
           default:
-            return 'bg-indigo-600 border border-indigo-700 text-white rounded-2xl rounded-tr-sm shadow-xs'
+            return 'bg-indigo-600 border border-indigo-700 text-white rounded-2xl rounded-tr-none shadow-xs'
         }
       }
     }
@@ -179,9 +179,21 @@ export function MessageBubble({ message, platform }: MessageBubbleProps) {
         )}
 
         <div className={cn(
-          "flex flex-col gap-1.5 px-4 py-3 text-xs transition duration-300",
+          "flex flex-col gap-1.5 px-4 py-3 text-xs transition duration-300 relative",
           getBubbleClass()
         )}>
+          
+          {/* Custom Platform specific tails */}
+          {platform === 'whatsapp' && (
+            isCustomer ? (
+              <div className="absolute top-0 -left-1.5 w-3 h-3 bg-white border-l border-t border-[#e5ebed] [clip-path:polygon(100%_0,0_0,100%_100%)]" />
+            ) : (
+              <div className={cn(
+                "absolute top-0 -right-1.5 w-3 h-3 [clip-path:polygon(0_0,100%_0,0_100%)]",
+                isAi ? "bg-[#e7f7e2] border-r border-t border-[#d3ecd0]" : "bg-[#d9fdd3] border-r border-t border-[#c2f2bb]"
+              )} />
+            )
+          )}
           
           {/* AI Bot label header */}
           {isAi && (
@@ -280,12 +292,17 @@ export function MessageBubble({ message, platform }: MessageBubbleProps) {
             
             {/* Seen checkmarks */}
             {!isCustomer && (
-              <span className={cn(
-                "text-[10px] font-black",
-                platform === 'whatsapp' ? "text-blue-500" :
-                platform === 'instagram' ? "text-pink-400" :
-                "text-blue-400"
-              )}>✓✓</span>
+              <span className="flex items-center shrink-0 ml-1">
+                <svg className={cn(
+                  "h-3.5 w-4",
+                  platform === 'whatsapp' ? "text-sky-400" :
+                  platform === 'instagram' ? "text-pink-400" :
+                  "text-blue-400"
+                )} fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                  <path d="M2 12l5 5L20 4" className="opacity-60" />
+                  <path d="M8 12l5 5L22 4" />
+                </svg>
+              </span>
             )}
           </div>
 

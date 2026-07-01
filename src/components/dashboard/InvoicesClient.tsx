@@ -228,7 +228,7 @@ export function InvoicesClient({ initialInvoices }: InvoicesClientProps) {
   }
 
   return (
-    <div className="space-y-7 text-left font-geist">
+    <div className="space-y-6 p-6 bg-[#f4f5f7] min-h-[calc(100vh-54px)] overflow-y-auto text-left font-geist">
       {/* Header and Title */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -251,7 +251,7 @@ export function InvoicesClient({ initialInvoices }: InvoicesClientProps) {
       {/* Finance Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {/* Total Facturé */}
-        <div className="bg-white/95 backdrop-blur-sm p-5 rounded-2xl border border-slate-200 shadow-[0_4px_20px_-4px_rgba(148,163,184,0.08)] flex items-center gap-4 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group">
+        <div className="bg-white border border-[#e8eaed] rounded-2xl p-5 shadow-[0_1px_4px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] transition-all duration-200 flex items-center gap-4 relative overflow-hidden group">
           <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-indigo-500 to-purple-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-indigo-500/10 to-indigo-600/5 border border-indigo-500/20 flex items-center justify-center text-indigo-650 shadow-sm shrink-0">
             <FileText className="h-5.5 w-5.5 text-indigo-600" />
@@ -263,7 +263,7 @@ export function InvoicesClient({ initialInvoices }: InvoicesClientProps) {
         </div>
 
         {/* Total Encaissé */}
-        <div className="bg-white/95 backdrop-blur-sm p-5 rounded-2xl border border-slate-200 shadow-[0_4px_20px_-4px_rgba(148,163,184,0.08)] flex items-center gap-4 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group">
+        <div className="bg-white border border-[#e8eaed] rounded-2xl p-5 shadow-[0_1px_4px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] transition-all duration-200 flex items-center gap-4 relative overflow-hidden group">
           <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-emerald-500 to-teal-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border border-emerald-500/20 flex items-center justify-center text-emerald-650 shadow-sm shrink-0">
             <CreditCard className="h-5.5 w-5.5 text-emerald-650" />
@@ -275,7 +275,7 @@ export function InvoicesClient({ initialInvoices }: InvoicesClientProps) {
         </div>
 
         {/* Solde à Recevoir */}
-        <div className="bg-white/95 backdrop-blur-sm p-5 rounded-2xl border border-slate-200 shadow-[0_4px_20px_-4px_rgba(148,163,184,0.08)] flex items-center gap-4 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group">
+        <div className="bg-white border border-[#e8eaed] rounded-2xl p-5 shadow-[0_1px_4px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] transition-all duration-200 flex items-center gap-4 relative overflow-hidden group">
           <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-amber-500 to-orange-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-amber-500/10 to-amber-600/5 border border-amber-500/20 flex items-center justify-center text-amber-655 shadow-sm shrink-0">
             <CreditCard className="h-5.5 w-5.5 text-amber-650" />
@@ -287,7 +287,7 @@ export function InvoicesClient({ initialInvoices }: InvoicesClientProps) {
         </div>
 
         {/* Factures en Retard */}
-        <div className="bg-white/95 backdrop-blur-sm p-5 rounded-2xl border border-slate-200 shadow-[0_4px_20px_-4px_rgba(148,163,184,0.08)] flex items-center gap-4 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group">
+        <div className="bg-white border border-[#e8eaed] rounded-2xl p-5 shadow-[0_1px_4px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] transition-all duration-200 flex items-center gap-4 relative overflow-hidden group">
           <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-red-500 to-rose-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-red-500/10 to-red-650/5 border border-red-500/20 flex items-center justify-center text-red-650 shadow-sm shrink-0">
             <AlertCircle className="h-5.5 w-5.5 text-red-650" />
@@ -352,12 +352,12 @@ export function InvoicesClient({ initialInvoices }: InvoicesClientProps) {
       </div>
 
       {/* Main Invoices Table */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden relative">
+      <div className="bg-white rounded-2xl border border-[#e8eaed] shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden relative">
         {filteredInvoices.length > 0 ? (
           <div className="overflow-x-auto">
             <div className="min-w-[1000px] w-full text-left">
               {/* Header */}
-              <div className="grid grid-cols-[60px_1.2fr_2fr_1.5fr_1.5fr_1.2fr_1.5fr_2fr] border-b border-slate-100 bg-slate-50/50 text-[10px] uppercase font-bold text-slate-400 tracking-wider py-4 px-6 select-none items-center">
+              <div className="grid grid-cols-[60px_1.2fr_2fr_1.5fr_1.5fr_1.2fr_1.5fr_2fr] border-b border-[#f0f1f3] bg-[#f9fafb] text-[10px] uppercase font-bold text-gray-500 tracking-wider py-3.5 px-6 select-none items-center">
                 <div className="text-center">
                   <button 
                     onClick={handleSelectAll}

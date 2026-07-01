@@ -52,11 +52,69 @@ export async function getAgencyClients() {
   return { success: true, data }
 }
 
+// Export/import dossiers must be created from eligible inventory, not free text.
+export async function getExportEligibleInventoryCars() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'Unauthorized' }
+
+  const { data: profile } = await (supabase
+    .from('profiles')
+    .select('agency_id')
+    .eq('id', user.id)
+    .single())
+
+  if (!profile || !profile.agency_id) return { success: false, error: 'Agency not found' }
+
+  const { data, error } = await supabase
+    .from('car_sales_inventory')
+    .select('*')
+    .eq('agency_id', profile.agency_id)
+    .eq('status', 'available')
+    .order('brand', { ascending: true })
+
+  if (error) return { success: false, error: error.message }
+
+  const cars = (data || []).filter((car: any) => {
+    const specs = car.specs || {}
+    const quantity = Number(car.quantity ?? 1)
+    const eligibleType =
+      car.car_type === 'sur_command' ||
+      car.type === 'sur_commande' ||
+      specs.import_type === 'sur_command' ||
+      specs.import_type === 'export' ||
+      specs.export_eligible === true
+
+    return eligibleType && quantity > 0
+  }).map((car: any) => {
+    const specs = car.specs || {}
+    return {
+      ...car,
+      ...specs,
+      quantity: Number(car.quantity ?? specs.quantity ?? 1),
+      selling_price: Number(car.price ?? specs.selling_price ?? 0),
+      purchase_price: Number(car.cost_price ?? specs.purchase_price ?? 0),
+      color_exterior: car.color || specs.color_exterior || '',
+      display_name: `${car.brand} ${car.model}${car.version ? ` ${car.version}` : ''} (${car.year})`
+    }
+  })
+
+  return { success: true, data: cars }
+}
+
 // Create an import order (and optionally find/create the client)
 export async function createImportOrder(orderData: {
   client_id?: string
   clientName?: string
   clientPhone?: string
+  clientEmail?: string
+  clientIdCardNumber?: string
+  clientPassportNumber?: string
+  clientDateOfBirth?: string
+  clientAddress?: string
+  clientCity?: string
+  clientNotes?: string
+  inventory_car_id: string
   vehicle_brand: string
   vehicle_model: string
   vehicle_year: number
@@ -89,6 +147,7 @@ export async function createImportOrder(orderData: {
   if (!profile || !profile.agency_id) return { success: false, error: 'Agency not found' }
 
   let finalClientId = orderData.client_id
+  let selectedInventoryCar: any = null
 
   // If no client_id was provided but clientName and clientPhone are, try to find or create the client
   if (!finalClientId && orderData.clientName) {
@@ -105,14 +164,25 @@ export async function createImportOrder(orderData: {
       finalClientId = existingClient.id
     } else {
       // Create new client
+      const extraClientNotes = [
+        orderData.clientIdCardNumber ? `ID/NIN: ${orderData.clientIdCardNumber}` : '',
+        orderData.clientPassportNumber ? `Passport: ${orderData.clientPassportNumber}` : '',
+        orderData.clientDateOfBirth ? `Date of birth: ${orderData.clientDateOfBirth}` : '',
+        orderData.clientCity ? `City: ${orderData.clientCity}` : '',
+        orderData.clientAddress ? `Address: ${orderData.clientAddress}` : '',
+        orderData.clientNotes || ''
+      ].filter(Boolean).join('\n')
+
       const { data: newClient, error: clientErr } = await (supabase)
         .from('clients')
         .insert({
           agency_id: profile.agency_id,
           full_name: orderData.clientName,
           phone: orderData.clientPhone || 'N/A',
-          source: 'direct'
-        })
+          email: orderData.clientEmail || null,
+          notes: extraClientNotes || null,
+          source: 'walk_in'
+        } as any)
         .select('id')
         .single()
 
@@ -125,19 +195,87 @@ export async function createImportOrder(orderData: {
     return { success: false, error: 'Client identification required' }
   }
 
+  if (!orderData.inventory_car_id) {
+    return { success: false, error: 'Please choose an export vehicle from inventory' }
+  }
+
+  const { data: inventoryCar, error: inventoryErr } = await supabase
+    .from('car_sales_inventory')
+    .select('*')
+    .eq('id', orderData.inventory_car_id)
+    .eq('agency_id', profile.agency_id)
+    .eq('status', 'available')
+    .single()
+
+  if (inventoryErr || !inventoryCar) {
+    return { success: false, error: 'Selected vehicle is not available in inventory' }
+  }
+
+  const inventorySpecs = (inventoryCar as any).specs || {}
+  const inventoryQuantity = Number((inventoryCar as any).quantity ?? inventorySpecs.quantity ?? 1)
+  const exportEligible =
+    (inventoryCar as any).car_type === 'sur_command' ||
+    (inventoryCar as any).type === 'sur_commande' ||
+    inventorySpecs.import_type === 'sur_command' ||
+    inventorySpecs.import_type === 'export' ||
+    inventorySpecs.export_eligible === true
+
+  if (!exportEligible) {
+    return { success: false, error: 'Only export / Sur Commande inventory can be imported for a client' }
+  }
+
+  if (inventoryQuantity <= 0) {
+    return { success: false, error: 'This vehicle has no quantity left in inventory' }
+  }
+
+  selectedInventoryCar = inventoryCar
+  const nextQuantity = inventoryQuantity - 1
+  const { error: stockErr } = await supabase
+    .from('car_sales_inventory')
+    .update({
+      quantity: nextQuantity,
+      status: nextQuantity > 0 ? 'available' : 'pending_import',
+      updated_at: new Date().toISOString()
+    } as any)
+    .eq('id', orderData.inventory_car_id)
+    .eq('agency_id', profile.agency_id)
+    .eq('status', 'available')
+
+  if (stockErr) return { success: false, error: 'Failed to reserve inventory: ' + stockErr.message }
+
+  const vehicleBrand = selectedInventoryCar.brand || orderData.vehicle_brand
+  const vehicleModel = selectedInventoryCar.model || orderData.vehicle_model
+  const vehicleYear = Number(selectedInventoryCar.year || orderData.vehicle_year)
+  const vehicleColor = selectedInventoryCar.color || inventorySpecs.color_exterior || orderData.color || null
+  const totalCost = orderData.total_cost || Number(selectedInventoryCar.price || inventorySpecs.selling_price || 0)
+  const depositPaid = orderData.deposit_paid || 0
+
   const { data, error } = await (supabase)
     .from('import_orders')
     .insert({
       agency_id: profile.agency_id,
       client_id: finalClientId,
-      vehicle_brand: orderData.vehicle_brand,
-      vehicle_model: orderData.vehicle_model,
-      vehicle_year: Number(orderData.vehicle_year),
-      color: orderData.color || null,
-      total_cost: orderData.total_cost || 0,
-      deposit_paid: orderData.deposit_paid || 0,
-      balance_due: (orderData.total_cost || 0) - (orderData.deposit_paid || 0),
-      specs: orderData.specs || {},
+      vehicle_brand: vehicleBrand,
+      vehicle_model: vehicleModel,
+      vehicle_year: vehicleYear,
+      color: vehicleColor,
+      total_cost: totalCost,
+      deposit_paid: depositPaid,
+      balance_due: totalCost - depositPaid,
+      specs: {
+        ...(orderData.specs || {}),
+        inventory_car_id: orderData.inventory_car_id,
+        inventory_stock_number: selectedInventoryCar.stock_number || null,
+        reserved_quantity: 1,
+        source_inventory: {
+          brand: selectedInventoryCar.brand,
+          model: selectedInventoryCar.model,
+          year: selectedInventoryCar.year,
+          version: selectedInventoryCar.version,
+          previous_quantity: inventoryQuantity,
+          remaining_quantity: nextQuantity
+        }
+      },
       supplier_name: orderData.supplier_name || null,
       origin_country: orderData.origin_country || null,
       carrier: orderData.carrier || null,
@@ -155,9 +293,22 @@ export async function createImportOrder(orderData: {
     .select()
     .single()
 
-  if (error) return { success: false, error: error.message }
+  if (error) {
+    await supabase
+      .from('car_sales_inventory')
+      .update({
+        quantity: inventoryQuantity,
+        status: 'available',
+        updated_at: new Date().toISOString()
+      } as any)
+      .eq('id', orderData.inventory_car_id)
+      .eq('agency_id', profile.agency_id)
+
+    return { success: false, error: error.message }
+  }
 
   revalidatePath('/dashboard/management/import')
+  revalidatePath('/dashboard/management/sales')
   return { success: true, data }
 }
 
@@ -201,6 +352,12 @@ export async function deleteImportOrder(orderId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { success: false, error: 'Unauthorized' }
 
+  const { data: existingOrder } = await (supabase)
+    .from('import_orders')
+    .select('status, specs')
+    .eq('id', orderId)
+    .single()
+
   const { error } = await (supabase)
     .from('import_orders')
     .delete()
@@ -208,6 +365,27 @@ export async function deleteImportOrder(orderId: string) {
 
   if (error) return { success: false, error: error.message }
 
+  const inventoryCarId = (existingOrder as any)?.specs?.inventory_car_id
+  if (inventoryCarId && (existingOrder as any)?.status !== 'delivered') {
+    const { data: car } = await supabase
+      .from('car_sales_inventory')
+      .select('quantity')
+      .eq('id', inventoryCarId)
+      .single()
+
+    if (car) {
+      await supabase
+        .from('car_sales_inventory')
+        .update({
+          quantity: Number((car as any).quantity ?? 0) + 1,
+          status: 'available',
+          updated_at: new Date().toISOString()
+        } as any)
+        .eq('id', inventoryCarId)
+    }
+  }
+
   revalidatePath('/dashboard/management/import')
+  revalidatePath('/dashboard/management/sales')
   return { success: true }
 }

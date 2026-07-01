@@ -294,5 +294,36 @@ export const getDefaultChatbotConfig = (agencyName: string): ChatbotConfig => ({
     show_transcript: true,
     voice_reply: false,
     show_conversation_stats: true
-  }
+  },
+  import_settings: {
+    import_timeline: '3.5 mois en moyenne',
+    import_timeline_breakdown: 'Fabrication: 6 semaines, Transport maritime: 5-6 semaines, Dédouanement Alger: 2-3 semaines',
+    contact_phone_1: '',
+    contact_phone_2: '',
+    contact_whatsapp: '',
+    contact_address: '',
+    contact_email: '',
+    payment_cash: true,
+    payment_ccp: true,
+    payment_ccp_details: '',
+    payment_virement: false,
+    payment_virement_details: '',
+    vp_free_insurance: true,
+    vp_warranty: true,
+    vp_free_delivery: false,
+    vp_test_drive: true,
+    vp_financing: true,
+    vp_financing_details: 'CPA, BADR, AGB – à partir de 7.5% sur 60 mois',
+    vp_certificate_conformity: true,
+    vp_custom_order: true,
+    dedouanement_enabled: true,
+    dedouanement_description: 'Nos transitaires agréés s\'occupent de tout le processus de dédouanement. Vous n\'avez rien à faire.',
+    customs_fee_context: 'Les frais de dédouanement incluent: DTP (Droit de Timbre de Passage), TIC (Taxe Intérieure de Consommation), TVA 19%, et honoraires du transitaire.',
+    transitaire_included: true,
+    enable_container_tracking: true,
+    tracking_intro_message: 'Je peux vérifier le statut de votre véhicule en temps réel. Donnez-moi votre numéro de téléphone ou de conteneur.',
+    custom_ai_instructions: '',
+    extra_value_props: []
+  },
+  faq: []
 });

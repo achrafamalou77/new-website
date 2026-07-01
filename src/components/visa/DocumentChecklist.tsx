@@ -8,8 +8,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { 
-  FileText, CheckCircle2, AlertTriangle, Upload, 
-  MessageSquare, Trash2, ExternalLink
+  FileText, CheckCircle2,
+  MessageSquare, ExternalLink
 } from 'lucide-react'
 
 interface DocumentChecklistProps {
@@ -32,7 +32,7 @@ export function DocumentChecklist({ applicationId, initialDocuments }: DocumentC
           ...d,
           status: nextStatus as any,
           received_at: nextStatus === 'received' ? new Date().toISOString() : undefined,
-          file_url: nextStatus === 'received' ? `/simulated-scans/${name.toLowerCase().replace(/ /g, '_')}.pdf` : undefined
+          file_url: nextStatus === 'received' ? d.file_url : undefined
         }
       }
       return d
@@ -45,29 +45,25 @@ export function DocumentChecklist({ applicationId, initialDocuments }: DocumentC
     setLoadingName(null)
   }
 
-  // Trigger simulated WhatsApp message requesting this document
+  // Save a WhatsApp reminder draft requesting this document.
   const sendReminder = async (docName: string) => {
     setLoadingName(`wa-${docName}`)
     const result = await sendVisaWhatsAppReminder(applicationId, 'document_request', docName)
     if (result.success) {
-      alert(`WhatsApp Simulated Reminder Sent for missing document: "${docName}"`)
+      alert(result.message || `Reminder draft saved for missing document: "${docName}"`)
     }
     setLoadingName(null)
   }
 
-  // File Upload Simulation
-  const simulateUpload = async (docName: string) => {
+  const markDocumentReceived = async (docName: string) => {
     setLoadingName(`upload-${docName}`)
-    // Simulate short network delay
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
+
     const updated = documents.map(d => {
       if (d.name === docName) {
         return {
           ...d,
           status: 'received' as any,
-          received_at: new Date().toISOString(),
-          file_url: `/simulated-scans/${docName.toLowerCase().replace(/ /g, '_')}.pdf`
+          received_at: new Date().toISOString()
         }
       }
       return d
@@ -178,7 +174,6 @@ export function DocumentChecklist({ applicationId, initialDocuments }: DocumentC
                       Pending
                     </span>
                     
-                    {/* Simulated WhatsApp Reminder Trigger */}
                     <Button 
                       size="sm" 
                       variant="outline"
@@ -187,21 +182,20 @@ export function DocumentChecklist({ applicationId, initialDocuments }: DocumentC
                       className="h-8 border-slate-200 hover:bg-emerald-50 text-emerald-600 font-bold text-[11px] rounded-lg px-2.5"
                     >
                       <MessageSquare className="h-3.5 w-3.5 mr-1" />
-                      WhatsApp Request
+                      Draft Request
                     </Button>
                   </>
                 )}
 
-                {/* Upload simulation button */}
                 <Button
                   size="sm"
                   variant="outline"
                   disabled={isLoading}
-                  onClick={() => simulateUpload(doc.name)}
+                  onClick={() => markDocumentReceived(doc.name)}
                   className="h-8 border-slate-200 hover:bg-blue-50 text-blue-600 font-bold text-[11px] rounded-lg px-2.5"
                 >
-                  <Upload className="h-3.5 w-3.5 mr-1" />
-                  {isReceived ? 'Re-upload' : 'Upload Scan'}
+                  <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                  {isReceived ? 'Update received' : 'Mark received'}
                 </Button>
               </div>
 

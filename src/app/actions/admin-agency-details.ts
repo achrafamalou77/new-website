@@ -1,8 +1,12 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requirePlatformOwner } from '@/lib/server/platform-owner'
 
 export async function getAgencyDetails(agencyId: string) {
+  const owner = await requirePlatformOwner()
+  if (!owner.success) return null
+
   const adminClient = createAdminClient()
 
   const { data: agency } = await adminClient

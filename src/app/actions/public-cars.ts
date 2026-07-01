@@ -20,8 +20,11 @@ export type ContactFormData = {
 
 export async function getPublicCars(agencyId: string, filters?: CarFilters) {
   const supabase = await createClient();
+  const isRental = filters?.car_type === 'rental';
+  const tableName = isRental ? 'car_rental_fleet' : 'car_sales_inventory';
+
   let query = supabase
-    .from('car_sales_inventory')
+    .from(tableName)
     .select('*')
     .eq('agency_id', agencyId)
     .eq('status', 'available')
@@ -40,9 +43,9 @@ export async function getPublicCars(agencyId: string, filters?: CarFilters) {
       ...specs,
       // Fallback aliases for frontend/template compatibility
       color_exterior: car.color || specs.color_exterior || '',
-      selling_price: car.price || specs.selling_price || 0,
+      selling_price: isRental ? (car.daily_rate || car.price || specs.selling_price || 0) : (car.price || specs.selling_price || 0),
       purchase_price: car.cost_price || specs.purchase_price || 0,
-      car_type: car.car_type || car.type || specs.car_type || 'sell',
+      car_type: isRental ? 'rental' : (car.car_type || car.type || specs.car_type || 'sell'),
       condition: specs.condition || 'new',
       show_on_website: specs.show_on_website !== false,
     }
@@ -106,8 +109,29 @@ export async function getPublicAgency(subdomain: string) {
 export async function submitContactForm(formData: ContactFormData, agencyId: string) {
   const supabase = await createClient();
 
-  // Save to contacts
-  const { error: contactError } = await (supabase.from('contacts')).insert({
+  // 1. Find or create the client
+  let clientId: string | null = null
+  const { data: existingClient } = await (supabase.from('clients') as any)
+    .select('id')
+    .eq('agency_id', agencyId)
+    .eq('phone', formData.phone)
+    .maybeSingle()
+
+  if (existingClient) {
+    clientId = existingClient.id
+  } else {
+    const { data: newClient } = await (supabase.from('clients') as any).insert({
+      agency_id: agencyId,
+      full_name: formData.name,
+      phone: formData.phone,
+      email: formData.email || null,
+      source: 'website_contact_form',
+    }).select('id').single()
+    clientId = newClient?.id || null
+  }
+
+  // 2. Save to contacts
+  await (supabase.from('contacts')).insert({
     agency_id: agencyId,
     name: formData.name,
     phone: formData.phone,
@@ -116,21 +140,21 @@ export async function submitContactForm(formData: ContactFormData, agencyId: str
     source: 'website_contact_form',
     status: 'new',
   });
-  if (contactError) throw contactError;
 
-  // Create conversation for inbox
-  // NOTE: Casting to any because 'conversations' type schema might vary in development
-  const { error: convError } = await (supabase.from('conversations') as any).insert({
-    agency_id: agencyId,
-    customer_name: formData.name,
-    customer_phone: formData.phone,
-    platform: 'website',
-    status: 'unread',
-    lead_score: 'warm',
-    last_message: formData.message,
-    last_message_at: new Date().toISOString(),
-  });
-  if (convError) throw convError;
+  // 3. Create conversation for inbox (only if we have a client)
+  if (clientId) {
+    await (supabase.from('conversations') as any).insert({
+      agency_id: agencyId,
+      client_id: clientId,
+      customer_name: formData.name,
+      customer_phone: formData.phone,
+      platform: 'website',
+      unread: true,
+      lead_score: 'warm',
+      lead_summary: formData.message || 'Nouveau contact via le formulaire du site',
+      last_message_at: new Date().toISOString(),
+    });
+  }
 
   return { success: true };
 }

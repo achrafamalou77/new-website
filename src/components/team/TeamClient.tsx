@@ -119,7 +119,7 @@ export function TeamClient({ initialProfiles, currentUserRole, currentUserId }: 
               <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
                 <div className="text-[10px] text-slate-400 flex items-center gap-1">
                   <CalendarDays className="h-3.5 w-3.5 text-slate-300" />
-                  <span>Joined {profile.created_at ? new Date(profile.created_at).toLocaleDateString() : 'N/A'}</span>
+                  <span>Joined {profile.created_at ? new Date(profile.created_at).toLocaleDateString('en-GB') : 'N/A'}</span>
                 </div>
 
                 {currentUserRole === 'superadmin' && !isMe && (

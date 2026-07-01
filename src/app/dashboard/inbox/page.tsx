@@ -1,13 +1,21 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { PlatformSelector } from '@/components/dashboard/PlatformSelector'
 import { ConversationList } from '@/components/dashboard/ConversationList'
 import { ChatPanel } from '@/components/dashboard/ChatPanel'
-import { mockConversations, mockMessages, mockProfiles, Conversation, Message } from '@/lib/mock-data'
+import { Conversation, Message } from '@/lib/mock-data'
 import { createClient, isSupabaseConnected } from '@/lib/supabase/client'
-import { Flame, Bell, Check, Users, Sparkles } from 'lucide-react'
+import { Flame, Bell, Sparkles, Loader2, Bot, WifiOff, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import {
+  getConversations,
+  getMessages,
+  toggleAiStatus,
+  sendHumanMessage,
+  markConversationRead,
+  updateLeadScore,
+} from '@/app/actions/conversations'
 
 export interface ExtendedConversation extends Conversation {
   unread?: boolean
@@ -17,365 +25,505 @@ export interface ExtendedConversation extends Conversation {
   customer_phone?: string | null
   lead_summary?: string | null
   ai_status?: boolean | null
+  agency_name?: string | null
+  business_type_slug?: string | null
+}
+
+function mapDbConversation(c: any): ExtendedConversation {
+  let platform = c.platform?.toLowerCase().trim() || 'whatsapp';
+  if (platform === 'messenger') {
+    platform = 'facebook';
+  }
+  return {
+    ...c,
+    platform,
+    lead_score: c.lead_score?.toUpperCase().trim() || 'WARM',
+    unread: c.unread ?? false,
+    ai_status: c.ai_status ?? true,
+    agency_name: Array.isArray(c.agencies)
+      ? c.agencies[0]?.company_name
+      : c.agencies?.company_name || null,
+    business_type_slug: Array.isArray(c.agencies)
+      ? c.agencies[0]?.business_type_slug
+      : c.agencies?.business_type_slug || null,
+  }
+}
+
+function mapDbMessage(m: any): Message {
+  return {
+    ...m,
+    sender_type:
+      m.role === 'user' || m.role === 'client' || m.sender_type === 'client' ? 'customer'
+      : m.role === 'assistant' || m.role === 'bot' || m.sender_type === 'bot' ? 'ai'
+      : m.role === 'human' || m.sender_type === 'agent' ? 'human'
+      : m.sender_type || 'customer',
+    is_voice_note: m.is_voice_note || m.media_url?.includes('audio') || false,
+  } as any
 }
 
 export default function InboxPage() {
-  const [conversations, setConversations] = useState<ExtendedConversation[]>(() => {
-    // Add default unread flag, assignee_id, and tags to mock conversations
-    return mockConversations.map((c, idx) => ({
-      ...c,
-      unread: idx < 2, // First two are unread for visual pop
-      assignee_id: idx === 3 ? 'prof-2' : null,
-      tags: idx === 0 ? ['VIP', 'Repeat'] : idx === 1 ? ['Urgent'] : []
-    }))
-  })
-  
-  const [messages, setMessages] = useState<Message[]>(mockMessages)
+  const [conversations, setConversations] = useState<ExtendedConversation[]>([])
+  // Store ALL messages by conversation ID — eliminates stale closure issues
+  const [allMessages, setAllMessages] = useState<Record<string, Message[]>>({})
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  
-  // Left Column platform/score filter states
+  const [isLoading, setIsLoading] = useState(true)
+  const [isPlatformOwner, setIsPlatformOwner] = useState(false)
+  const [businessTypeSlug, setBusinessTypeSlug] = useState('travel')
+  const [error, setError] = useState<string | null>(null)
+  const [loadingMsgId, setLoadingMsgId] = useState<string | null>(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+
+  // Refs to avoid stale closures in real-time callbacks
+  const selectedIdRef = useRef<string | null>(null)
+  const conversationsRef = useRef<ExtendedConversation[]>([])
+
+  // Keep refs in sync
+  useEffect(() => { selectedIdRef.current = selectedId }, [selectedId])
+  useEffect(() => { conversationsRef.current = conversations }, [conversations])
+
   const [activePlatform, setActivePlatform] = useState<string | null>(null)
   const [activeScore, setActiveScore] = useState<string | null>(null)
-  
-  // Middle Column search and filter states
   const [searchQuery, setSearchQuery] = useState('')
   const [bulkSelectedIds, setBulkSelectedIds] = useState<string[]>([])
-  
-  // Advanced filters state
   const [advancedFilters, setAdvancedFilters] = useState({
-    platform: 'all',
-    leadScore: 'all',
-    date: 'all',
-    status: 'all',
-    assigneeId: 'all',
-    hasBooking: 'all'
+    platform: 'all', leadScore: 'all', date: 'all',
+    status: 'all', assigneeId: 'all', hasBooking: 'all'
   })
 
-  // Toast Notification state
-  const [toasts, setToasts] = useState<{ id: string; title: string; description: string; type: 'hot' | 'normal' }[]>([])
+  const [toasts, setToasts] = useState<{ id: string; title: string; description: string; type: 'hot' | 'normal' | 'success' }[]>([])
 
-  const addToast = (title: string, description: string, type: 'hot' | 'normal' = 'normal') => {
+  const addToast = useCallback((title: string, description: string, type: 'hot' | 'normal' | 'success' = 'normal') => {
     const id = Math.random().toString(36).substring(2, 9)
     setToasts(prev => [...prev, { id, title, description, type }])
-    
-    // Play a subtle notification sound (placeholder safe)
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4500)
+  }, [])
+
+  // ─── Load / Refresh Conversations ──────────────────────────────────────────
+  const loadConversations = useCallback(async (isManualRefresh = false) => {
+    if (isManualRefresh) setIsRefreshing(true)
+    else setIsLoading(true)
+    setError(null)
     try {
-      const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-120.wav')
-      audio.volume = 0.15
-      audio.play().catch(() => {})
-    } catch (e) {}
+      const res = await getConversations()
+      if (res.success && res.data && res.data.length > 0) {
+        const mapped = res.data.map(mapDbConversation)
+        setConversations(mapped)
+        setBusinessTypeSlug((res as any).businessTypeSlug || mapped[0]?.business_type_slug || 'travel')
+        if (!isManualRefresh) {
+          setSelectedId(mapped[0].id)
+          setIsPlatformOwner((res as any).isPlatformOwner === true)
+        }
+      } else if (!res.success) {
+        setError(res.error || 'Failed to load')
+        setBusinessTypeSlug(document.cookie.includes('demo_business_type_slug=car_showroom') ? 'car_showroom' : 'travel')
+        if (!isManualRefresh) {
+          setConversations([])
+          setSelectedId(null)
+        }
+      } else if (!isManualRefresh) {
+        setBusinessTypeSlug((res as any).businessTypeSlug || (document.cookie.includes('demo_business_type_slug=car_showroom') ? 'car_showroom' : 'travel'))
+        setConversations([])
+        setSelectedId(null)
+      }
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setIsLoading(false)
+      setIsRefreshing(false)
+    }
+  }, [])
 
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id))
-    }, 4500)
-  }
+  // ─── 1. Load Initial Conversations ─────────────────────────────────────────
+  useEffect(() => {
+    loadConversations(false)
+  }, [loadConversations])
 
-  // Real-time listener for database sync
+  // ─── 2. Load Messages When Conversation is Selected ───────────────────────
+  useEffect(() => {
+    if (!selectedId) return
+
+    let cancelled = false
+    setLoadingMsgId(selectedId)
+
+    async function loadMsgs() {
+      try {
+        const res = await getMessages(selectedId!)
+        if (cancelled) return
+        if (res.success && res.data) {
+          setAllMessages(prev => ({
+            ...prev,
+            [selectedId!]: res.data!.map(mapDbMessage)
+          }))
+        }
+      } catch (err) {
+        console.error('Failed to load messages:', err)
+      } finally {
+        if (!cancelled) setLoadingMsgId(null)
+      }
+    }
+    loadMsgs()
+    return () => { cancelled = true }
+  }, [selectedId])
+
+  // ─── 3. Real-time Subscriptions (STABLE — mounted once, never recreated) ──
   useEffect(() => {
     if (!isSupabaseConnected) return
-    
+
     const supabase = createClient()
     if (!supabase) return
 
-    const convSubscription = supabase
-      .channel('conversations_channel')
+    // ── Conversations channel ──────────────────────────────────────────────
+    const convChannel = supabase
+      .channel('rt_conversations_v2')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'conversations' },
         (payload) => {
           if (payload.eventType === 'UPDATE') {
-            setConversations(prev => prev.map(c => c.id === payload.new.id ? { ...c, ...payload.new } : c))
-            
-            // Check if upgraded to HOT lead
-            if (payload.new.lead_score === 'HOT' && payload.old.lead_score !== 'HOT') {
-              const name = payload.new.customer_name || 'A customer'
-              addToast('🔥 Lead Upgraded to HOT!', `${name} is now marked as a High-Intent Lead.`, 'hot')
+            const updated = mapDbConversation(payload.new)
+            setConversations(prev => {
+              const exists = prev.some(c => c.id === updated.id)
+              if (!exists) return [updated, ...prev] // New conv appeared via update
+              return prev.map(c => c.id === updated.id ? { ...c, ...updated } : c)
+            })
+            // 🔥 HOT lead toast
+            if (payload.new.lead_score === 'hot' && payload.old?.lead_score !== 'hot') {
+              addToast('🔥 Lead Upgraded to HOT!', `${payload.new.customer_name || 'A customer'} is now high-intent!`, 'hot')
             }
           } else if (payload.eventType === 'INSERT') {
-            setConversations(prev => [{ ...payload.new, unread: true } as ExtendedConversation, ...prev])
-            addToast('💬 New Conversation Started', `A new message arrived from ${payload.new.customer_name || 'Guest'}.`)
+            const newConv = mapDbConversation(payload.new)
+            setConversations(prev => {
+              if (prev.some(c => c.id === newConv.id)) return prev
+              addToast('💬 New Conversation', `Message from ${newConv.customer_name || newConv.customer_phone || (businessTypeSlug === 'car_showroom' ? 'Client' : 'Guest')}`)
+              return [newConv, ...prev]
+            })
           }
         }
       )
       .subscribe()
 
-    const msgSubscription = supabase
-      .channel('messages_channel')
+    // ── Messages channel ───────────────────────────────────────────────────
+    const msgChannel = supabase
+      .channel('rt_messages_v2')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages' },
         (payload) => {
-          const newMsg = payload.new as Message
-          setMessages(prev => [...prev, newMsg])
-          
+          const raw = payload.new as any
+          const newMsg = mapDbMessage(raw)
+          const convId = raw.conversation_id
+
+          if (!convId) return
+
+          // Always add to allMessages — use functional updates (no stale closure)
+          setAllMessages(prev => {
+            const existing = prev[convId] || []
+            // Deduplicate by id
+            if (existing.some((m: Message) => m.id === newMsg.id)) return prev
+            return { ...prev, [convId]: [...existing, newMsg] }
+          })
+
+          // Update conversation list: move to top, mark unread if not currently selected
           setConversations(prev => prev.map(c => {
-            if (c.id === newMsg.conversation_id) {
-              // Trigger toast if incoming message and not currently viewing it
-              if (newMsg.sender_type === 'customer' && selectedId !== c.id) {
-                addToast(`💬 Message from ${c.customer_name || 'Guest'}`, newMsg.content?.substring(0, 40) || 'Sent a message')
-              }
-              return {
-                ...c,
-                lead_summary: newMsg.content?.substring(0, 50) || 'Sent a voice note',
-                last_message_at: newMsg.created_at,
-                unread: selectedId !== c.id ? true : c.unread
-              }
+            if (c.id !== convId) return c
+            const isSelected = selectedIdRef.current === convId
+            // Toast for incoming customer messages in background conversations
+            if (newMsg.sender_type === 'customer' && !isSelected) {
+              addToast(
+                `💬 ${c.customer_name || c.customer_phone || (businessTypeSlug === 'car_showroom' ? 'Client' : 'Guest')}`,
+                raw.content?.substring(0, 60) || '🎤 Media message'
+              )
             }
-            return c
+            return {
+              ...c,
+              last_message_at: raw.created_at || new Date().toISOString(),
+              lead_summary: raw.content?.substring(0, 80) || '🎤 Media',
+              unread: isSelected ? false : true,
+            }
           }))
         }
       )
       .subscribe()
 
     return () => {
-      supabase.removeChannel(convSubscription)
-      supabase.removeChannel(msgSubscription)
+      supabase.removeChannel(convChannel)
+      supabase.removeChannel(msgChannel)
     }
+  }, [addToast, businessTypeSlug]) // No selectedId dependency = no channel recreation.
+
+  // ─── 4. Mark as Read When Conversation Opens ──────────────────────────────
+  useEffect(() => {
+    if (!selectedId || selectedId.startsWith('conv-')) return
+    setConversations(prev => prev.map(c => c.id === selectedId ? { ...c, unread: false } : c))
+    markConversationRead(selectedId).catch(console.error)
   }, [selectedId])
 
-  // Count unread conversations per category for Column 1
-  const getUnreadCounts = () => {
-    return {
-      whatsapp: conversations.filter(c => c.platform === 'whatsapp' && c.unread).length,
-      facebook: conversations.filter(c => c.platform === 'facebook' && c.unread).length,
-      instagram: conversations.filter(c => c.platform === 'instagram' && c.unread).length,
-      hot: conversations.filter(c => c.lead_score === 'HOT' && c.unread).length,
-      warm: conversations.filter(c => c.lead_score === 'WARM' && c.unread).length,
-      cold: conversations.filter(c => c.lead_score === 'COLD' && c.unread).length
-    }
-  }
+  // ─── 5. Handlers ──────────────────────────────────────────────────────────
+  const handleSelectConversation = useCallback((id: string) => {
+    setSelectedId(id)
+  }, [])
 
-  // Update a conversation's details locally
-  const handleUpdateConversation = (id: string, updates: Partial<ExtendedConversation>) => {
+  const handleUpdateConversation = useCallback(async (id: string, updates: Partial<ExtendedConversation>) => {
+    // Optimistic update
     setConversations(prev => prev.map(c => {
-      if (c.id === id) {
-        // Send a toast if upgraded to HOT lead
-        if (updates.lead_score === 'HOT' && c.lead_score !== 'HOT') {
-          addToast('🔥 Lead Upgraded to HOT!', `${c.customer_name || 'Guest'} has been upgraded.`, 'hot')
-        }
-        return { ...c, ...updates }
+      if (c.id !== id) return c
+      if (updates.lead_score === 'HOT' && c.lead_score !== 'HOT') {
+        addToast('🔥 Lead Upgraded!', `${c.customer_name || (businessTypeSlug === 'car_showroom' ? 'Client' : 'Guest')} is now HOT.`, 'hot')
       }
-      return c
+      return { ...c, ...updates }
     }))
-  }
 
-  // Add new reply to messages list
-  const handleSendMessage = (content: string, options?: { is_internal_note?: boolean; is_voice_note?: boolean; duration?: string; transcript?: string }) => {
+    // Persist AI status toggle
+    if (updates.ai_status !== undefined && !id.startsWith('conv-')) {
+      const res = await toggleAiStatus(id, updates.ai_status as boolean)
+      if (!res.success) {
+        // Rollback
+        setConversations(prev => prev.map(c =>
+          c.id === id ? { ...c, ai_status: !updates.ai_status } : c
+        ))
+        addToast('❌ Error', res.error || 'Failed to toggle AI status')
+      } else {
+        addToast(
+          updates.ai_status ? '🤖 AI Bot Enabled' : '⏸️ Human Takeover',
+          updates.ai_status
+            ? 'AI will now handle incoming messages automatically.'
+            : 'You are now in direct control of this chat.',
+          'success'
+        )
+      }
+    }
+
+    // Persist lead score
+    if (updates.lead_score != null && !id.startsWith('conv-')) {
+      await updateLeadScore(id, updates.lead_score.toLowerCase() as 'hot' | 'warm' | 'cold')
+    }
+  }, [addToast, businessTypeSlug])
+
+  const handleSendMessage = useCallback(async (
+    content: string,
+    options?: { is_internal_note?: boolean; is_voice_note?: boolean }
+  ) => {
     if (!selectedId) return
 
+    const tempId = `temp-${Date.now()}`
+    const now = new Date().toISOString()
     const newMsg: any = {
-      id: Math.random().toString(36).substring(2, 9),
+      id: tempId,
       conversation_id: selectedId,
       sender_type: 'human',
-      content: content,
-      media_url: options?.is_voice_note ? 'https://example.com/voice.wav' : null,
+      role: 'human',
+      content: options?.is_internal_note ? `[INTERNAL_NOTE] ${content}` : content,
+      media_url: options?.is_voice_note ? 'audio://placeholder' : null,
       is_voice_note: !!options?.is_voice_note,
-      created_at: new Date().toISOString()
+      created_at: now,
     }
 
-    // Attach custom fields inside content structure if it is an internal note
-    if (options?.is_internal_note) {
-      newMsg.content = `[INTERNAL_NOTE] ${content}`
-    }
-
-    setMessages(prev => [...prev, newMsg])
-    
-    // Update conversation metadata
-    setConversations(prev => prev.map(c => {
-      if (c.id === selectedId) {
-        return {
-          ...c,
-          last_message_at: newMsg.created_at,
-          lead_summary: options?.is_voice_note ? '🎤 Sent a voice note' : content.substring(0, 50),
-          unread: false
-        }
-      }
-      return c
+    // Optimistic add
+    setAllMessages(prev => ({
+      ...prev,
+      [selectedId]: [...(prev[selectedId] || []), newMsg]
     }))
-  }
+    setConversations(prev => prev.map(c =>
+      c.id === selectedId
+        ? { ...c, last_message_at: now, lead_summary: content.substring(0, 60), unread: false }
+        : c
+    ))
 
-  // Mark selected active conversation as read
-  useEffect(() => {
-    if (selectedId) {
-      setConversations(prev => prev.map(c => c.id === selectedId ? { ...c, unread: false } : c))
-    }
-  }, [selectedId])
-
-  // Auto-select first matching conversation when filters change to maintain UI alignment
-  useEffect(() => {
-    const filtered = conversations.filter(c => {
-      const matchesColPlatform = activePlatform === null || c.platform === activePlatform
-      const matchesColScore = activeScore === null || c.lead_score === activeScore
-      return matchesColPlatform && matchesColScore
-    })
-
-    if (filtered.length > 0) {
-      const isCurrentStillValid = filtered.some(c => c.id === selectedId)
-      if (!isCurrentStillValid) {
-        setSelectedId(filtered[0].id)
+    // Persist to Meta + DB
+    if (!selectedId.startsWith('conv-') && !options?.is_internal_note) {
+      const res = await sendHumanMessage(selectedId, content)
+      if (!res.success) {
+        addToast('❌ Message Not Delivered', res.error || 'Meta API error', 'normal')
+        // Remove optimistic message on failure
+        setAllMessages(prev => ({
+          ...prev,
+          [selectedId]: (prev[selectedId] || []).filter(m => m.id !== tempId)
+        }))
       }
-    } else {
-      setSelectedId(null)
     }
-  }, [activePlatform, activeScore, conversations])
+  }, [selectedId, addToast])
 
-  // Bulk operations handler
-  const handleBulkAction = (action: 'read' | 'archive' | 'score' | 'assign', value?: any) => {
+  const handleBulkAction = useCallback((action: 'read' | 'archive' | 'score' | 'assign', value?: any) => {
     if (bulkSelectedIds.length === 0) return
-
     setConversations(prev => prev.map(c => {
-      if (bulkSelectedIds.includes(c.id)) {
-        const updates: Partial<ExtendedConversation> = {}
-        if (action === 'read') updates.unread = false
-        if (action === 'archive') updates.lead_score = 'COLD' // Visual placeholder for archiving
-        if (action === 'score') {
-          updates.lead_score = value
-          if (value === 'HOT') {
-            addToast('🔥 Bulk Upgrade to HOT!', `${bulkSelectedIds.length} leads upgraded to HOT.`, 'hot')
-          }
-        }
-        if (action === 'assign') updates.assignee_id = value
-        return { ...c, ...updates }
-      }
-      return c
+      if (!bulkSelectedIds.includes(c.id)) return c
+      const updates: Partial<ExtendedConversation> = {}
+      if (action === 'read') updates.unread = false
+      if (action === 'archive') updates.lead_score = 'COLD'
+      if (action === 'score') { updates.lead_score = value; if (value === 'HOT') addToast('🔥 Bulk Upgrade!', `${bulkSelectedIds.length} leads → HOT`, 'hot') }
+      if (action === 'assign') updates.assignee_id = value
+      return { ...c, ...updates }
     }))
-
-    addToast('⚡ Bulk Action Executed', `Applied successfully to ${bulkSelectedIds.length} selected conversations.`)
+    addToast('⚡ Done', `Updated ${bulkSelectedIds.length} conversations.`)
     setBulkSelectedIds([])
-  }
+  }, [bulkSelectedIds, addToast])
 
-  const selectedConversation = conversations.find(c => c.id === selectedId) || null
-  const selectedMessages = messages.filter(m => m.conversation_id === selectedId).sort((a, b) => 
-    new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
+  // ─── Derived State ─────────────────────────────────────────────────────────
+  const selectedConversation = useMemo(
+    () => conversations.find(c => c.id === selectedId) || null,
+    [conversations, selectedId]
   )
+
+  const selectedMessages = useMemo(() => {
+    if (!selectedId) return []
+    return (allMessages[selectedId] || []).slice().sort(
+      (a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
+    )
+  }, [allMessages, selectedId])
+
+  const unreadCounts = useMemo(() => ({
+    whatsapp: conversations.filter(c => c.platform === 'whatsapp' && c.unread).length,
+    facebook: conversations.filter(c => c.platform === 'facebook' && c.unread).length,
+    instagram: conversations.filter(c => c.platform === 'instagram' && c.unread).length,
+    hot: conversations.filter(c => c.lead_score === 'HOT' && c.unread).length,
+    warm: conversations.filter(c => c.lead_score === 'WARM' && c.unread).length,
+    cold: conversations.filter(c => c.lead_score === 'COLD' && c.unread).length,
+  }), [conversations])
+
+  const toastColors = {
+    hot: 'bg-red-50 border-red-200 text-red-900',
+    normal: 'bg-white/90 border-slate-200/80 text-slate-800 backdrop-blur-md',
+    success: 'bg-emerald-50 border-emerald-200 text-emerald-900',
+  }
 
   return (
     <div className={cn(
-      "flex h-[calc(100vh-64px)] w-full overflow-hidden relative page-enter transition-colors duration-700",
-      activePlatform === 'instagram' ? "bg-slate-950 text-white" : "bg-slate-50/50 text-slate-800"
+      'flex h-[calc(100vh-64px)] w-full overflow-hidden relative page-enter transition-colors duration-700',
+      activePlatform === 'instagram' ? 'bg-slate-950 text-white' : 'bg-slate-50/50 text-slate-800'
     )}>
-      
-      {/* Dynamic Ambient Background Glows */}
+
+      {/* Ambient background glows */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
         <div className={cn(
-          "absolute -top-[10%] -left-[10%] w-[50%] h-[50%] rounded-full blur-[120px] mix-blend-multiply opacity-25 transition-all duration-1000 animate-glow-1",
-          activePlatform === 'whatsapp' ? "bg-emerald-400" :
-          activePlatform === 'instagram' ? "bg-purple-600" :
-          activePlatform === 'facebook' ? "bg-blue-500" :
-          "bg-indigo-500"
+          'absolute -top-[10%] -left-[10%] w-[50%] h-[50%] rounded-full blur-[120px] mix-blend-multiply opacity-25 transition-all duration-1000 animate-glow-1',
+          activePlatform === 'whatsapp' ? 'bg-emerald-400'
+            : activePlatform === 'instagram' ? 'bg-purple-600'
+            : activePlatform === 'facebook' ? 'bg-blue-500'
+            : 'bg-indigo-500'
         )} />
         <div className={cn(
-          "absolute -bottom-[10%] -right-[10%] w-[50%] h-[50%] rounded-full blur-[120px] mix-blend-multiply opacity-25 transition-all duration-1000 animate-glow-2",
-          activePlatform === 'whatsapp' ? "bg-teal-400" :
-          activePlatform === 'instagram' ? "bg-pink-500" :
-          activePlatform === 'facebook' ? "bg-sky-400" :
-          "bg-violet-500"
+          'absolute -bottom-[10%] -right-[10%] w-[50%] h-[50%] rounded-full blur-[120px] mix-blend-multiply opacity-25 transition-all duration-1000 animate-glow-2',
+          activePlatform === 'whatsapp' ? 'bg-teal-400'
+            : activePlatform === 'instagram' ? 'bg-pink-500'
+            : activePlatform === 'facebook' ? 'bg-sky-400'
+            : 'bg-violet-500'
         )} />
-        {activePlatform === 'instagram' && (
-          <div className="absolute top-[30%] right-[20%] w-[35%] h-[35%] rounded-full blur-[100px] mix-blend-multiply bg-amber-400 opacity-15 transition-all duration-1000 animate-pulse" />
-        )}
       </div>
 
-      {/* Toast Notification Container (Floating Bottom-Right) */}
+      {/* Toast Notifications */}
       <div className="absolute bottom-6 right-6 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
         {toasts.map(toast => (
-          <div 
+          <div
             key={toast.id}
             className={cn(
-              "pointer-events-auto flex items-start gap-3 p-4 rounded-xl border shadow-lg transition-all duration-300 transform translate-y-0 animate-bounce-short",
-              toast.type === 'hot' 
-                ? "bg-red-50 border-red-200 text-red-900" 
-                : activePlatform === 'instagram'
-                ? "bg-slate-900/90 border-white/10 text-white shadow-black/40 backdrop-blur-md"
-                : "bg-white/90 border-slate-200/80 text-slate-800 backdrop-blur-md"
+              'pointer-events-auto flex items-start gap-3 p-4 rounded-xl border shadow-lg transition-all duration-300 animate-bounce-short',
+              activePlatform === 'instagram'
+                ? 'bg-slate-900/90 border-white/10 text-white shadow-black/40 backdrop-blur-md'
+                : toastColors[toast.type]
             )}
           >
-            <div className={`mt-0.5 rounded-full p-1 shrink-0 ${toast.type === 'hot' ? 'bg-red-500 text-white' : 'bg-blue-500 text-white'}`}>
-              {toast.type === 'hot' ? <Flame className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+            <div className={`mt-0.5 rounded-full p-1 shrink-0 ${
+              toast.type === 'hot' ? 'bg-red-500 text-white'
+                : toast.type === 'success' ? 'bg-emerald-500 text-white'
+                : 'bg-blue-500 text-white'
+            }`}>
+              {toast.type === 'hot' ? <Flame className="h-4 w-4" />
+                : toast.type === 'success' ? <Bot className="h-4 w-4" />
+                : <Bell className="h-4 w-4" />}
             </div>
             <div className="flex-1 text-left">
               <h4 className="text-xs font-bold tracking-tight">{toast.title}</h4>
               <p className={cn(
-                "text-[11px] font-medium mt-0.5 leading-relaxed",
-                toast.type === 'hot' ? "text-red-700" : activePlatform === 'instagram' ? "text-slate-400" : "text-slate-500"
+                'text-[11px] font-medium mt-0.5 leading-relaxed',
+                toast.type === 'hot' ? 'text-red-700'
+                  : toast.type === 'success' ? 'text-emerald-700'
+                  : activePlatform === 'instagram' ? 'text-slate-400' : 'text-slate-500'
               )}>{toast.description}</p>
             </div>
           </div>
         ))}
       </div>
 
-      {!isSupabaseConnected && (
-        <div className={cn(
-          "absolute top-0 left-0 right-0 z-30 px-4 py-1.5 text-xs text-center font-bold border-b flex items-center justify-center gap-1.5 select-none shadow-sm transition-all duration-500",
-          activePlatform === 'instagram'
-            ? "bg-slate-900/95 border-white/10 text-pink-400"
-            : "bg-indigo-50/95 border-indigo-100 text-indigo-700"
-        )}>
-          <Sparkles className="h-3.5 w-3.5" /> Running in Premium Demo Mode — Cloud Synchronization Active
+      {/* Platform Owner Banner */}
+      {isPlatformOwner && (
+        <div className="absolute top-0 left-0 right-0 z-30 px-4 py-1.5 text-xs text-center font-bold border-b flex items-center justify-center gap-1.5 bg-indigo-900 border-indigo-700 text-indigo-100">
+          <Sparkles className="h-3.5 w-3.5" />
+          Platform Owner — Viewing All {conversations.length} Conversations Across All Agencies
         </div>
       )}
 
-      {/* Main 3-Column Layout Container */}
-      <div className={cn(
-        "flex w-full h-full z-10",
-        !isSupabaseConnected ? 'pt-8' : ''
-      )}>
-        
-        {/* COLUMN 1: Platform Selector (80px) */}
-        <PlatformSelector 
-          activePlatform={activePlatform}
-          activeScore={activeScore}
-          onSelectPlatform={(platform) => {
-            setActivePlatform(platform)
-            setActiveScore(null)
-          }}
-          onSelectScore={(score) => {
-            setActiveScore(score)
-            setActivePlatform(null)
-          }}
-          unreadCounts={getUnreadCounts()}
-        />
+      {/* Error / Demo Mode Banner */}
+      {error && !isPlatformOwner && (
+        <div className="absolute top-0 left-0 right-0 z-30 px-4 py-1.5 text-xs text-center font-bold border-b flex items-center justify-center gap-1.5 bg-amber-50 border-amber-200 text-amber-700">
+          <WifiOff className="h-3.5 w-3.5" />
+          Demo Mode — Showing sample data ({error})
+        </div>
+      )}
 
-        {/* COLUMN 2: Conversation List (320px) */}
+      {isLoading ? (
+        <div className="flex-1 flex flex-col items-center justify-center bg-slate-50/40 z-10 backdrop-blur-md">
+          <Loader2 className="h-8 w-8 text-indigo-500 animate-spin" />
+          <p className="text-xs font-bold text-slate-400 mt-3 uppercase tracking-wider">Loading Inbox...</p>
+        </div>
+      ) : (
         <div className={cn(
-          "h-full w-full lg:w-[320px] shrink-0 z-10 transition-all duration-500",
-          selectedId ? "hidden lg:block" : "block",
-          activePlatform === 'instagram' 
-            ? "bg-slate-900/30 border-r border-white/5 backdrop-blur-xl" 
-            : "bg-white/10 border-r border-white/20 backdrop-blur-md"
+          'flex w-full h-full z-10',
+          (isPlatformOwner || error) ? 'pt-8' : ''
         )}>
-          <ConversationList 
-            conversations={conversations}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
+
+          {/* Col 1: Platform Selector */}
+          <PlatformSelector
             activePlatform={activePlatform}
             activeScore={activeScore}
-            onClearPlatform={() => setActivePlatform(null)}
-            onClearScore={() => setActiveScore(null)}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            advancedFilters={advancedFilters}
-            onFiltersChange={setAdvancedFilters}
-            bulkSelectedIds={bulkSelectedIds}
-            onBulkSelectChange={setBulkSelectedIds}
-            onBulkAction={handleBulkAction}
+            onSelectPlatform={(platform) => { setActivePlatform(platform); setActiveScore(null) }}
+            onSelectScore={(score) => { setActiveScore(score); setActivePlatform(null) }}
+            unreadCounts={unreadCounts}
           />
-        </div>
 
-        {/* COLUMN 3: Chat Panel (flex) */}
-        <div className={`h-full flex-1 flex ${!selectedId ? 'hidden lg:flex' : 'flex'}`}>
-          <ChatPanel 
-            conversation={selectedConversation}
-            messages={selectedMessages}
-            onBack={() => setSelectedId(null)}
-            onUpdateConversation={handleUpdateConversation}
-            onSendMessage={handleSendMessage}
-            recentConversations={conversations.slice(0, 3)}
-            onSelectRecent={setSelectedId}
-          />
-        </div>
+          {/* Col 2: Conversation List */}
+          <div className={cn(
+            'h-full w-full lg:w-[320px] shrink-0 z-10 transition-all duration-500',
+            selectedId ? 'hidden lg:block' : 'block',
+            activePlatform === 'instagram'
+              ? 'bg-slate-900/30 border-r border-white/5 backdrop-blur-xl'
+              : 'bg-white/10 border-r border-white/20 backdrop-blur-md'
+          )}>
+            <ConversationList
+              conversations={conversations}
+              selectedId={selectedId}
+              onSelect={handleSelectConversation}
+              activePlatform={activePlatform}
+              activeScore={activeScore}
+              onClearPlatform={() => setActivePlatform(null)}
+              onClearScore={() => setActiveScore(null)}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              advancedFilters={advancedFilters}
+              onFiltersChange={setAdvancedFilters}
+              bulkSelectedIds={bulkSelectedIds}
+              onBulkSelectChange={setBulkSelectedIds}
+              onBulkAction={handleBulkAction}
+              onRefresh={() => loadConversations(true)}
+              isRefreshing={isRefreshing}
+              businessTypeSlug={businessTypeSlug}
+            />
+          </div>
 
-      </div>
+          {/* Col 3: Chat Panel */}
+          <div className={`h-full flex-1 flex ${!selectedId ? 'hidden lg:flex' : 'flex'}`}>
+            <ChatPanel
+              conversation={selectedConversation}
+              messages={selectedMessages}
+              onBack={() => setSelectedId(null)}
+              onUpdateConversation={handleUpdateConversation}
+              onSendMessage={handleSendMessage}
+              recentConversations={conversations.slice(0, 3)}
+              onSelectRecent={handleSelectConversation}
+              businessTypeSlug={businessTypeSlug}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

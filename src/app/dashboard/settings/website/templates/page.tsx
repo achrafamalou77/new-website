@@ -2,7 +2,7 @@
 
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSettingsStore } from '@/lib/stores/settings-store'
 import { templatesList } from '@/lib/templates-data'
@@ -27,6 +27,12 @@ export default function TemplatesGallery() {
 
   // Filter templates list by vertical first
   const activeVertical = businessTypeSlug || 'travel'
+  useEffect(() => {
+    if (activeVertical === 'ecommerce' || activeVertical === 'online_store') {
+      router.replace('/dashboard/store/storefront')
+    }
+  }, [activeVertical, router])
+
   const allowedTemplates = templatesList.filter(t => {
     const templateVertical = t.business_type_slug || 'travel'
     return templateVertical === activeVertical
@@ -160,7 +166,7 @@ export default function TemplatesGallery() {
                 {/* Visual Indicators Overlay */}
                 <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition duration-300 flex items-center justify-center gap-3">
                   <a
-                    href={`http://${agencyInfo?.subdomain || 'ephedia'}.localhost:3000?preview_template_id=${template.id}`}
+                    href={`http://${agencyInfo?.subdomain || 'ephedia'}.lvh.me:3000?preview_template_id=${template.id}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-900 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow"
@@ -216,7 +222,7 @@ export default function TemplatesGallery() {
               {/* Action Buttons */}
               <CardContent className="p-5 pt-0 mt-auto border-t border-slate-100/80 flex gap-2">
                 <a
-                  href={`http://${agencyInfo?.subdomain || 'ephedia'}.localhost:3000?preview_template_id=${template.id}`}
+                  href={`http://${agencyInfo?.subdomain || 'ephedia'}.lvh.me:3000?preview_template_id=${template.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex-1 inline-flex items-center justify-center px-3 py-2 border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-bold text-slate-600 gap-1.5 transition"

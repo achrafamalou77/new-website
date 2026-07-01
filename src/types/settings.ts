@@ -219,4 +219,43 @@ export type ChatbotConfig = {
     voice_reply: boolean;
     show_conversation_stats: boolean;
   };
+  import_settings?: {
+    // Timeline & Logistics
+    import_timeline: string;           // e.g., "3.5 mois en moyenne"
+    import_timeline_breakdown: string; // e.g., "Fabrication: 6 sem, Transport: 5-6 sem, Douane: 2-3 sem"
+    // Contact Info
+    contact_phone_1: string;
+    contact_phone_2: string;
+    contact_whatsapp: string;
+    contact_address: string;
+    contact_email: string;
+    // Payment methods (toggleable)
+    payment_cash: boolean;
+    payment_ccp: boolean;
+    payment_ccp_details: string;       // e.g., "CCP: 00218765321 / Clé: 89"
+    payment_virement: boolean;
+    payment_virement_details: string;
+    // Value propositions (toggleable checkboxes)
+    vp_free_insurance: boolean;
+    vp_warranty: boolean;
+    vp_free_delivery: boolean;
+    vp_test_drive: boolean;
+    vp_financing: boolean;
+    vp_financing_details: string;      // e.g., "CPA, BADR – à partir de 7.5%"
+    vp_certificate_conformity: boolean;
+    vp_custom_order: boolean;
+    // Customs / Dédouanement
+    dedouanement_enabled: boolean;
+    dedouanement_description: string;  // How to explain the process to clients
+    customs_fee_context: string;       // Info about DTP, TIC, TVA, etc.
+    transitaire_included: boolean;
+    // Container tracking
+    enable_container_tracking: boolean;
+    tracking_intro_message: string;    // What AI says when client asks about their car
+    // Custom AI instructions
+    custom_ai_instructions: string;    // Raw system prompt additions
+    // Extra value propositions (free text list)
+    extra_value_props: string[];
+  };
+  faq?: Array<{ question: string; answer: string; category?: string }>;
 };

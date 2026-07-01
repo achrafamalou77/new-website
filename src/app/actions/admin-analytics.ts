@@ -1,8 +1,19 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requirePlatformOwner } from '@/lib/server/platform-owner'
 
 export async function getAnalyticsData() {
+  const owner = await requirePlatformOwner()
+  if (!owner.success) {
+    return {
+      agenciesByPlan: [],
+      agenciesOverTime: [],
+      conversationsPerDay: [],
+      mrrOverTime: [],
+    }
+  }
+
   const adminClient = createAdminClient()
 
   // For Demo purposes, we might not have a lot of historical data in DB. 

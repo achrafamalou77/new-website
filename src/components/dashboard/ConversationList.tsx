@@ -7,7 +7,7 @@ import { ConversationCard } from './ConversationCard'
 import { Input } from '@/components/ui/input'
 import { 
   Search, SlidersHorizontal, X, CheckSquare, Square, 
-  Trash2, Eye, Flame, Sun, Snowflake, UserPlus, Filter 
+  Trash2, Eye, Flame, Sun, Snowflake, UserPlus, Filter, RefreshCw
 } from 'lucide-react'
 import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon'
 import { MessengerIcon } from '@/components/icons/MessengerIcon'
@@ -44,6 +44,9 @@ interface ConversationListProps {
   bulkSelectedIds: string[]
   onBulkSelectChange: (ids: string[]) => void
   onBulkAction: (action: 'read' | 'archive' | 'score' | 'assign', value?: any) => void
+  onRefresh?: () => void
+  isRefreshing?: boolean
+  businessTypeSlug?: string
 }
 
 export function ConversationList({
@@ -60,7 +63,10 @@ export function ConversationList({
   onFiltersChange,
   bulkSelectedIds,
   onBulkSelectChange,
-  onBulkAction
+  onBulkAction,
+  onRefresh,
+  isRefreshing = false,
+  businessTypeSlug = 'travel'
 }: ConversationListProps) {
   
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
@@ -162,6 +168,7 @@ export function ConversationList({
   }
 
   const isDarkTheme = activePlatform === 'instagram'
+  const isShowroom = businessTypeSlug === 'car_showroom'
 
   return (
     <div className={cn(
@@ -189,21 +196,43 @@ export function ConversationList({
               {conversations.length}
             </span>
           </div>
-          <button 
-            onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-            className={cn(
-              "p-2 rounded-xl border transition-all duration-300 backdrop-blur-md cursor-pointer",
-              showAdvancedFilters 
-                ? isDarkTheme
-                  ? 'bg-pink-500/20 border-pink-500/30 text-pink-400'
-                  : 'bg-blue-500/20 border-blue-500/30 text-blue-600'
-                : isDarkTheme
-                  ? 'bg-white/5 border-white/10 text-slate-300 hover:text-white hover:bg-white/10'
-                  : 'bg-white/40 border-slate-200/60 text-slate-500 hover:text-slate-750 hover:bg-white/80'
+          <div className="flex items-center gap-1.5">
+            {/* Refresh Button */}
+            {onRefresh && (
+              <button
+                onClick={onRefresh}
+                disabled={isRefreshing}
+                title="Refresh conversations"
+                className={cn(
+                  "p-2 rounded-xl border transition-all duration-300 backdrop-blur-md cursor-pointer",
+                  isRefreshing
+                    ? isDarkTheme
+                      ? 'bg-white/5 border-white/10 text-slate-500 cursor-not-allowed'
+                      : 'bg-slate-100 border-slate-200 text-slate-300 cursor-not-allowed'
+                    : isDarkTheme
+                      ? 'bg-white/5 border-white/10 text-slate-300 hover:text-white hover:bg-white/10'
+                      : 'bg-white/40 border-slate-200/60 text-slate-500 hover:text-slate-750 hover:bg-white/80'
+                )}
+              >
+                <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+              </button>
             )}
-          >
-            <SlidersHorizontal className="h-4 w-4" />
-          </button>
+            <button 
+              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+              className={cn(
+                "p-2 rounded-xl border transition-all duration-300 backdrop-blur-md cursor-pointer",
+                showAdvancedFilters 
+                  ? isDarkTheme
+                    ? 'bg-pink-500/20 border-pink-500/30 text-pink-400'
+                    : 'bg-blue-500/20 border-blue-500/30 text-blue-600'
+                  : isDarkTheme
+                    ? 'bg-white/5 border-white/10 text-slate-300 hover:text-white hover:bg-white/10'
+                    : 'bg-white/40 border-slate-200/60 text-slate-500 hover:text-slate-750 hover:bg-white/80'
+              )}
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {/* Search Console */}
@@ -213,7 +242,7 @@ export function ConversationList({
             isDarkTheme ? "text-slate-500" : "text-slate-400"
           )} />
           <Input 
-            placeholder="Search guests..." 
+            placeholder={isShowroom ? "Search clients, phone, vehicle..." : "Search guests..."} 
             className={cn(
               "pl-9 pr-8 rounded-xl text-xs transition-all w-full",
               isDarkTheme 
@@ -399,7 +428,7 @@ export function ConversationList({
 
             {/* Booking State */}
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-450 uppercase">Booking Made</label>
+              <label className="text-[10px] font-bold text-slate-450 uppercase">{isShowroom ? 'Vehicle Deal' : 'Booking Made'}</label>
               <select 
                 value={advancedFilters.hasBooking}
                 onChange={(e) => onFiltersChange(prev => ({ ...prev, hasBooking: e.target.value }))}
@@ -468,7 +497,7 @@ export function ConversationList({
             <Search className={cn("h-10 w-10 mb-3 opacity-60", isDarkTheme ? "text-slate-650" : "text-slate-400")} />
             <h3 className={cn("text-xs font-bold uppercase tracking-wide", isDarkTheme ? "text-slate-350" : "text-slate-700")}>No conversations yet</h3>
             <p className={cn("text-[11px] mt-1 max-w-[200px] leading-relaxed", isDarkTheme ? "text-slate-500" : "text-slate-400")}>
-              When clients message you on WhatsApp or Instagram they will show here.
+              {isShowroom ? 'When car buyers message you on WhatsApp or Instagram they will show here.' : 'When clients message you on WhatsApp or Instagram they will show here.'}
             </p>
           </div>
         ) : filtered.length === 0 ? (

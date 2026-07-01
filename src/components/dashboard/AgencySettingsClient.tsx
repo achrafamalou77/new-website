@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Loader2, Check, Copy, Building2, Contact2, Share2, Clock, Globe } from 'lucide-react'
+import { Loader2, Check, Copy, Building2, Contact2, Share2, Clock, ImageIcon, CreditCard } from 'lucide-react'
 import { defaultBusinessHours, defaultSocialMedia } from '@/lib/settings-defaults'
 
 export function AgencySettingsClient() {
@@ -18,8 +18,18 @@ export function AgencySettingsClient() {
   const [formData, setFormData] = useState({
     company_name: '',
     phone: '',
+    whatsapp_phone: '',
     email: '',
     address: '',
+    logo_url: '',
+    currency: 'DZD',
+    payment_info: {
+      ccp_account: '',
+      bank_name: '',
+      bank_account: '',
+      rib: '',
+      payment_notes: ''
+    },
     business_hours: defaultBusinessHours,
     social_media: defaultSocialMedia,
     bank_integrations: {
@@ -43,8 +53,19 @@ export function AgencySettingsClient() {
       setFormData({
         company_name: agencyInfo.company_name || '',
         phone: agencyInfo.phone || '',
+        whatsapp_phone: (agencyInfo as any).whatsapp_phone || agencyInfo.phone || '',
         email: agencyInfo.email || '',
         address: agencyInfo.address || '',
+        logo_url: (agencyInfo as any).logo_url || '',
+        currency: (agencyInfo as any).currency || 'DZD',
+        payment_info: {
+          ccp_account: '',
+          bank_name: '',
+          bank_account: '',
+          rib: '',
+          payment_notes: '',
+          ...((agencyInfo as any).payment_info || {})
+        },
         business_hours: { ...defaultBusinessHours, ...(businessHours || {}) },
         social_media: { ...defaultSocialMedia, ...(socialMedia || {}) },
         bank_integrations: {
@@ -81,9 +102,14 @@ export function AgencySettingsClient() {
       setSaved(true)
       setAgencyInfo({ 
         company_name: data.company_name, 
+        subdomain: agencyInfo?.subdomain || '',
         phone: data.phone, 
+        whatsapp_phone: data.whatsapp_phone,
         email: data.email, 
         address: data.address,
+        logo_url: data.logo_url,
+        currency: data.currency,
+        payment_info: data.payment_info,
         bank_integrations: data.bank_integrations
       })
       setBusinessHours(data.business_hours)
@@ -96,7 +122,7 @@ export function AgencySettingsClient() {
   }
 
   const handleCopyUrl = () => {
-    navigator.clipboard.writeText(`https://${agencyInfo?.subdomain || 'agency'}.localhost:3000`)
+    navigator.clipboard.writeText(`http://${agencyInfo?.subdomain || 'agency'}.lvh.me:3000`)
   }
 
   // Premium loading state skeleton
@@ -148,7 +174,7 @@ export function AgencySettingsClient() {
       <div className="space-y-6">
         
         {/* Basic Identity Card */}
-        <Card className="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
+        <Card className="bg-white border border-[#e8eaed] rounded-2xl shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden">
           <CardHeader className="border-b border-slate-100 p-6 flex flex-row items-center gap-3">
             <div className="h-10 w-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-650 text-indigo-600 shadow-sm">
               <Building2 className="h-5 w-5" />
@@ -169,7 +195,7 @@ export function AgencySettingsClient() {
               <Label className="text-xs font-semibold text-slate-650 text-slate-600" htmlFor="company_name">Company Name</Label>
               <Input 
                 id="company_name" 
-                className="rounded-xl bg-slate-100 border-0 text-sm focus:bg-white transition"
+                className="rounded-xl bg-[#f4f5f7] border border-[#e5e7eb] text-sm focus:bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-500/10 transition-all"
                 value={formData.company_name || ''} 
                 onChange={e => setFormData({...formData, company_name: e.target.value})} 
               />
@@ -182,18 +208,39 @@ export function AgencySettingsClient() {
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-slate-600">Live URL</Label>
                 <div className="flex gap-2">
-                  <Input value={`https://${agencyInfo?.subdomain || 'agency'}.localhost:3000`} disabled className="rounded-xl bg-slate-50 border border-slate-200/60 text-sm text-slate-400 flex-1 cursor-not-allowed" />
+                  <Input value={`http://${agencyInfo?.subdomain || 'agency'}.lvh.me:3000`} disabled className="rounded-xl bg-slate-50 border border-slate-200/60 text-sm text-slate-400 flex-1 cursor-not-allowed" />
                   <Button variant="outline" size="icon" className="rounded-xl border-slate-200 hover:bg-slate-50 shadow-sm" onClick={handleCopyUrl}>
                     <Copy className="h-4 w-4 text-slate-500" />
                   </Button>
                 </div>
               </div>
             </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-slate-600" htmlFor="logo_url">Public Logo URL</Label>
+              <div className="flex gap-3 items-center">
+                <Input
+                  id="logo_url"
+                  placeholder="https://..."
+                  className="rounded-xl bg-[#f4f5f7] border border-[#e5e7eb] text-sm focus:bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-500/10 transition-all"
+                  value={formData.logo_url || ''}
+                  onChange={e => setFormData({...formData, logo_url: e.target.value})}
+                />
+                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center">
+                  {formData.logo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={formData.logo_url} alt="Logo preview" className="h-full w-full object-cover" />
+                  ) : (
+                    <ImageIcon className="h-5 w-5 text-slate-400" />
+                  )}
+                </div>
+              </div>
+              <p className="text-[11px] text-slate-400">Use a hosted http/https image. Raw uploaded image data is blocked to keep settings fast.</p>
+            </div>
           </CardContent>
         </Card>
 
         {/* Contact Info Card */}
-        <Card className="bg-white border border-slate-200/60 rounded-2xl shadow-sm overflow-hidden">
+        <Card className="bg-white border border-[#e8eaed] rounded-2xl shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden">
           <CardHeader className="border-b border-slate-100 p-6 flex flex-row items-center gap-3">
             <div className="h-10 w-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 shadow-sm">
               <Contact2 className="h-5 w-5" />
@@ -212,13 +259,23 @@ export function AgencySettingsClient() {
           <CardContent className="p-6 space-y-4">
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-600" htmlFor="phone">WhatsApp Business Number (+213)</Label>
+                <Label className="text-xs font-semibold text-slate-600" htmlFor="phone">Business Phone (+213)</Label>
                 <Input 
                   id="phone" 
-                  className="rounded-xl bg-slate-100 border-0 text-sm focus:bg-white transition"
+                  className="rounded-xl bg-[#f4f5f7] border border-[#e5e7eb] text-sm focus:bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-500/10 transition-all"
                   placeholder="+213XXXXXXXXX"
                   value={formData.phone || ''} 
                   onChange={e => setFormData({...formData, phone: e.target.value})} 
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-600" htmlFor="whatsapp_phone">Public WhatsApp (+213)</Label>
+                <Input
+                  id="whatsapp_phone"
+                  className="rounded-xl bg-[#f4f5f7] border border-[#e5e7eb] text-sm focus:bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-500/10 transition-all"
+                  placeholder="Leave empty to use business phone"
+                  value={formData.whatsapp_phone || ''}
+                  onChange={e => setFormData({...formData, whatsapp_phone: e.target.value})}
                 />
               </div>
               <div className="space-y-1.5">
@@ -226,7 +283,7 @@ export function AgencySettingsClient() {
                 <Input 
                   id="email" 
                   type="email"
-                  className="rounded-xl bg-slate-100 border-0 text-sm focus:bg-white transition"
+                  className="rounded-xl bg-[#f4f5f7] border border-[#e5e7eb] text-sm focus:bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-500/10 transition-all"
                   value={formData.email || ''} 
                   onChange={e => setFormData({...formData, email: e.target.value})} 
                 />
@@ -238,7 +295,7 @@ export function AgencySettingsClient() {
               </Label>
               <Textarea 
                 id="address" 
-                className="rounded-xl bg-slate-100 border-0 text-sm focus:bg-white transition min-h-[70px]"
+                className="rounded-xl bg-[#f4f5f7] border border-[#e5e7eb] text-sm focus:bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-500/10 transition-all min-h-[70px]"
                 value={formData.address || ''} 
                 onChange={e => setFormData({...formData, address: e.target.value})} 
               />
@@ -246,8 +303,60 @@ export function AgencySettingsClient() {
           </CardContent>
         </Card>
 
+        {/* Currency and Payments Card */}
+        <Card className="bg-white border border-[#e8eaed] rounded-2xl shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden">
+          <CardHeader className="border-b border-slate-100 p-6 flex flex-row items-center gap-3">
+            <div className="h-10 w-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 shadow-sm">
+              <CreditCard className="h-5 w-5" />
+            </div>
+            <div>
+              <CardTitle className="text-base font-semibold tracking-tight text-slate-800">Currency & Payment Information</CardTitle>
+              <CardDescription className="text-xs text-slate-500 font-medium">Set the currency and payment details customers will see when they buy or book.</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="p-6 space-y-4">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-600" htmlFor="currency">Default Currency</Label>
+                <select
+                  id="currency"
+                  className="h-10 w-full rounded-xl bg-[#f4f5f7] border border-[#e5e7eb] px-3 text-sm focus:bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-500/10 transition-all"
+                  value={formData.currency}
+                  onChange={e => setFormData({...formData, currency: e.target.value})}
+                >
+                  <option value="DZD">DZD - Algerian Dinar</option>
+                  <option value="EUR">EUR - Euro</option>
+                  <option value="USD">USD - US Dollar</option>
+                  <option value="SAR">SAR - Saudi Riyal</option>
+                  <option value="AED">AED - UAE Dirham</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-600" htmlFor="ccp_account">CCP Account</Label>
+                <Input id="ccp_account" className="rounded-xl bg-[#f4f5f7] border border-[#e5e7eb] text-sm" value={formData.payment_info.ccp_account} onChange={e => setFormData({...formData, payment_info: {...formData.payment_info, ccp_account: e.target.value}})} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-600" htmlFor="bank_name">Bank Name</Label>
+                <Input id="bank_name" className="rounded-xl bg-[#f4f5f7] border border-[#e5e7eb] text-sm" value={formData.payment_info.bank_name} onChange={e => setFormData({...formData, payment_info: {...formData.payment_info, bank_name: e.target.value}})} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-600" htmlFor="bank_account">Bank Account</Label>
+                <Input id="bank_account" className="rounded-xl bg-[#f4f5f7] border border-[#e5e7eb] text-sm" value={formData.payment_info.bank_account} onChange={e => setFormData({...formData, payment_info: {...formData.payment_info, bank_account: e.target.value}})} />
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label className="text-xs font-semibold text-slate-600" htmlFor="rib">RIB / Payment Reference</Label>
+                <Input id="rib" className="rounded-xl bg-[#f4f5f7] border border-[#e5e7eb] text-sm" value={formData.payment_info.rib} onChange={e => setFormData({...formData, payment_info: {...formData.payment_info, rib: e.target.value}})} />
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label className="text-xs font-semibold text-slate-600" htmlFor="payment_notes">Payment Notes</Label>
+                <Textarea id="payment_notes" className="rounded-xl bg-[#f4f5f7] border border-[#e5e7eb] text-sm min-h-[80px]" value={formData.payment_info.payment_notes} onChange={e => setFormData({...formData, payment_info: {...formData.payment_info, payment_notes: e.target.value}})} />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Social Accounts Card */}
-        <Card className="bg-white border border-slate-200/60 rounded-2xl shadow-sm overflow-hidden">
+        <Card className="bg-white border border-[#e8eaed] rounded-2xl shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden">
           <CardHeader className="border-b border-slate-100 p-6 flex flex-row items-center gap-3">
             <div className="h-10 w-10 bg-purple-50 rounded-xl flex items-center justify-center text-purple-600 shadow-sm">
               <Share2 className="h-5 w-5" />
@@ -300,7 +409,7 @@ export function AgencySettingsClient() {
         </Card>
 
         {/* Operating Hours Card */}
-        <Card className="bg-white border border-slate-200/60 rounded-2xl shadow-sm overflow-hidden">
+        <Card className="bg-white border border-[#e8eaed] rounded-2xl shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden">
           <CardHeader className="border-b border-slate-100 p-6 flex flex-row items-center gap-3">
             <div className="h-10 w-10 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600 shadow-sm">
               <Clock className="h-5 w-5" />
@@ -315,7 +424,7 @@ export function AgencySettingsClient() {
               <div key={day} className="flex items-center gap-4 py-1.5 border-b border-slate-100 last:border-0">
                 <Label className="w-24 capitalize text-xs font-semibold text-slate-600">{day}</Label>
                 <Input 
-                  className="rounded-xl bg-slate-100 border-0 text-sm focus:bg-white transition max-w-sm"
+                  className="rounded-xl bg-[#f4f5f7] border border-[#e5e7eb] text-sm focus:bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-500/10 transition-all max-w-sm"
                   value={(formData.business_hours as any)?.[day] || ''} 
                   onChange={e => setFormData({...formData, business_hours: {...formData.business_hours, [day]: e.target.value}})} 
                   placeholder="09:00 - 18:00 or Closed"
@@ -337,7 +446,7 @@ export function AgencySettingsClient() {
 
         {/* Bank Partner Integrations Card (Car Showroom only) */}
         {businessTypeSlug === 'car_showroom' && (
-          <Card className="bg-white border border-slate-200/60 rounded-2xl shadow-sm overflow-hidden">
+          <Card className="bg-white border border-[#e8eaed] rounded-2xl shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden">
             <CardHeader className="border-b border-slate-100 p-6 flex flex-row items-center gap-3">
               <div className="h-10 w-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 shadow-sm">
                 <Building2 className="h-5 w-5" />
@@ -380,7 +489,7 @@ export function AgencySettingsClient() {
         )}
 
         {/* Tactical Manual Save Settings Action Bar */}
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm flex items-center justify-between">
+        <div className="bg-white border border-[#e8eaed] rounded-2xl p-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] flex items-center justify-between">
           <div className="text-xs text-slate-400 font-semibold">
             {loading ? "Saving settings..." : "All changes automatically sync, or you can commit them manually."}
           </div>

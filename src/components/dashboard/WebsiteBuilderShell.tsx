@@ -3,6 +3,7 @@
 // The main WordPress-style visual website builder — unified for all business types
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Save, Send, Undo2, Redo2, Eye, EyeOff, Laptop, Tablet, Smartphone,
   Plus, Trash2, ArrowUp, ArrowDown, Copy, ChevronRight, ChevronLeft,
@@ -66,6 +67,8 @@ export default function WebsiteBuilderShell({
   salesCars = [],
   rentalCars = []
 }: WebsiteBuilderShellProps) {
+
+  const router = useRouter()
 
   // ── CONFIG STATE ─────────────────────────────────────────────────────────────
   const [config, setConfig] = useState<ShowroomBuilderConfig>(() => {
@@ -300,12 +303,24 @@ export default function WebsiteBuilderShell({
   // ─── RENDER ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="h-screen flex flex-col bg-[#0a0a0a] overflow-hidden" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+    <div className="fixed inset-0 z-[9999] flex flex-col bg-[#0a0a0a] overflow-hidden" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
 
       {/* ═══════════════════════════════ TOPBAR ═══════════════════════════════ */}
       <header className="h-14 flex-shrink-0 bg-[#111111] border-b border-white/8 flex items-center justify-between px-4 z-40">
-        {/* Left: Logo + Info */}
+        {/* Left: Back btn + Logo + Info */}
         <div className="flex items-center gap-3">
+          {/* ← Back to Dashboard */}
+          <button
+            onClick={() => router.push('/dashboard')}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-slate-400 border border-white/10 hover:bg-white/10 hover:text-white transition"
+            title="Retour au tableau de bord"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+            <span className="hidden sm:inline">Dashboard</span>
+          </button>
+
+          <div className="w-px h-5 bg-white/10 flex-shrink-0" />
+
           <div className="h-8 w-8 rounded-lg bg-rose-600 flex items-center justify-center text-white font-black text-xs shadow-lg">
             W
           </div>
@@ -376,7 +391,7 @@ export default function WebsiteBuilderShell({
         <div className="flex items-center gap-2">
           {agency?.subdomain && (
             <a
-              href={`http://${agency.subdomain}.localhost:3000`}
+              href={`http://${agency.subdomain}.lvh.me:3000`}
               target="_blank"
               rel="noopener noreferrer"
               className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-slate-300 border border-white/10 hover:bg-white/10 transition"

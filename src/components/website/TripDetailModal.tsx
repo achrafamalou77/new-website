@@ -13,12 +13,31 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import Image from 'next/image'
 
+const parseOptions = (fieldVal: any, fallbackName: string) => {
+  if (!fieldVal) return [{ name: fallbackName, price: 0 }]
+  if (typeof fieldVal === 'string' && fieldVal.trim().startsWith('[')) {
+    try {
+      const parsed = JSON.parse(fieldVal)
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed
+    } catch (e) {
+      console.error('Error parsing options:', e)
+    }
+  }
+  return [{ name: fieldVal, price: 0 }]
+}
+
 export function TripDetailModal({ isOpen, onClose, trip, agency }: { 
   isOpen: boolean, 
   onClose: () => void, 
   trip: any, 
   agency: any 
 }) {
+  const roomOptions = parseOptions(trip.room_type, 'Double')
+  const mealOptions = parseOptions(trip.meal_plan, 'Demi-pension')
+
+  const [selectedRoom, setSelectedRoom] = useState(roomOptions[0]?.name || '')
+  const [selectedMeal, setSelectedMeal] = useState(mealOptions[0]?.name || '')
+
   const [activeImage, setActiveImage] = useState(0)
   const [activeTab, setActiveTab] = useState<'overview' | 'itinerary' | 'inclusions' | 'pricing' | 'documents' | 'reviews'>('overview')
   const [expandedDay, setExpandedDay] = useState<number | null>(1)
@@ -115,8 +134,15 @@ export function TripDetailModal({ isOpen, onClose, trip, agency }: {
     window.open(`tel:${phone}`, '_self')
   }
 
-  // Calculate pricing summary for deposit
-  const totalTripPrice = trip.price * numTravelers
+  // Calculate pricing summary for deposit based on room & meal offset
+  const selectedRoomOption = roomOptions.find(r => r.name === selectedRoom) || roomOptions[0]
+  const selectedMealOption = mealOptions.find(m => m.name === selectedMeal) || mealOptions[0]
+
+  const roomOffset = selectedRoomOption ? Number(selectedRoomOption.price) : 0
+  const mealOffset = selectedMealOption ? Number(selectedMealOption.price) : 0
+
+  const singlePersonPrice = Number(trip.price) + roomOffset + mealOffset
+  const totalTripPrice = singlePersonPrice * numTravelers
   const depositAmount = Math.round(totalTripPrice * 0.20) // 20% deposit
 
   const handleUploadReceipt = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -264,7 +290,11 @@ export function TripDetailModal({ isOpen, onClose, trip, agency }: {
                         </div>
                         <div className="text-left">
                           <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Pension</p>
-                          <p className="text-xs font-black text-slate-800 line-clamp-1">{trip.meal_plan || 'Demi-pension'}</p>
+                          <p className="text-xs font-black text-slate-800 line-clamp-1">
+                            {trip.meal_plan && trip.meal_plan.startsWith('[') 
+                              ? parseOptions(trip.meal_plan, '').map((m: any) => m.name).join(', ') 
+                              : (trip.meal_plan || 'Demi-pension')}
+                          </p>
                         </div>
                       </div>
 
@@ -312,6 +342,64 @@ export function TripDetailModal({ isOpen, onClose, trip, agency }: {
                           <p className="text-slate-600 leading-relaxed text-sm">
                             {trip.description || "Partez l'esprit tranquille avec un package d'exception. Tous nos circuits sont pensés pour vous offrir le maximum de confort avec une prise en charge complète depuis le départ de l'Algérie."}
                           </p>
+                        </div>
+
+                        {/* Beautiful Visual Summary of the Voyage */}
+                        <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl space-y-4">
+                          <h4 className="font-bold text-xs text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                            <Info className="w-4 h-4 text-indigo-600" /> Fiche Technique & Organisation
+                          </h4>
+                          
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                            <div className="bg-white p-3.5 border border-slate-200/50 rounded-xl flex items-start gap-3">
+                              <span className="text-lg">🗺️</span>
+                              <div>
+                                <p className="text-slate-400 font-bold text-[9px] uppercase tracking-wider">Type de Voyage</p>
+                                <p className="font-black text-slate-800 mt-0.5">
+                                  {trip.trip_type === 'circuit_routier' ? 'Circuit Routier (Bus Tour)' :
+                                   trip.trip_type === 'omra' ? 'Omra & Hajj (Sacré)' :
+                                   trip.trip_type === 'free_voyage' ? 'Séjour Libre (Flight + Hotel)' :
+                                   trip.trip_type === 'excursion' ? 'Excursion / Journée (Day Trip)' : 
+                                   'Package Organisé Complet'}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="bg-white p-3.5 border border-slate-200/50 rounded-xl flex items-start gap-3">
+                              <span className="text-lg">📈</span>
+                              <div>
+                                <p className="text-slate-400 font-bold text-[9px] uppercase tracking-wider">Difficulté & Rythme</p>
+                                <p className="font-black text-slate-800 mt-0.5">
+                                  {trip.trip_type === 'free_voyage' ? 'Facile & Relaxant (Pace calme)' :
+                                   trip.trip_type === 'excursion' ? 'Intense (1 jour chargé)' :
+                                   trip.duration_days <= 5 ? 'Facile (Court séjour accessible)' :
+                                   trip.duration_days <= 10 ? 'Modéré (Découvertes & Temps libre)' : 
+                                   'Actif / Complet (Circuit soutenu)'}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="bg-white p-3.5 border border-slate-200/50 rounded-xl flex items-start gap-3">
+                              <span className="text-lg">🧑‍✈️</span>
+                              <div>
+                                <p className="text-slate-400 font-bold text-[9px] uppercase tracking-wider">Accompagnement</p>
+                                <p className="font-black text-slate-800 mt-0.5">
+                                  {trip.guide_included ? `Organisé avec guide accompagnateur (${trip.guide_language || 'français/arabe'})` : 'Formule libre en totale autonomie'}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="bg-white p-3.5 border border-slate-200/50 rounded-xl flex items-start gap-3">
+                              <span className="text-lg">✈️</span>
+                              <div>
+                                <p className="text-slate-400 font-bold text-[9px] uppercase tracking-wider">Planification</p>
+                                <p className="font-black text-slate-800 mt-0.5">
+                                  {trip.trip_type === 'free_voyage' ? 'Vols et hôtels réservés, journées libres' : 
+                                   'Voyage clé en main, itinéraire 100% planifié et organisé'}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
                         </div>
 
                         {/* Tunisia Route Special or Flight path overview visual */}
@@ -439,24 +527,54 @@ export function TripDetailModal({ isOpen, onClose, trip, agency }: {
                     {/* TAB 4: PRICING */}
                     {activeTab === 'pricing' && (
                       <div className="space-y-6 animate-fadeIn text-left">
-                        <h3 className="text-lg font-black text-slate-800">Tarification & Réductions</h3>
+                        <h3 className="text-lg font-black text-slate-800 font-sans tracking-tight">Tarification & Options</h3>
                         <div className="overflow-hidden border border-slate-200/60 rounded-2xl bg-white shadow-xs">
-                          <table className="w-full text-left text-xs">
+                          <table className="w-full text-left text-xs font-sans">
                             <thead className="bg-slate-50 border-b border-slate-200">
                               <tr>
-                                <th className="p-3 font-bold text-slate-600 uppercase">Catégorie</th>
-                                <th className="p-3 font-bold text-slate-600 uppercase">Tarif / Détails</th>
+                                <th className="p-3.5 font-bold text-slate-600 uppercase">Option / Catégorie</th>
+                                <th className="p-3.5 font-bold text-slate-600 uppercase">Tarif (DZD)</th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
+                            <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
                               <tr>
-                                <td className="p-3 font-semibold text-slate-700">Base par Personne (Chambre Double)</td>
-                                <td className="p-3 font-black text-indigo-600">{formatPrice(trip.price)}</td>
+                                <td className="p-3.5 font-semibold text-slate-800">Prix de base (par personne)</td>
+                                <td className="p-3.5 font-black text-indigo-600">{formatPrice(trip.price)}</td>
                               </tr>
-                              <tr>
-                                <td className="p-3 font-semibold text-slate-700">Supplément Single</td>
-                                <td className="p-3 font-bold text-slate-800">+{formatPrice(Number(trip.single_supplement) || 25000)}</td>
-                              </tr>
+                              
+                              {/* Render Room Options dynamically */}
+                              {roomOptions.length > 0 && (
+                                <>
+                                  <tr className="bg-slate-50/50">
+                                    <td colSpan={2} className="p-2.5 pl-3.5 font-black text-[10px] text-indigo-600 uppercase tracking-wider">options de chambre</td>
+                                  </tr>
+                                  {roomOptions.map((room: any, rIdx: number) => (
+                                    <tr key={`room-${rIdx}`}>
+                                      <td className="p-3.5 pl-6">{room.name}</td>
+                                      <td className={`p-3.5 font-bold ${room.price > 0 ? 'text-emerald-600' : room.price < 0 ? 'text-rose-600' : 'text-slate-500'}`}>
+                                        {room.price > 0 ? `+${formatPrice(room.price)}` : room.price < 0 ? `-${formatPrice(Math.abs(room.price))}` : 'Inclus (0 DZD)'}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </>
+                              )}
+
+                              {/* Render Meal Options dynamically */}
+                              {mealOptions.length > 0 && (
+                                <>
+                                  <tr className="bg-slate-50/50">
+                                    <td colSpan={2} className="p-2.5 pl-3.5 font-black text-[10px] text-emerald-600 uppercase tracking-wider">plans de restauration (meal plans)</td>
+                                  </tr>
+                                  {mealOptions.map((meal: any, mIdx: number) => (
+                                    <tr key={`meal-${mIdx}`}>
+                                      <td className="p-3.5 pl-6">{meal.name}</td>
+                                      <td className={`p-3.5 font-bold ${meal.price > 0 ? 'text-emerald-600' : meal.price < 0 ? 'text-rose-600' : 'text-slate-500'}`}>
+                                        {meal.price > 0 ? `+${formatPrice(meal.price)}` : meal.price < 0 ? `-${formatPrice(Math.abs(meal.price))}` : 'Inclus (0 DZD)'}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </>
+                              )}
                             </tbody>
                           </table>
                         </div>
@@ -697,6 +815,50 @@ export function TripDetailModal({ isOpen, onClose, trip, agency }: {
                           <option value="15 Juillet 2026">15 Juillet 2026</option>
                           <option value="01 Août 2026">01 Août 2026</option>
                           <option value="20 Août 2026">20 Août 2026</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      {/* Room Type Selection */}
+                      <div className="space-y-1">
+                        <Label className="text-[10px] font-bold text-slate-500">Option de Chambre</Label>
+                        <select 
+                          required
+                          value={selectedRoom}
+                          onChange={e => setSelectedRoom(e.target.value)}
+                          className="flex h-9 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-650 focus:outline-none font-medium"
+                        >
+                          {roomOptions.map((room: any, idx: number) => {
+                            const offsetPrice = Number(room.price)
+                            const offsetStr = offsetPrice > 0 ? ` (+${offsetPrice.toLocaleString()} DZD)` : offsetPrice < 0 ? ` (${offsetPrice.toLocaleString()} DZD)` : ''
+                            return (
+                              <option key={idx} value={room.name}>
+                                {room.name}{offsetStr}
+                              </option>
+                            )
+                          })}
+                        </select>
+                      </div>
+
+                      {/* Meal Plan Selection */}
+                      <div className="space-y-1">
+                        <Label className="text-[10px] font-bold text-slate-500">Type de Pension (Meal Plan)</Label>
+                        <select 
+                          required
+                          value={selectedMeal}
+                          onChange={e => setSelectedMeal(e.target.value)}
+                          className="flex h-9 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-650 focus:outline-none font-medium"
+                        >
+                          {mealOptions.map((meal: any, idx: number) => {
+                            const offsetPrice = Number(meal.price)
+                            const offsetStr = offsetPrice > 0 ? ` (+${offsetPrice.toLocaleString()} DZD)` : offsetPrice < 0 ? ` (${offsetPrice.toLocaleString()} DZD)` : ''
+                            return (
+                              <option key={idx} value={meal.name}>
+                                {meal.name}{offsetStr}
+                              </option>
+                            )
+                          })}
                         </select>
                       </div>
                     </div>

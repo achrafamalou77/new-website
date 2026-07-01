@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, AreaChart, Area,
@@ -10,6 +11,13 @@ const COLORS = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#ef4444']
 
 export function AdminAnalyticsClient({ data }: { data: any }) {
   const { agenciesByPlan, agenciesOverTime, conversationsPerDay, mrrOverTime } = data
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const chartFallback = <div className="h-full w-full rounded bg-slate-50" />
 
   return (
     <div className="p-8 space-y-6">
@@ -27,7 +35,7 @@ export function AdminAnalyticsClient({ data }: { data: any }) {
             <CardDescription>Monthly Recurring Revenue over time (DZD)</CardDescription>
           </CardHeader>
           <CardContent className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
+            {mounted ? <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={mrrOverTime}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                 <XAxis dataKey="date" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
@@ -38,7 +46,7 @@ export function AdminAnalyticsClient({ data }: { data: any }) {
                 />
                 <Area type="monotone" dataKey="mrr" stroke="#10b981" fill="#10b981" fillOpacity={0.2} strokeWidth={2} />
               </AreaChart>
-            </ResponsiveContainer>
+            </ResponsiveContainer> : chartFallback}
           </CardContent>
         </Card>
 
@@ -49,7 +57,7 @@ export function AdminAnalyticsClient({ data }: { data: any }) {
             <CardDescription>New agency signups per month</CardDescription>
           </CardHeader>
           <CardContent className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
+            {mounted ? <ResponsiveContainer width="100%" height="100%">
               <LineChart data={agenciesOverTime}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                 <XAxis dataKey="date" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
@@ -57,7 +65,7 @@ export function AdminAnalyticsClient({ data }: { data: any }) {
                 <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
                 <Line type="monotone" dataKey="count" name="New Agencies" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4, fill: '#3b82f6' }} activeDot={{ r: 6 }} />
               </LineChart>
-            </ResponsiveContainer>
+            </ResponsiveContainer> : chartFallback}
           </CardContent>
         </Card>
 
@@ -68,7 +76,7 @@ export function AdminAnalyticsClient({ data }: { data: any }) {
             <CardDescription>Distribution of active subscriptions</CardDescription>
           </CardHeader>
           <CardContent className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
+            {mounted ? <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={agenciesByPlan}
@@ -88,7 +96,7 @@ export function AdminAnalyticsClient({ data }: { data: any }) {
                 <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
                 <Legend />
               </PieChart>
-            </ResponsiveContainer>
+            </ResponsiveContainer> : chartFallback}
           </CardContent>
         </Card>
 
@@ -99,7 +107,7 @@ export function AdminAnalyticsClient({ data }: { data: any }) {
             <CardDescription>Total conversations across all agencies per day</CardDescription>
           </CardHeader>
           <CardContent className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
+            {mounted ? <ResponsiveContainer width="100%" height="100%">
               <BarChart data={conversationsPerDay}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                 <XAxis dataKey="date" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
@@ -107,7 +115,7 @@ export function AdminAnalyticsClient({ data }: { data: any }) {
                 <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
                 <Bar dataKey="count" name="Conversations" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
               </BarChart>
-            </ResponsiveContainer>
+            </ResponsiveContainer> : chartFallback}
           </CardContent>
         </Card>
 
