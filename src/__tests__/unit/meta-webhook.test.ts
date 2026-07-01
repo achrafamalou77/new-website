@@ -31,7 +31,10 @@ async function importHandler() {
 }
 
 describe('Meta Webhook — GET (verification)', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    delete process.env.META_WEBHOOK_VERIFY_TOKEN
+  })
 
   it('returns 400 for missing verification params', async () => {
     const { GET } = await importHandler()
@@ -60,6 +63,19 @@ describe('Meta Webhook — GET (verification)', () => {
     expect(res.status).toBe(200)
     const text = await res.text()
     expect(text).toBe('my-challenge-xyz')
+  })
+
+  it('returns the challenge string on valid platform verify token', async () => {
+    process.env.META_WEBHOOK_VERIFY_TOKEN = 'platform-token'
+
+    const { GET } = await importHandler()
+    const url = 'http://localhost/api/meta/webhook?hub.mode=subscribe&hub.verify_token=platform-token&hub.challenge=platform-challenge'
+    const req = new NextRequest(url)
+    const res = await GET(req)
+
+    expect(res.status).toBe(200)
+    await expect(res.text()).resolves.toBe('platform-challenge')
+    expect(mockSupabaseFrom).not.toHaveBeenCalled()
   })
 })
 

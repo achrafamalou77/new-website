@@ -32,6 +32,13 @@ export async function GET(request: NextRequest) {
     return new NextResponse('Bad Request', { status: 400 })
   }
 
+  const platformVerifyToken = process.env.META_WEBHOOK_VERIFY_TOKEN
+  if (platformVerifyToken && token === platformVerifyToken) {
+    const log = createRequestLogger({ path: '/api/meta/webhook', method: 'GET' })
+    log.info('Meta platform webhook verified successfully')
+    return new NextResponse(challenge, { status: 200 })
+  }
+
   const supabase = createAdminClient() as any
 
   const { data: integration, error } = await supabase
