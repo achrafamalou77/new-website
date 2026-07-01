@@ -3,6 +3,7 @@ function trimProtocol(value: string) {
 }
 
 export function getAppBaseUrl() {
+  if (typeof window !== 'undefined' && window.location?.origin) return window.location.origin
   return process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
 }
 
