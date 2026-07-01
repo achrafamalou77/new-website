@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import type { EcommerceCategoryId, EcommerceTemplateId } from '@/lib/ecommerce-storefront'
+import { getTenantUrlLabel } from '@/lib/tenant-url'
 import {
   ArrowLeft,
   ArrowRight,
@@ -418,7 +419,7 @@ export default function OnboardingPage() {
                         </div>
                       </div>
                       <p className={`mt-1.5 text-[11px] font-semibold ${subdomainError ? 'text-red-500' : 'text-gray-400'}`}>
-                        {subdomainError || `${subdomain || 'your-business'}.lvh.me`}
+                        {subdomainError || getTenantUrlLabel(subdomain || 'your-business')}
                       </p>
                     </Field>
                     <div className="rounded-2xl border border-[#e5e7eb] bg-[#f4f5f7] p-4">
@@ -452,7 +453,7 @@ export default function OnboardingPage() {
                     <div className="mt-4 grid gap-3 sm:grid-cols-2">
                       <Summary label="Business type" value={selectedBusiness.title} />
                       <Summary label="Business" value={companyName || '-'} />
-                      <Summary label="Portal" value={`${subdomain || 'your-business'}.lvh.me`} />
+                      <Summary label="Portal" value={getTenantUrlLabel(subdomain || 'your-business')} />
                       <Summary label="Owner" value={adminEmail || '-'} />
                     </div>
                   </div>

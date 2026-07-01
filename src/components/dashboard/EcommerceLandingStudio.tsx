@@ -39,6 +39,7 @@ import type {
   LandingGenerationBrief,
   LandingPageInput,
 } from '@/types/ecommerce'
+import { getTenantUrl } from '@/lib/tenant-url'
 
 type Notice = { tone: 'success' | 'error'; text: string }
 
@@ -59,17 +60,7 @@ function money(value: number) {
 }
 
 function buildUrl(data: EcommerceStoreData, slug: string) {
-  if (data.agency.custom_domain) {
-    return `https://${data.agency.custom_domain.replace(/^https?:\/\//, '').replace(/\/+$/, '')}/shop/${slug}`
-  }
-  if (typeof window === 'undefined') return `/shop/${slug}`
-  const { protocol, hostname, port } = window.location
-  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.endsWith('.lvh.me')) {
-    return `${protocol}//${data.agency.subdomain}.lvh.me${port ? `:${port}` : ''}/shop/${slug}`
-  }
-  const parts = hostname.split('.')
-  const root = parts.length > 2 ? parts.slice(-2).join('.') : hostname
-  return `${protocol}//${data.agency.subdomain}.${root}/shop/${slug}`
+  return `${getTenantUrl(data.agency.subdomain, data.agency.custom_domain)}/shop/${slug}`
 }
 
 function cleanSlug(value: string) {

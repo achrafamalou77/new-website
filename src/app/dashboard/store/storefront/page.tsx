@@ -6,6 +6,7 @@ import {
   normalizeEcommerceStorefrontConfig,
   type EcommerceStorefrontConfig,
 } from '@/lib/ecommerce-storefront'
+import { getTenantUrl } from '@/lib/tenant-url'
 
 export const metadata = {
   title: 'Storefront Builder | Online Store',
@@ -45,14 +46,7 @@ export default async function EcommerceStorefrontPage() {
   const storedConfig = settings.storefront_config as EcommerceStorefrontConfig | undefined
   const initialConfig = normalizeEcommerceStorefrontConfig(storedConfig, agency.company_name, settings.store_template_id)
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-  const storeUrl = agency.custom_domain
-    ? `https://${agency.custom_domain}`
-    : agency.subdomain && appUrl.includes('localhost')
-      ? `http://${agency.subdomain}.lvh.me:3000`
-      : agency.subdomain
-        ? `https://${agency.subdomain}.${new URL(appUrl).host}`
-        : appUrl
+  const storeUrl = getTenantUrl(agency.subdomain, agency.custom_domain)
 
   return (
     <EcommerceStorefrontBuilder

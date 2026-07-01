@@ -23,6 +23,7 @@ import {
   HelpCircle, Video, Code, Landmark, Car, Layers
 } from 'lucide-react'
 import { templatesList } from '@/lib/templates-data'
+import { getTenantUrl } from '@/lib/tenant-url'
 
 const PublicSite = dynamic(() => import('@/components/website/PublicSite'), {
   ssr: false,
@@ -467,7 +468,7 @@ export function CarShowroomWebsiteSettings({ salesCars = [], rentalCars = [] }: 
             )}
             
             <a
-              href={`http://${agencyInfo?.subdomain || 'ephedia'}.lvh.me:3000`}
+              href={getTenantUrl(agencyInfo?.subdomain || 'ephedia', (agencyInfo as any)?.custom_domain)}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center justify-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-xl text-xs font-bold text-white gap-2 shadow-sm transition"

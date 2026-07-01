@@ -6,6 +6,7 @@ import { updateWebsiteConfig } from '@/app/actions/agency'
 import { uploadBuilderImage } from '@/app/actions/builder'
 import { useSettingsStore } from '@/lib/stores/settings-store'
 import { templatesList } from '@/lib/templates-data'
+import { getTenantUrl } from '@/lib/tenant-url'
 import dynamic from 'next/dynamic'
 import type PublicSiteType from '@/components/website/PublicSite'
 
@@ -366,25 +367,7 @@ export function TravelWebsiteBuilder({
 
   const [liveUrl, setLiveUrl] = useState('#')
   useEffect(() => {
-    const host = window.location.host
-    const parts = host.split('.')
-    const isLocalhost = host.includes('localhost') || host.includes('lvh.me') || host.includes('127.0.0.1')
-    const port = window.location.port || '3000'
-    if (isLocalhost && parts.length > 1 && parts[0] !== 'localhost') {
-      setLiveUrl(`http://${parts[0]}.lvh.me:${port}/`)
-      return
-    }
-    if (!isLocalhost && parts.length > 2) {
-      setLiveUrl(`https://${host}/`)
-      return
-    }
-    const sub = agencyInfo?.subdomain || 'monagence'
-    if (isLocalhost) {
-      setLiveUrl(`http://${sub}.lvh.me:${port}/`)
-      return
-    }
-    const baseDomain = parts.slice(-2).join('.')
-    setLiveUrl(`https://${sub}.${baseDomain}/`)
+    setLiveUrl(getTenantUrl(agencyInfo?.subdomain || 'monagence', (agencyInfo as any)?.custom_domain))
   }, [agencyInfo?.subdomain])
 
   // ── THEME TAB STATE ──────────────────────────────────────────────────────

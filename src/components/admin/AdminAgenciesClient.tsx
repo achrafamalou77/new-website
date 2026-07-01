@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Search, Loader2, Zap, Ban, CheckCircle } from 'lucide-react'
+import { getTenantUrl, getTenantUrlLabel } from '@/lib/tenant-url'
 
 const formatDate = (dateStr: string) => {
   if (!dateStr) return ''
@@ -166,8 +167,8 @@ export function AdminAgenciesClient({ initialAgencies, plans = [] }: { initialAg
                   </Link>
                 </TableCell>
                 <TableCell className="text-slate-500 text-sm">
-                  <a href={`http://${agency.subdomain}.lvh.me:3000`} target="_blank" rel="noreferrer" className="hover:underline font-mono text-xs">
-                    {agency.subdomain}
+                  <a href={getTenantUrl(agency.subdomain, agency.custom_domain)} target="_blank" rel="noreferrer" className="hover:underline font-mono text-xs">
+                    {getTenantUrlLabel(agency.subdomain, agency.custom_domain)}
                   </a>
                 </TableCell>
                 <TableCell>

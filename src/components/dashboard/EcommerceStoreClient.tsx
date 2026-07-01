@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { getTenantUrl } from '@/lib/tenant-url'
 import {
   BarChart3,
   Boxes,
@@ -95,17 +96,7 @@ function orderItems(order: EcommerceOrder) {
 }
 
 function buildLandingUrl(data: EcommerceStoreData, slug: string) {
-  if (data.agency.custom_domain) {
-    return `https://${data.agency.custom_domain.replace(/^https?:\/\//, '').replace(/\/+$/, '')}/shop/${slug}`
-  }
-  if (typeof window === 'undefined') return `/shop/${slug}`
-  const { protocol, hostname, port } = window.location
-  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.endsWith('.lvh.me')) {
-    return `${protocol}//${data.agency.subdomain}.lvh.me${port ? `:${port}` : ''}/shop/${slug}`
-  }
-  const parts = hostname.split('.')
-  const rootDomain = parts.length > 2 ? parts.slice(-2).join('.') : hostname
-  return `${protocol}//${data.agency.subdomain}.${rootDomain}/shop/${slug}`
+  return `${getTenantUrl(data.agency.subdomain, data.agency.custom_domain)}/shop/${slug}`
 }
 
 export default function EcommerceStoreClient({

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { getTenantUrl } from '@/lib/tenant-url'
 
 export default function TemplatesGallery() {
   const router = useRouter()
@@ -22,6 +23,7 @@ export default function TemplatesGallery() {
   const [activeCategory, setActiveCategory] = useState<string>('all')
   const [loadingTemplateId, setLoadingTemplateId] = useState<string | null>(null)
   const [successId, setSuccessId] = useState<string | null>(null)
+  const previewBaseUrl = getTenantUrl(agencyInfo?.subdomain || 'ephedia', (agencyInfo as any)?.custom_domain)
 
   const currentTemplateId = (websiteConfig as any)?.active_template_id || 't-aventra-classic'
 
@@ -166,7 +168,7 @@ export default function TemplatesGallery() {
                 {/* Visual Indicators Overlay */}
                 <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition duration-300 flex items-center justify-center gap-3">
                   <a
-                    href={`http://${agencyInfo?.subdomain || 'ephedia'}.lvh.me:3000?preview_template_id=${template.id}`}
+                    href={`${previewBaseUrl}?preview_template_id=${template.id}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-900 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow"
@@ -222,7 +224,7 @@ export default function TemplatesGallery() {
               {/* Action Buttons */}
               <CardContent className="p-5 pt-0 mt-auto border-t border-slate-100/80 flex gap-2">
                 <a
-                  href={`http://${agencyInfo?.subdomain || 'ephedia'}.lvh.me:3000?preview_template_id=${template.id}`}
+                  href={`${previewBaseUrl}?preview_template_id=${template.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex-1 inline-flex items-center justify-center px-3 py-2 border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-bold text-slate-600 gap-1.5 transition"

@@ -24,6 +24,7 @@ import {
   type ShowroomSectionType,
   type ShowroomGlobalConfig
 } from '@/lib/car-showroom-builder-template'
+import { getTenantUrl } from '@/lib/tenant-url'
 
 // ─── ICON MAP ─────────────────────────────────────────────────────────────────
 const ICON_MAP: Record<string, any> = {
@@ -391,7 +392,7 @@ export default function WebsiteBuilderShell({
         <div className="flex items-center gap-2">
           {agency?.subdomain && (
             <a
-              href={`http://${agency.subdomain}.lvh.me:3000`}
+              href={getTenantUrl(agency.subdomain, agency.custom_domain)}
               target="_blank"
               rel="noopener noreferrer"
               className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-slate-300 border border-white/10 hover:bg-white/10 transition"

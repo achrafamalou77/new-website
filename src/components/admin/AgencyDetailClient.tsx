@@ -13,6 +13,7 @@ import {
   ExternalLink, Clock
 } from 'lucide-react'
 import Link from 'next/link'
+import { getTenantUrl, getTenantUrlLabel } from '@/lib/tenant-url'
 
 export function AgencyDetailClient({ data, plans = [] }: { data: any; plans: any[] }) {
   const router = useRouter()
@@ -111,13 +112,13 @@ export function AgencyDetailClient({ data, plans = [] }: { data: any; plans: any
           </div>
           <div className="flex items-center gap-4 mt-2">
             <a
-              href={`http://${agency.subdomain}.lvh.me:3000`}
+              href={getTenantUrl(agency.subdomain, agency.custom_domain)}
               target="_blank"
               rel="noreferrer"
               className="flex items-center gap-1 text-sm text-blue-600 hover:underline"
             >
               <Globe className="h-3.5 w-3.5" />
-              {agency.subdomain}.lvh.me:3000
+              {getTenantUrlLabel(agency.subdomain, agency.custom_domain)}
               <ExternalLink className="h-3 w-3" />
             </a>
             {agency.email && (

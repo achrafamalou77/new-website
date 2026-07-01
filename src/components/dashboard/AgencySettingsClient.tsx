@@ -11,6 +11,7 @@ import { Switch } from '@/components/ui/switch'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Loader2, Check, Copy, Building2, Contact2, Share2, Clock, ImageIcon, CreditCard } from 'lucide-react'
 import { defaultBusinessHours, defaultSocialMedia } from '@/lib/settings-defaults'
+import { getTenantUrl } from '@/lib/tenant-url'
 
 export function AgencySettingsClient() {
   const { agencyInfo, businessHours, socialMedia, businessTypeSlug, isLoaded, setAgencyInfo, setBusinessHours, setSocialMedia } = useSettingsStore()
@@ -121,8 +122,10 @@ export function AgencySettingsClient() {
     setLoading(false)
   }
 
+  const liveUrl = getTenantUrl(agencyInfo?.subdomain || 'agency', (agencyInfo as any)?.custom_domain)
+
   const handleCopyUrl = () => {
-    navigator.clipboard.writeText(`http://${agencyInfo?.subdomain || 'agency'}.lvh.me:3000`)
+    navigator.clipboard.writeText(liveUrl)
   }
 
   // Premium loading state skeleton
@@ -208,7 +211,7 @@ export function AgencySettingsClient() {
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-slate-600">Live URL</Label>
                 <div className="flex gap-2">
-                  <Input value={`http://${agencyInfo?.subdomain || 'agency'}.lvh.me:3000`} disabled className="rounded-xl bg-slate-50 border border-slate-200/60 text-sm text-slate-400 flex-1 cursor-not-allowed" />
+                  <Input value={liveUrl} disabled className="rounded-xl bg-slate-50 border border-slate-200/60 text-sm text-slate-400 flex-1 cursor-not-allowed" />
                   <Button variant="outline" size="icon" className="rounded-xl border-slate-200 hover:bg-slate-50 shadow-sm" onClick={handleCopyUrl}>
                     <Copy className="h-4 w-4 text-slate-500" />
                   </Button>
